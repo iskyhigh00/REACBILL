@@ -61,7 +61,7 @@ canvas{max-height:340px}
 </head>
 <body>
 <header>
-  <h1>REACBILL <span class="ver">v1.0.0 — Seguimiento de Billeteros</span></h1>
+  <h1>REACBILL <span class="ver">v1.1.0 — Seguimiento de Billeteros</span></h1>
   <span id="dataInfo" class="ver"></span>
   <div id="paramsBar"></div>
   <nav id="nav"></nav>
@@ -69,16 +69,12 @@ canvas{max-height:340px}
 <main id="main"></main>
 
 <script>
-/* ================= REACBILL v1.0.0 =================
-   Réplica de la planilla Seguimiento_Auto.xlsx:
-   - Hojas por fecha: ToAc/ToRe/Total/%Acep + puntaje gravedad
-   - Seguimiento: matriz máquina × semana (% y Total Bill)
-   - Fórmula gravedad (igual al Excel):
-     IF(p>=thrOk,0, T*(1+LOG10(T))*((thrOk-p)/thrOk)*(T/avgT)*
-        IF(p<thrCrit,multCrit, IF(p<thrMid,multMid,1)))
+/* ================= REACBILL v1.1.0 =================
+   Clave de semana: YYYY-MM-DD (fecha completa del nombre de archivo)
+   Maestro: se construye de cualquier dato disponible
 ==================================================== */
 
-const VERSION = "1.0.0";
+const VERSION = "1.1.0";
 const LS_KEY = "reacbill_v1";
 
 // ---------- Estado ----------
@@ -166,17 +162,24 @@ function allCalcs(){
 function invalidate(){calcCache=null;}
 
 // ---------- Parseo de archivos ----------
+// Clave interna: YYYY-MM-DD. Muestra: DD/MM/YYYY.
 function dateKeyFromName(name){
-  // busca dd-mm en el nombre del archivo
-  let m=name.match(/(\d{2})[-_.](\d{2})/);
-  if(m) return m[1]+"-"+m[2];
-  return name.replace(/\.[^.]+$/,"").slice(0,8);
+  // 1) YYYY-MM-DD en cualquier parte del nombre
+  let m=name.match(/(\d{4})[-_.](\d{2})[-_.](\d{2})/);
+  if(m) return `${m[1]}-${m[2]}-${m[3]}`;
+  // 2) DD-MM-YYYY  o  DD_MM_YYYY
+  m=name.match(/(\d{2})[-_.](\d{2})[-_.](\d{4})/);
+  if(m) return `${m[3]}-${m[2]}-${m[1]}`;
+  // 3) fallback: nombre sin extensión (max 10 chars)
+  return name.replace(/\.[^.]+$/,"").slice(0,10);
+}
+function fmtKey(k){
+  // YYYY-MM-DD -> DD/MM/YYYY
+  const m=k.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return m?`${m[3]}/${m[2]}/${m[1]}`:k;
 }
 function sortWeeks(){
-  state.weekOrder=Object.keys(state.weeks).sort((a,b)=>{
-    const [da,ma]=a.split("-").map(Number),[db,mb]=b.split("-").map(Number);
-    return (ma-mb)||(da-db);
-  });
+  state.weekOrder=Object.keys(state.weeks).sort((a,b)=>a.localeCompare(b));
 }
 function parseDataSheet(ws){
   // hoja con encabezados: maquina, Tarjeta..., Billete Aceptado X, Billete Rechazado X, % Aceptacion...
@@ -209,7 +212,12 @@ function parseDataSheet(ws){
       acc,rej, pctTarj:idx.pT>=0&&row[idx.pT]!=null?Number(row[idx.pT]):null,
       pctBill:idx.pB>=0&&row[idx.pB]!=null?Number(row[idx.pB]):null});
   }
-  return rows.length?{rows}:null;
+  if(!rows.length) return null;
+  // Poblar maestro mínimo con las MDAs encontradas
+  for(const r of rows){
+    if(!state.master[r.mda]) state.master[r.mda]={isla:"",fabricante:"",juego:"",modelo:""};
+  }
+  return {rows};
 }
 function parseContadores(ws){
   const arr=XLSX.utils.sheet_to_json(ws,{header:1,defval:null});
@@ -250,27 +258,46 @@ async function handleFiles(files){
   for(const f of files){
     try{
       const wb=XLSX.read(await f.arrayBuffer(),{type:"array"});
-      const dateSheets=wb.SheetNames.filter(n=>/^\d{2}-\d{2}$/.test(n));
-      let imported=0;
-      if(dateSheets.length){
-        // planilla maestra: importa cada hoja de fecha + Contadores + modelos
-        for(const sn of dateSheets){
+      // Detectar hojas con formato dd-mm (planilla maestra histórica)
+      const masterDateSheets=wb.SheetNames.filter(n=>/^\d{2}-\d{2}$/.test(n));
+
+      if(masterDateSheets.length){
+        // Planilla maestra (Seguimiento_Auto): múltiples hojas dd-mm
+        let imported=0;
+        for(const sn of masterDateSheets){
           const wk=parseDataSheet(wb.Sheets[sn]);
-          if(wk){state.weeks[sn]=wk;imported++;}
+          if(wk){
+            // Convertir dd-mm a YYYY-MM-DD asumiendo año del contexto actual
+            // (las hojas son dd-mm, p.ej. "04-01" = 4 de enero)
+            const [dd,mm]=sn.split("-").map(Number);
+            // Detectar año: si mm > mes actual podría ser año anterior
+            const now=new Date(); let yr=now.getFullYear();
+            if(mm>now.getMonth()+1) yr--;
+            const key=`${yr}-${String(mm).padStart(2,"0")}-${String(dd).padStart(2,"0")}`;
+            state.weeks[key]=wk; imported++;
+          }
         }
-        if(wb.Sheets["Contadores"]) log.push("Contadores: "+parseContadores(wb.Sheets["Contadores"])+" máquinas");
-        if(wb.Sheets["Seguimiento"]) log.push("Modelos: "+parseSeguimientoModelos(wb.Sheets["Seguimiento"]));
-        log.push(`${f.name}: ${imported} semanas importadas`);
-      }else{
-        // planilla semanal: Ultima_Semana o primera hoja
-        const sn=wb.SheetNames.find(n=>/ultima/i.test(n))||wb.SheetNames[0];
-        const wk=parseDataSheet(wb.Sheets[sn]);
+        if(wb.Sheets["Contadores"]){const n=parseContadores(wb.Sheets["Contadores"]); log.push(`Contadores: ${n} máquinas`);}
+        if(wb.Sheets["Seguimiento"]) parseSeguimientoModelos(wb.Sheets["Seguimiento"]);
+        log.push(`${f.name}: ${imported} semanas históricas importadas`);
+      } else {
+        // Planilla semanal: busca hoja con "ultima" en el nombre, si no la primera con datos
+        let sn=wb.SheetNames.find(n=>/ultima/i.test(n));
+        if(!sn){
+          // intentar todas las hojas hasta encontrar una con datos válidos
+          for(const candidate of wb.SheetNames){
+            const wk=parseDataSheet(wb.Sheets[candidate]);
+            if(wk){sn=candidate;break;}
+          }
+        }
+        const wk=sn?parseDataSheet(wb.Sheets[sn]):null;
         if(wk){
           const key=dateKeyFromName(f.name);
           state.weeks[key]=wk;
-          log.push(`${f.name} → semana ${key} (${wk.rows.length} máquinas)`);
-        }else log.push(`${f.name}: no se reconoció el formato`);
-        if(wb.Sheets["Contadores"]) log.push("Contadores: "+parseContadores(wb.Sheets["Contadores"])+" máquinas");
+          log.push(`${f.name} → ${fmtKey(key)} (${wk.rows.length} máquinas, hoja: ${sn})`);
+        }else log.push(`${f.name}: no se reconoció el formato de datos`);
+        // Si trae Contadores también lo cargamos
+        if(wb.Sheets["Contadores"]){const n=parseContadores(wb.Sheets["Contadores"]); log.push(`Contadores: ${n} máquinas`);}
       }
     }catch(e){log.push(`${f.name}: ERROR ${e.message}`);}
   }
@@ -345,10 +372,12 @@ function renderParamsBar(){
 function renderLoadedInfo(){
   const el=document.getElementById("loadedInfo");
   if(!state.weekOrder.length){el.innerHTML='<span class="muted">Sin datos. Sube archivos en esta pestaña.</span>';return;}
-  el.innerHTML=`<b>${state.weekOrder.length}</b> semanas: ${state.weekOrder.join(", ")}<br>
-    Maestro de máquinas: <b>${Object.keys(state.master).length}</b> registros`;
+  const totalMdas=new Set(state.weekOrder.flatMap(d=>state.weeks[d].rows.map(r=>r.mda))).size;
+  el.innerHTML=`<b>${state.weekOrder.length}</b> semanas cargadas:<br>
+    ${state.weekOrder.map(d=>`<span style="white-space:nowrap">${fmtKey(d)} (${state.weeks[d].rows.length} máq.)</span>`).join(" · ")}<br><br>
+    Maestro de máquinas: <b>${Object.keys(state.master).length}</b> registros · <b>${totalMdas}</b> MDAs únicas en los datos`;
   document.getElementById("dataInfo").textContent=
-    ` · ${state.weekOrder.length} semanas · ${new Set(state.weekOrder.flatMap(d=>state.weeks[d].rows.map(r=>r.mda))).size} máquinas`;
+    ` · ${state.weekOrder.length} semanas · ${totalMdas} máquinas`;
 }
 
 // ---------- Pestaña Resumen (= hoja Seguimiento) ----------
@@ -367,7 +396,7 @@ function renderResumen(){
   let avgRow=`<tr><td colspan="4"><b>Promedio % (&gt;0) / Δ semana</b></td>`;
   for(let i=0;i<weeks.length;i++){
     const d=weeks[i];
-    head1+=`<th colspan="2">${d}</th>`;
+    head1+=`<th colspan="2">${fmtKey(d)}</th>`;
     const a=calcs[d].avgPct, prev=i>0?calcs[weeks[i-1]].avgPct:null;
     const dif=prev!=null?a-prev:null;
     avgRow+=`<td><b>${fmtP(a)}</b></td><td class="${dif==null?'':dif>=0?'up':'down'}">${dif==null?"—":(dif>=0?"+":"")+(dif*100).toFixed(2)}</td>`;
@@ -415,7 +444,7 @@ function renderFecha(){
   }
   el.innerHTML=`<div class="card"><h2>Detalle semanal</h2>
     <div class="row"><label class="fld">Semana
-      <select id="fechaSel" onchange="renderFecha()">${state.weekOrder.map(w=>`<option ${w===d?"selected":""}>${w}</option>`).join("")}</select></label>
+      <select id="fechaSel" onchange="renderFecha()">${state.weekOrder.map(w=>`<option value="${w}" ${w===d?"selected":""}>${fmtKey(w)}</option>`).join("")}</select></label>
       <div class="kpis">
         <div class="kpi"><div class="v">${fmtP(c.avgPct)}</div><div class="l">% acept. promedio (&gt;0)</div></div>
         <div class="kpi"><div class="v">${fmtN(c.totBill)}</div><div class="l">Total intentos billetes</div></div>
@@ -455,7 +484,7 @@ function renderRanking(){
   const counts={crit:0,high:0,mid:0}; rows.forEach(m=>{const s=sevClass(m.score,p); if(counts[s]!=null)counts[s]++;});
   el.innerHTML=`<div class="card"><h2>Ranking de gravedad — máquinas a intervenir</h2>
     <div class="row"><label class="fld">Semana
-      <select id="rankSel" onchange="renderRanking()">${state.weekOrder.map(w=>`<option ${w===d?"selected":""}>${w}</option>`).join("")}</select></label>
+      <select id="rankSel" onchange="renderRanking()">${state.weekOrder.map(w=>`<option value="${w}" ${w===d?"selected":""}>${fmtKey(w)}</option>`).join("")}</select></label>
       <div class="kpis">
         <div class="kpi"><div class="v sev-crit">${counts.crit}</div><div class="l">Urgentes</div></div>
         <div class="kpi"><div class="v sev-high">${counts.high}</div><div class="l">Altas</div></div>
@@ -475,22 +504,22 @@ function renderTendencias(){
     <div class="card"><h2>% aceptación promedio por semana</h2><canvas id="cvTrend"></canvas></div>
     <div class="card"><h2>Volumen de billetes por semana</h2><canvas id="cvVol"></canvas></div></div>
     <div class="card"><h2>Máquinas con alerta por semana</h2><canvas id="cvAlert" style="max-height:240px"></canvas></div>`;
-  const calcs=allCalcs(), w=state.weekOrder;
+  const calcs=allCalcs(), w=state.weekOrder, lbl=w.map(fmtKey);
   const avgs=w.map(d=>calcs[d].avgPct*100);
-  const tot=w.map(d=>calcs[d].totBill), rej=w.map(d=>calcs[d].totRe);
+  const rej=w.map(d=>calcs[d].totRe);
   const al=w.map(d=>calcs[d].rows.filter(m=>m.score>0).length);
   if(chTrend)chTrend.destroy(); if(chVol)chVol.destroy();
   Chart.defaults.color="#8fa0c0"; Chart.defaults.borderColor="#2e3b58";
   chTrend=new Chart(document.getElementById("cvTrend"),{type:"line",
-    data:{labels:w,datasets:[{label:"% aceptación",data:avgs,borderColor:"#4f8ff7",backgroundColor:"#4f8ff733",fill:true,tension:.3},
+    data:{labels:lbl,datasets:[{label:"% aceptación",data:avgs,borderColor:"#4f8ff7",backgroundColor:"#4f8ff733",fill:true,tension:.3},
       {label:"Umbral OK",data:w.map(()=>state.params.thrOk*100),borderColor:"#e74c3c",borderDash:[6,4],pointRadius:0}]},
     options:{scales:{y:{ticks:{callback:v=>v+"%"}}}}});
   chVol=new Chart(document.getElementById("cvVol"),{type:"bar",
-    data:{labels:w,datasets:[{label:"Aceptados",data:w.map(d=>calcs[d].totAc),backgroundColor:"#2ecc71"},
+    data:{labels:lbl,datasets:[{label:"Aceptados",data:w.map(d=>calcs[d].totAc),backgroundColor:"#2ecc71"},
       {label:"Rechazados",data:rej,backgroundColor:"#e74c3c"}]},
     options:{scales:{x:{stacked:true},y:{stacked:true}}}});
   new Chart(document.getElementById("cvAlert"),{type:"bar",
-    data:{labels:w,datasets:[{label:"Máquinas con puntaje > 0",data:al,backgroundColor:"#e67e22"}]}});
+    data:{labels:lbl,datasets:[{label:"Máquinas con puntaje > 0",data:al,backgroundColor:"#e67e22"}]}});
 }
 
 // ---------- Fabricantes ----------
@@ -517,7 +546,7 @@ function renderFabricantes(){
   const head=`<tr><th>Grupo</th><th>Máquinas</th><th>Total bill.</th><th>Rechazos</th><th>% prom.</th><th>% ponderado</th><th>Alertas</th></tr>`;
   el.innerHTML=`<div class="card"><h2>Comparativa por fabricante y modelo de billetero</h2>
     <div class="row"><label class="fld">Semana
-      <select id="fabSel" onchange="renderFabricantes()">${state.weekOrder.map(w=>`<option ${w===d?"selected":""}>${w}</option>`).join("")}</select></label></div>
+      <select id="fabSel" onchange="renderFabricantes()">${state.weekOrder.map(w=>`<option value="${w}" ${w===d?"selected":""}>${fmtKey(w)}</option>`).join("")}</select></label></div>
     <div class="grid2">
       <div><h2>Por fabricante (MM)</h2><div class="tblWrap" style="max-height:50vh"><table><thead>${head}</thead><tbody>${mk("MM")}</tbody></table></div></div>
       <div><h2>Por modelo (Advance / Cashflow)</h2><div class="tblWrap" style="max-height:50vh"><table><thead>${head}</thead><tbody>${mk("Modelo")}</tbody></table></div></div>
@@ -542,7 +571,7 @@ function renderDenos(){
   }
   el.innerHTML=`<div class="card"><h2>Aceptación por denominación de billete</h2>
     <div class="tblWrap"><table><thead>
-      <tr><th rowspan="2">Denominación</th>${w.map(d=>`<th colspan="2">${d}</th>`).join("")}</tr>
+      <tr><th rowspan="2">Denominación</th>${w.map(d=>`<th colspan="2">${fmtKey(d)}</th>`).join("")}</tr>
       <tr>${w.map(()=>"<th>%Acep</th><th>Intentos</th>").join("")}</tr></thead>
       <tbody>${body}</tbody></table></div>
     <div class="hint">Permite detectar problemas sistémicos con una denominación específica (billete deteriorado en circulación, calibración, etc.)</div></div>`;
@@ -575,7 +604,7 @@ function renderBuscador(){
           <div class="kpi"><div class="v">${ms.modelo||"—"}</div><div class="l">Billetero</div></div>
         </div>
         <div class="tblWrap" style="margin-top:10px;max-height:140px"><table>
-          <thead><tr>${state.weekOrder.map(d=>`<th>${d}</th>`).join("")}</tr></thead>
+          <thead><tr>${state.weekOrder.map(d=>`<th>${fmtKey(d)}</th>`).join("")}</tr></thead>
           <tbody><tr>${hist}</tr></tbody></table></div></div>`;
     }
   }
