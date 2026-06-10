@@ -205,11 +205,40 @@ function pctClass(p){
 
 // ---------- Sort genérico para cualquier tabla ----------
 const sortStates={};
+// Índice real de columna considerando colspan/rowspan en theads de varias filas
+function thColIndex(th){
+  const thead=th.closest("thead"); if(!thead)return th.cellIndex;
+  const grid=[];
+  [...thead.rows].forEach((tr,r)=>{
+    grid[r]=grid[r]||[];
+    let c=0;
+    [...tr.cells].forEach(cell=>{
+      while(grid[r][c]!==undefined)c++;
+      for(let rr=0;rr<(cell.rowSpan||1);rr++){
+        grid[r+rr]=grid[r+rr]||[];
+        for(let cc=0;cc<(cell.colSpan||1);cc++)grid[r+rr][c+cc]=cell;
+      }
+      c+=cell.colSpan||1;
+    });
+  });
+  for(const row of grid){const i=row.indexOf(th);if(i>=0)return i;}
+  return th.cellIndex;
+}
+// "1.234" (miles es-CL) -> 1234 ; "85.23%" -> 85.23 ; "—" -> null
+function sortVal(s){
+  if(!s||s==="—")return null;
+  if(s.includes("%"))return parseFloat(s.replace(/[+%]/g,""));
+  if(/^-?[\d.]+,\d+$/.test(s))return parseFloat(s.replace(/\./g,"").replace(",","."));
+  if(/^-?\d{1,3}(\.\d{3})+$/.test(s))return parseFloat(s.replace(/\./g,""));
+  const n=parseFloat(s.replace(",","."));
+  return isNaN(n)?null:n;
+}
 function attachSort(tableId){
   const tbl=document.getElementById(tableId); if(!tbl)return;
   tbl.querySelectorAll("th.sortable").forEach(th=>{
+    if(th.getAttribute("onclick"))return; // respeta handlers propios (Resumen)
     th.addEventListener("click",()=>{
-      const col=th.cellIndex;
+      const col=thColIndex(th);
       const st=sortStates[tableId]||{col:-1,dir:1};
       const dir=(st.col===col)?-st.dir:1;
       sortStates[tableId]={col,dir};
@@ -220,10 +249,10 @@ function attachSort(tableId){
       rows.sort((a,b)=>{
         const av=a.cells[col]?.textContent.trim()||"";
         const bv=b.cells[col]?.textContent.trim()||"";
-        const an=parseFloat(av.replace(/[%,\.]/g,m=>m===","?"":m));
-        const bn=parseFloat(bv.replace(/[%,\.]/g,m=>m===","?"":m));
-        if(!isNaN(an)&&!isNaN(bn)) return(an-bn)*dir;
-        return av.localeCompare(bv,"es")*dir;
+        const an=sortVal(av), bn=sortVal(bv);
+        if(an!=null&&bn!=null) return(an-bn)*dir;
+        if(an!=null)return -1; if(bn!=null)return 1;
+        return av.localeCompare(bv,"es",{numeric:true})*dir;
       });
       rows.forEach(r=>tbody.appendChild(r));
     });
@@ -300,7 +329,7 @@ function parseDataSheet(ws){
     const mda=String(row[idx.maq]??"").trim();
     if(!mda||mda==="0"||mda==="err"||!/^\d+$/.test(mda))continue;
     const num=i=>i>=0&&row[i]!=null?Number(row[i])||0:0;
-    const pNum=i=>i>=0&&row[i]!=null&&row[i]!=="":Number(row[i]);
+    const pNum=i=>i>=0&&row[i]!=null&&row[i]!==""?Number(row[i]):NaN;
     const acc={},rej={};
     for(const d in idx.acc)acc[d]=num(idx.acc[d]);
     for(const d in idx.rej)rej[d]=num(idx.rej[d]);
