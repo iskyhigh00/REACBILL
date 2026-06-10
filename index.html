@@ -14,7 +14,6 @@
   --bg-ok:#1a4d2e; --bg-mid:#4d3d00; --bg-high:#4d1e00; --bg-crit:#4d0000;
 }
 *{box-sizing:border-box;margin:0;padding:0}
-/* scrollbars */
 ::-webkit-scrollbar{width:5px;height:5px}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
@@ -22,20 +21,23 @@
 *{scrollbar-width:thin;scrollbar-color:var(--border) transparent}
 body{background:var(--bg);color:var(--text);font:13px/1.45 'Segoe UI',system-ui,sans-serif;cursor:default}
 header{position:sticky;top:0;z-index:50;background:var(--panel);border-bottom:1px solid var(--border);padding:8px 16px}
-header h1{font-size:17px;display:inline-block;margin-right:10px}
+header h1{font-size:17px;display:inline-block;margin-right:6px}
 .ver{color:var(--muted);font-size:11px}
-#paramsBar{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px;font-size:11px}
+#statsBar{font-size:12px;margin-top:3px;display:flex;flex-wrap:wrap;gap:14px;align-items:center}
+#statsBar .sv{font-weight:700;color:var(--accent)}
+#statsBar .sl{color:var(--muted);font-size:11px}
+#paramsBar{display:flex;flex-wrap:wrap;gap:8px;margin-top:5px;font-size:11px}
 #paramsBar span{background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:2px 9px}
 #paramsBar b{color:var(--accent)}
 nav{display:flex;flex-wrap:wrap;gap:3px;margin-top:8px}
-nav button{background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:5px 5px 0 0;padding:6px 12px;cursor:pointer;font-size:12px}
+nav button{background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:5px 5px 0 0;padding:5px 11px;cursor:pointer;font-size:12px}
 nav button.active{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
 main{padding:14px}
 .tab{display:none}.tab.active{display:block}
 .card{background:var(--panel);border:1px solid var(--border);border-radius:7px;padding:12px;margin-bottom:12px}
 .card h2{font-size:13px;margin-bottom:8px;color:var(--accent)}
 .kpis{display:flex;flex-wrap:wrap;gap:10px}
-.kpi{background:var(--panel2);border:1px solid var(--border);border-radius:7px;padding:8px 14px;min-width:120px}
+.kpi{background:var(--panel2);border:1px solid var(--border);border-radius:7px;padding:8px 14px;min-width:110px}
 .kpi .v{font-size:20px;font-weight:700}
 .kpi .l{font-size:11px;color:var(--muted)}
 table{border-collapse:collapse;font-size:11px}
@@ -44,32 +46,30 @@ th{background:var(--panel2);top:0;position:sticky;z-index:3;user-select:none}
 td.left,th.left{text-align:left}
 .tblWrap{overflow:auto;border:1px solid var(--border);border-radius:4px}
 tr:hover td{filter:brightness(1.15)}
-/* celda % con fondo de color (como Excel) */
 .c-ok {background:var(--bg-ok) !important;color:#7fffb0;font-weight:600}
 .c-mid{background:var(--bg-mid)!important;color:#ffe066;font-weight:600}
 .c-hi {background:var(--bg-high)!important;color:#ffb04f;font-weight:600}
 .c-cr {background:var(--bg-crit)!important;color:#ff6b6b;font-weight:600}
-/* badge gravedad */
 .badge{display:inline-block;border-radius:9px;padding:1px 7px;font-size:10px;font-weight:700}
 .b-ok{background:#1d4d31;color:var(--ok)}.b-mid{background:#4d431d;color:var(--mid)}
 .b-hi{background:#4d331d;color:var(--high)}.b-cr{background:#4d1d1d;color:var(--crit)}
-/* sort */
 th.sortable{cursor:pointer}
 th.sortable:hover{background:#2e3d60}
 th.s-asc::after{content:" ▲";font-size:9px;color:var(--accent)}
 th.s-desc::after{content:" ▼";font-size:9px;color:var(--accent)}
-/* sticky columns */
-.s1{position:sticky;left:0;   z-index:4;background:var(--panel2)}
-.s2{position:sticky;left:68px;z-index:4;background:var(--panel2)}
+.s1{position:sticky;left:0;    z-index:4;background:var(--panel2)}
+.s2{position:sticky;left:68px; z-index:4;background:var(--panel2)}
 .s3{position:sticky;left:126px;z-index:4;background:var(--panel2)}
-thead .s1,thead .s2,thead .s3{z-index:6}
-tr:hover .s1,tr:hover .s2,tr:hover .s3{background:#26314c}
-/* forms */
+.s4{position:sticky;left:201px;z-index:4;background:var(--panel2)}
+thead .s1,thead .s2,thead .s3,thead .s4{z-index:6}
+tr:hover .s1,tr:hover .s2,tr:hover .s3,tr:hover .s4{background:#26314c}
 input,select{background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:5px;padding:5px 8px;font-size:12px;cursor:text}
 select{cursor:pointer}
 input[type=file]{cursor:pointer}
-button.btn{background:var(--accent);color:#fff;border:none;border-radius:5px;padding:7px 14px;cursor:pointer;font-size:12px}
+input[type=radio]{cursor:pointer;width:auto}
+button.btn{background:var(--accent);color:#fff;border:none;border-radius:5px;padding:6px 13px;cursor:pointer;font-size:12px}
 button.btn.danger{background:var(--crit)}
+button.btn.sec{background:var(--panel2);border:1px solid var(--border);color:var(--text)}
 .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px}
 .muted{color:var(--muted)}
 .hint{font-size:11px;color:var(--muted);margin-top:5px}
@@ -80,34 +80,30 @@ label.fld{display:flex;flex-direction:column;gap:2px;font-size:11px;color:var(--
 #dropzone.over{border-color:var(--accent);color:var(--accent)}
 canvas{max-height:320px}
 .up{color:var(--ok)}.down{color:var(--crit)}
+.lev-radio label{margin-right:10px;cursor:pointer;display:inline-flex;align-items:center;gap:4px}
 </style>
 </head>
 <body>
 <header>
-  <h1>REACBILL <span class="ver">v1.4.1-main</span></h1>
-  <span id="dataInfo" class="ver"></span>
+  <div style="display:flex;align-items:baseline;gap:6px">
+    <h1>REACBILL <span class="ver">v1.5.0-main</span></h1>
+    <span id="dataInfo" class="ver"></span>
+  </div>
+  <div id="statsBar"></div>
   <div id="paramsBar"></div>
   <nav id="nav"></nav>
 </header>
 <main id="main"></main>
 
 <script>
-/* ===== REACBILL v1.4.1-main =====
-   - cn sin extensión: detección robusta por contenido
-   - LOCNAME → formato XXX-XX (ISLA)
-   - Colores de fondo en celdas % (igual que Excel)
-   - Resumen: columnas MM + Modelo visibles
-   - Sort genérico en todas las tablas
-   - Scrollbars delgados
-================================= */
-
-const VERSION = "1.4.1-main";
+/* ===== REACBILL v1.5.0-main ===== */
+const VERSION = "1.5.0-main";
 const LS_KEY  = "reacbill_v1";
 
 let state = {
-  weeks:     {},   // { "YYYY-MM-DD": { rows:[...] } }
+  weeks:     {},
   weekOrder: [],
-  master:    {},   // mda -> {locname,isla,fabricante,modelo,juego,firm}
+  master:    {},
   params: {
     thrOk:0.85, thrMid:0.90, thrCrit:0.40,
     multMid:3,  multCrit:30,
@@ -152,8 +148,7 @@ function weekCalc(week, params){
     const toAc=DENOS.reduce((s,d)=>s+(r.acc[d]||0),0);
     const toRe=DENOS.reduce((s,d)=>s+(r.rej[d]||0),0);
     const total=toAc+toRe;
-    // Usar pctBill del archivo si está disponible, sino calcular de denominaciones
-    const pct = (r.pctBill!=null && r.pctBill>0) ? r.pctBill : (total>0 ? toAc/total : null);
+    const pct=(r.pctBill!=null&&r.pctBill>0)?r.pctBill:(total>0?toAc/total:null);
     if(total>0){sumT+=total;nT++;}
     out.push({...r,toAc,toRe,total,pct});
   }
@@ -166,18 +161,25 @@ function weekCalc(week, params){
     }
   }
   const withPct=out.filter(m=>m.pct>0&&m.total>0);
-  const byMod={Advance:withPct.filter(m=>(state.master[m.mda]?.modelo||"").includes("Advance")),
-               Cashflow:withPct.filter(m=>(state.master[m.mda]?.modelo||"").includes("Cashflow"))};
+  // agrupar por modelo dinámico
+  const modMap={};
+  for(const m of withPct){
+    const mod=(state.master[m.mda]?.modelo||"(sin dato)").trim()||"(sin dato)";
+    (modMap[mod]=modMap[mod]||[]).push(m.pct);
+  }
+  const avgByMod={};
+  for(const mod in modMap) avgByMod[mod]=avg(modMap[mod]);
+  const avgPct=avg(withPct.map(m=>m.pct));
   return {
-    rows:out, avgT,
-    avgPct:   avg(withPct.map(m=>m.pct)),
-    avgAdv:   avg(byMod.Advance.map(m=>m.pct)),
-    avgCf:    avg(byMod.Cashflow.map(m=>m.pct)),
-    cntAdv:   byMod.Advance.length,
-    cntCf:    byMod.Cashflow.length,
-    totBill:  out.reduce((s,m)=>s+m.total,0),
-    totAc:    out.reduce((s,m)=>s+m.toAc,0),
-    totRe:    out.reduce((s,m)=>s+m.toRe,0)
+    rows:out, avgT, avgPct,
+    avgAdv: avgByMod["Advance"]||0,
+    avgCf:  avgByMod["Cashflow"]||0,
+    cntAdv: (modMap["Advance"]||[]).length,
+    cntCf:  (modMap["Cashflow"]||[]).length,
+    avgByMod, modMap,
+    totBill: out.reduce((s,m)=>s+m.total,0),
+    totAc:   out.reduce((s,m)=>s+m.toAc,0),
+    totRe:   out.reduce((s,m)=>s+m.toRe,0)
   };
 }
 const avg=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:0;
@@ -203,9 +205,8 @@ function pctClass(p){
   if(p<pr.thrCrit)return"c-cr";if(p<pr.thrOk)return"c-hi";if(p<pr.thrMid)return"c-mid";return"c-ok";
 }
 
-// ---------- Sort genérico para cualquier tabla ----------
+// ---------- Sort genérico ----------
 const sortStates={};
-// Índice real de columna considerando colspan/rowspan en theads de varias filas
 function thColIndex(th){
   const thead=th.closest("thead"); if(!thead)return th.cellIndex;
   const grid=[];
@@ -224,11 +225,9 @@ function thColIndex(th){
   for(const row of grid){const i=row.indexOf(th);if(i>=0)return i;}
   return th.cellIndex;
 }
-// "1.234" (miles es-CL) -> 1234 ; "85.23%" -> 85.23 ; "—" -> null
 function sortVal(s){
   if(!s||s==="—")return null;
   if(s.includes("%"))return parseFloat(s.replace(/[+%]/g,""));
-  if(/^-?[\d.]+,\d+$/.test(s))return parseFloat(s.replace(/\./g,"").replace(",","."));
   if(/^-?\d{1,3}(\.\d{3})+$/.test(s))return parseFloat(s.replace(/\./g,""));
   const n=parseFloat(s.replace(",","."));
   return isNaN(n)?null:n;
@@ -236,13 +235,13 @@ function sortVal(s){
 function attachSort(tableId){
   const tbl=document.getElementById(tableId); if(!tbl)return;
   tbl.querySelectorAll("th.sortable").forEach(th=>{
-    if(th.getAttribute("onclick"))return; // respeta handlers propios (Resumen)
+    if(th.getAttribute("onclick"))return;
     th.addEventListener("click",()=>{
       const col=thColIndex(th);
       const st=sortStates[tableId]||{col:-1,dir:1};
       const dir=(st.col===col)?-st.dir:1;
       sortStates[tableId]={col,dir};
-      tbl.querySelectorAll("th.sortable").forEach(h=>{h.classList.remove("s-asc","s-desc");});
+      tbl.querySelectorAll("th.sortable").forEach(h=>h.classList.remove("s-asc","s-desc"));
       th.classList.add(dir===1?"s-asc":"s-desc");
       const tbody=tbl.tBodies[0]; if(!tbody)return;
       const rows=[...tbody.querySelectorAll("tr:not(.no-sort)")];
@@ -268,6 +267,8 @@ function getLoc(mda){
   const m=state.master[mda]; if(!m)return"";
   return m.isla||(m.locname?fmtLocname(m.locname):"");
 }
+function getMod(mda){ return (state.master[mda]?.modelo||"").trim(); }
+function getFirm(mda){ return (state.master[mda]?.firm||"").trim(); }
 function dateKeyFromName(name){
   let m=name.match(/(\d{4})[-_.](\d{2})[-_.](\d{2})/);
   if(m)return`${m[1]}-${m[2]}-${m[3]}`;
@@ -277,7 +278,7 @@ function dateKeyFromName(name){
 }
 function fmtKey(k){
   const m=k.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  return m?`${m[3]}-${m[2]}`:k;  // DD-MM para encabezados compactos
+  return m?`${m[3]}-${m[2]}`:k;
 }
 function fmtKeyFull(k){
   const m=k.match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -385,13 +386,12 @@ async function handleFiles(files){
   const log=[];
   for(const f of files){
     try{
-      // Intentar leer como texto primero para cualquier archivo sin extensión Excel conocida
       const ext=(f.name.match(/\.([^.]+)$/)||["",""])[1].toLowerCase();
       const isExcel=["xlsx","xls","xlsm","xlsb"].includes(ext);
       if(!isExcel){
         let text;
         try{ text=await f.text(); }catch(e){ text=""; }
-        if((text.includes("SMDBID")||text.includes("LOCNAME")) && text.includes(";")){
+        if((text.includes("SMDBID")||text.includes("LOCNAME"))&&text.includes(";")){
           const n=parseCnText(text);
           if(n>0){
             log.push(`${f.name}: ${n} ubicaciones cargadas (cn)`);
@@ -400,7 +400,7 @@ async function handleFiles(files){
             continue;
           }
         }
-        if(!isExcel&&ext&&!["csv","txt","tsv"].includes(ext)){
+        if(ext&&!["csv","txt","tsv"].includes(ext)){
           log.push(`${f.name}: formato no reconocido`); continue;
         }
       }
@@ -444,7 +444,8 @@ async function handleFiles(files){
 const TABS=[
  ["carga","📂 Carga"],["resumen","📊 Resumen"],["fecha","📅 Por Fecha"],
  ["ranking","🚨 Gravedad"],["tendencias","📈 Tendencias"],
- ["fabricantes","🏭 Fabricantes"],["denominaciones","💵 Denominaciones"],
+ ["modelos","🔧 Modelos"],["levantamiento","📋 Levantamiento"],
+ ["denominaciones","💵 Denominaciones"],
  ["buscador","🔎 Buscador"],["admin","⚙️ Admin"]
 ];
 let activeTab="carga";
@@ -457,7 +458,8 @@ function showTab(id){
   document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("active",b.id==="nb-"+id));
   document.querySelectorAll(".tab").forEach(t=>t.classList.toggle("active",t.id==="tab-"+id));
   ({resumen:renderResumen,fecha:renderFecha,ranking:renderRanking,tendencias:renderTendencias,
-    fabricantes:renderFabricantes,denominaciones:renderDenos,buscador:renderBuscador,admin:renderAdmin}[id]||(() => {}))();
+    modelos:renderModelos,levantamiento:renderLevantamiento,
+    denominaciones:renderDenos,buscador:renderBuscador,admin:renderAdmin}[id]||(() => {}))();
 }
 function buildShells(){
   document.getElementById("main").innerHTML=TABS.map(([id])=>`<div class="tab" id="tab-${id}"></div>`).join("");
@@ -487,6 +489,7 @@ function buildShells(){
   dz.ondragleave=()=>dz.classList.remove("over");
   dz.ondrop=e=>{e.preventDefault();dz.classList.remove("over");handleFiles([...e.dataTransfer.files]);};
 }
+
 function renderParamsBar(){
   const p=state.params;
   document.getElementById("paramsBar").innerHTML=
@@ -495,26 +498,59 @@ function renderParamsBar(){
      <span>Crítico &lt; <b>${(p.thrCrit*100).toFixed(0)}%</b> ×<b>${p.multCrit}</b></span>
      <span>Badges: ≥<b>${p.sevMid}</b> / ≥<b>${p.sevHigh}</b> / ≥<b>${p.sevCrit}</b></span>`;
 }
+
 function renderLoadedInfo(){
   const el=document.getElementById("loadedInfo"); if(!el)return;
-  if(!state.weekOrder.length){el.innerHTML='<span class="muted">Sin datos. Sube archivos.</span>';return;}
+  const sb=document.getElementById("statsBar");
+  if(!state.weekOrder.length){
+    el.innerHTML='<span class="muted">Sin datos. Sube archivos.</span>';
+    if(sb)sb.innerHTML="";
+    document.getElementById("dataInfo").textContent="";
+    return;
+  }
   const allMdas=new Set(state.weekOrder.flatMap(d=>state.weeks[d].rows.map(r=>r.mda)));
   const withLoc=[...allMdas].filter(m=>getLoc(m)).length;
   el.innerHTML=`<b>${state.weekOrder.length}</b> semanas · <b>${allMdas.size}</b> máquinas · <b>${withLoc}</b> con ubicación<br>
     <span class="muted" style="font-size:11px">${state.weekOrder.map(d=>fmtKeyFull(d)).join("  ·  ")}</span>`;
   document.getElementById("dataInfo").textContent=` · ${state.weekOrder.length} sem · ${allMdas.size} máq`;
+  // Stats del header: última semana
+  const lastD=state.weekOrder[state.weekOrder.length-1];
+  const lastC=allCalcs()[lastD];
+  const withData=lastC.rows.filter(m=>m.pct>0&&m.total>0);
+  const above=withData.filter(m=>m.pct>=lastC.avgPct).length;
+  const below=withData.filter(m=>m.pct<lastC.avgPct).length;
+  const alerts=lastC.rows.filter(m=>m.score>0).length;
+  if(sb) sb.innerHTML=
+    `<span><span class="sv">${fmtP(lastC.avgPct)}</span> <span class="sl">% prom. ${fmtKey(lastD)}</span></span>
+     <span><span class="sv" style="color:var(--ok)">↑${above}</span> <span class="sl">sobre prom.</span></span>
+     <span><span class="sv" style="color:var(--crit)">↓${below}</span> <span class="sl">bajo prom.</span></span>
+     <span><span class="sv" style="color:var(--high)">${alerts}</span> <span class="sl">con alerta</span></span>
+     ${lastC.avgAdv>0?`<span><span class="sv" style="color:#2ecc71">${fmtP(lastC.avgAdv)}</span> <span class="sl">Advance (${lastC.cntAdv})</span></span>`:""}
+     ${lastC.avgCf>0?`<span><span class="sv" style="color:#f1c40f">${fmtP(lastC.avgCf)}</span> <span class="sl">Cashflow (${lastC.cntCf})</span></span>`:""}`;
 }
 
-// ---------- Resumen (= hoja Seguimiento) ----------
+// ---------- Resumen ----------
 let resSortState=null;
+let resFiltroVal="";
 function resSort(wk,field){
   if(resSortState&&resSortState.wk===wk&&resSortState.field===field) resSortState.dir*=-1;
   else resSortState={wk,field,dir:field==="pct"?1:-1};
-  renderResumen();
+  renderResBody();
 }
 function renderResumen(){
   const el=document.getElementById("tab-resumen");
   if(!state.weekOrder.length){el.innerHTML='<div class="card muted">Sin datos.</div>';return;}
+  el.innerHTML=`<div class="card"><h2>Resumen histórico</h2>
+    <div class="row">
+      <input id="resFiltro" placeholder="Filtrar MDA / ISLA / Modelo" value="${resFiltroVal.replace(/"/g,'&quot;')}"
+        oninput="resFiltroVal=this.value;renderResBody();" style="width:280px;cursor:text">
+      <span class="hint">Click en % o Total para ordenar por semana</span>
+    </div>
+    <div id="resTblWrap"></div></div>`;
+  renderResBody();
+}
+function renderResBody(){
+  const wrap=document.getElementById("resTblWrap"); if(!wrap)return;
   const calcs=allCalcs(), weeks=state.weekOrder;
   const mdaMap=new Map();
   for(const d of weeks) for(const m of calcs[d].rows){
@@ -522,23 +558,18 @@ function renderResumen(){
     mdaMap.get(m.mda)[d]=m;
   }
   const ss=resSortState;
-  // 3 cols fijas sticky: MDA, ISLA, MM·Modelo
-  const sCols=`<th class="s1 left sortable">MDA</th><th class="s2 left sortable">ISLA</th><th class="s3 left sortable">MM · Modelo</th>`;
+  // 4 sticky cols: MDA, ISLA, Modelo, Firm
+  const sCols=`<th class="s1 left sortable">MDA</th><th class="s2 left sortable">ISLA</th><th class="s3 left sortable">Modelo</th><th class="s4 left sortable">Firm</th>`;
   let head=`<tr>${sCols}`;
-  let avgAdv=`<tr class="no-sort"><td class="s1 left" style="color:var(--muted);font-size:10px">Adv</td><td class="s2"></td><td class="s3"></td>`;
-  let avgCf =`<tr class="no-sort"><td class="s1 left" style="color:var(--muted);font-size:10px">CF</td><td class="s2"></td><td class="s3"></td>`;
-  let head2 =`<tr><th class="s1"></th><th class="s2"></th><th class="s3"></th>`;
+  let head2=`<tr><th class="s1"></th><th class="s2"></th><th class="s3"></th><th class="s4"></th>`;
   for(const d of weeks){
     const ps=ss&&ss.wk===d&&ss.field==="pct", ts=ss&&ss.wk===d&&ss.field==="tot";
-    head+=`<th colspan="2" class="sortable" style="text-align:center">${fmtKey(d)}</th>`;
-    const c=calcs[d];
-    avgAdv+=`<td class="${c.avgAdv>0?pctClass(c.avgAdv):""}">${c.avgAdv>0?fmtP(c.avgAdv):"—"}</td><td class="muted">${c.cntAdv}</td>`;
-    avgCf +=`<td class="${c.avgCf>0?pctClass(c.avgCf):""}">${c.avgCf>0?fmtP(c.avgCf):"—"}</td><td class="muted">${c.cntCf}</td>`;
+    head+=`<th colspan="2" style="text-align:center">${fmtKey(d)}</th>`;
     head2+=`<th class="sortable ${ps?(ss.dir===1?"s-asc":"s-desc"):""}" onclick="resSort('${d}','pct')">%</th>`;
     head2+=`<th class="sortable ${ts?(ss.dir===1?"s-asc":"s-desc"):""}" onclick="resSort('${d}','tot')">Total</th>`;
   }
-  head+="</tr>"; avgAdv+="</tr>"; avgCf+="</tr>"; head2+="</tr>";
-  const filtro=(document.getElementById("resFiltro")?.value||"").toLowerCase();
+  head+="</tr>"; head2+="</tr>";
+  const filtro=resFiltroVal.toLowerCase();
   let mdaList=[...mdaMap.keys()];
   if(ss){
     mdaList.sort((a,b)=>{
@@ -550,11 +581,9 @@ function renderResumen(){
   } else mdaList.sort();
   let body="";
   for(const mda of mdaList){
-    const ms=state.master[mda]||{};
-    const loc=getLoc(mda);
-    const mmmod=[ms.fabricante,ms.modelo].filter(Boolean).join(" · ");
-    if(filtro&&!(mda+loc+mmmod).toLowerCase().includes(filtro))continue;
-    let tr=`<td class="s1 left"><b>${mda}</b></td><td class="s2 left" style="color:var(--muted)">${loc}</td><td class="s3 left" style="color:var(--muted)">${mmmod}</td>`;
+    const loc=getLoc(mda), mod=getMod(mda), firm=getFirm(mda);
+    if(filtro&&!(mda+loc+mod+firm).toLowerCase().includes(filtro))continue;
+    let tr=`<td class="s1 left"><b>${mda}</b></td><td class="s2 left muted">${loc}</td><td class="s3 left muted">${mod}</td><td class="s4 left muted" style="font-size:10px">${firm}</td>`;
     for(const d of weeks){
       const m=mdaMap.get(mda)?.[d];
       if(m&&m.pct>0) tr+=`<td class="${pctClass(m.pct)}">${fmtP(m.pct)}</td><td>${fmtN(m.total)}</td>`;
@@ -562,11 +591,9 @@ function renderResumen(){
     }
     body+=`<tr>${tr}</tr>`;
   }
-  el.innerHTML=`<div class="card"><h2>Resumen histórico</h2>
-    <div class="row"><input id="resFiltro" placeholder="Filtrar MDA / ISLA / fabricante" value="${filtro}" oninput="renderResumen()" style="width:280px">
-    <span class="hint">Click en % o Total para ordenar por esa semana</span></div>
-    <div class="tblWrap" style="max-height:78vh"><table id="tblResumen">
-      <thead>${head}${avgAdv}${avgCf}${head2}</thead><tbody>${body}</tbody></table></div></div>`;
+  wrap.innerHTML=`<div class="tblWrap" style="max-height:75vh"><table id="tblResumen">
+    <thead>${head}${head2}</thead><tbody>${body}</tbody></table></div>`;
+  attachSort("tblResumen");
 }
 
 // ---------- Por Fecha ----------
@@ -583,9 +610,8 @@ function renderFecha(){
     body+=`<tr>
       <td class="left"><b>${m.mda}</b></td>
       <td class="left">${getLoc(m.mda)}</td>
-      <td class="left">${ms.fabricante||""}</td>
       <td class="left">${ms.modelo||""}</td>
-      <td class="left">${ms.firm||""}</td>
+      <td class="left" style="font-size:10px">${ms.firm||""}</td>
       <td>${fmtN(m.tarjAc)}</td><td>${fmtN(m.tarjRe)}</td><td class="${pctClass(m.pctTarj)}">${fmtP(m.pctTarj)}</td>
       ${DENOS.map(dn=>`<td>${fmtN(m.acc[dn]||0)}</td>`).join("")}
       ${DENOS.map(dn=>`<td>${fmtN(m.rej[dn]||0)}</td>`).join("")}
@@ -598,26 +624,26 @@ function renderFecha(){
     <div class="row">
       <label class="fld">Semana <select id="fechaSel" onchange="renderFecha()">${state.weekOrder.map(w=>`<option value="${w}" ${w===d?"selected":""}>${fmtKeyFull(w)}</option>`).join("")}</select></label>
       <div class="kpis">
-        <div class="kpi"><div class="v">${fmtP(c.avgPct)}</div><div class="l">% prom. (>0)</div></div>
-        <div class="kpi"><div class="v">${fmtP(c.avgAdv)}</div><div class="l">Advance</div></div>
-        <div class="kpi"><div class="v">${fmtP(c.avgCf)}</div><div class="l">Cashflow</div></div>
+        <div class="kpi"><div class="v">${fmtP(c.avgPct)}</div><div class="l">% prom.</div></div>
+        <div class="kpi"><div class="v" style="color:#2ecc71">${fmtP(c.avgAdv)}</div><div class="l">Advance (${c.cntAdv})</div></div>
+        <div class="kpi"><div class="v" style="color:#f1c40f">${fmtP(c.avgCf)}</div><div class="l">Cashflow (${c.cntCf})</div></div>
         <div class="kpi"><div class="v">${fmtN(c.totBill)}</div><div class="l">Total billetes</div></div>
         <div class="kpi"><div class="v">${fmtN(c.totRe)}</div><div class="l">Rechazos</div></div>
-        <div class="kpi"><div class="v">${c.rows.filter(m=>m.score>0).length}</div><div class="l">Con alerta</div></div>
+        <div class="kpi"><div class="v" style="color:var(--high)">${c.rows.filter(m=>m.score>0).length}</div><div class="l">Con alerta</div></div>
       </div>
     </div>
     <div class="tblWrap" style="max-height:72vh"><table id="tblFecha">
       <thead>
         <tr>
           <th class="left sortable">MDA</th><th class="left sortable">ISLA</th>
-          <th class="left sortable">MM</th><th class="left sortable">Modelo</th><th class="left sortable">Firm</th>
+          <th class="left sortable">Modelo</th><th class="left sortable">Firm</th>
           <th colspan="3" class="sortable">Tarjetas</th>
           <th colspan="6">Bill. Aceptado</th><th colspan="6">Bill. Rechazado</th>
           <th class="sortable">ToAc</th><th class="sortable">ToRe</th><th class="sortable">Total</th>
           <th class="sortable">%Acep</th><th class="sortable">Puntaje</th><th>Gravedad</th>
         </tr>
         <tr>
-          <th></th><th></th><th></th><th></th><th></th>
+          <th></th><th></th><th></th><th></th>
           <th class="sortable">Ac</th><th class="sortable">Re</th><th class="sortable">%</th>
           ${DENOS.map(dn=>`<th class="sortable">${dn}</th>`).join("")}
           ${DENOS.map(dn=>`<th class="sortable">${dn}</th>`).join("")}
@@ -644,7 +670,7 @@ function renderRanking(){
     const trend=pm&&pm.total>0?m.pct-pm.pct:null;
     body+=`<tr>
       <td>${i+1}</td><td class="left"><b>${m.mda}</b></td><td class="left">${getLoc(m.mda)}</td>
-      <td class="left">${ms.fabricante||""}</td><td class="left">${ms.modelo||""}</td>
+      <td class="left">${ms.modelo||""}</td><td class="left" style="font-size:10px">${ms.firm||""}</td>
       <td class="${pctClass(m.pct)}"><b>${fmtP(m.pct)}</b></td>
       <td>${fmtN(m.total)}</td><td>${fmtN(m.toRe)}</td>
       <td class="${trend==null?'':trend>=0?'up':'down'}">${trend==null?"—":(trend>=0?"+":"")+(trend*100).toFixed(1)+"%"}</td>
@@ -664,7 +690,7 @@ function renderRanking(){
     <div class="tblWrap" style="max-height:72vh"><table id="tblRank">
       <thead><tr>
         <th class="sortable">#</th><th class="left sortable">MDA</th><th class="left sortable">ISLA</th>
-        <th class="left sortable">MM</th><th class="left sortable">Modelo</th>
+        <th class="left sortable">Modelo</th><th class="left sortable">Firm</th>
         <th class="sortable">%Acep</th><th class="sortable">Total</th><th class="sortable">Rechazos</th>
         <th class="sortable">Δ%</th><th class="sortable">Puntaje</th><th>Gravedad</th>
       </tr></thead><tbody>${body}</tbody></table></div></div>`;
@@ -678,25 +704,15 @@ function renderTendencias(){
   if(!state.weekOrder.length){el.innerHTML='<div class="card muted">Sin datos.</div>';return;}
   el.innerHTML=`<div class="grid2">
     <div class="card"><h2>% aceptación promedio por semana</h2><canvas id="cvTrend"></canvas></div>
-    <div class="card"><h2>Advance vs Cashflow</h2><canvas id="cvModelo"></canvas></div></div>
-    <div class="grid2">
-    <div class="card"><h2>Volumen de billetes</h2><canvas id="cvVol"></canvas></div>
-    <div class="card"><h2>Máquinas con alerta</h2><canvas id="cvAl"></canvas></div></div>`;
+    <div class="card"><h2>Volumen de billetes</h2><canvas id="cvVol"></canvas></div></div>
+    <div class="card" style="margin-top:12px"><h2>Máquinas con alerta</h2><canvas id="cvAl"></canvas></div>`;
   const calcs=allCalcs(),w=state.weekOrder,lbl=w.map(fmtKey);
-  const avgs=w.map(d=>+(calcs[d].avgPct*100).toFixed(2));
-  const advs=w.map(d=>+(calcs[d].avgAdv*100).toFixed(2));
-  const cfs =w.map(d=>+(calcs[d].avgCf*100).toFixed(2));
   if(chTrend)chTrend.destroy(); if(chVol)chVol.destroy(); if(chAl)chAl.destroy();
   Chart.defaults.color="#8fa0c0"; Chart.defaults.borderColor="#2e3b58";
   chTrend=new Chart(document.getElementById("cvTrend"),{type:"line",
     data:{labels:lbl,datasets:[
-      {label:"% general",data:avgs,borderColor:"#4f8ff7",backgroundColor:"#4f8ff722",fill:true,tension:.3},
+      {label:"% general",data:w.map(d=>+(calcs[d].avgPct*100).toFixed(2)),borderColor:"#4f8ff7",backgroundColor:"#4f8ff722",fill:true,tension:.3},
       {label:"Umbral OK",data:w.map(()=>state.params.thrOk*100),borderColor:"#e74c3c",borderDash:[5,4],pointRadius:0}]},
-    options:{scales:{y:{ticks:{callback:v=>v+"%"}}}}});
-  new Chart(document.getElementById("cvModelo"),{type:"line",
-    data:{labels:lbl,datasets:[
-      {label:"Advance",data:advs,borderColor:"#2ecc71",tension:.3},
-      {label:"Cashflow",data:cfs,borderColor:"#f1c40f",tension:.3}]},
     options:{scales:{y:{ticks:{callback:v=>v+"%"}}}}});
   chVol=new Chart(document.getElementById("cvVol"),{type:"bar",
     data:{labels:lbl,datasets:[
@@ -707,35 +723,116 @@ function renderTendencias(){
     data:{labels:lbl,datasets:[{label:"Máquinas con alerta",data:w.map(d=>calcs[d].rows.filter(m=>m.score>0).length),backgroundColor:"#e67e22"}]}});
 }
 
-// ---------- Fabricantes ----------
-function renderFabricantes(){
-  const el=document.getElementById("tab-fabricantes");
+// ---------- Modelos (comparativa por modelo de billetero) ----------
+function renderModelos(){
+  const el=document.getElementById("tab-modelos");
   if(!state.weekOrder.length){el.innerHTML='<div class="card muted">Sin datos.</div>';return;}
   const calcs=allCalcs();
-  const sel=document.getElementById("fabSel")?.value;
+  const sel=document.getElementById("modSel")?.value;
   const d=state.weekOrder.includes(sel)?sel:state.weekOrder[state.weekOrder.length-1];
+  const c=calcs[d];
+  // agrupar por modelo
   const groups={};
-  for(const m of calcs[d].rows){
-    const ms=state.master[m.mda]||{};
-    for(const [tipo,nombre] of [["MM",ms.fabricante||"(sin dato)"],["Modelo",ms.modelo||"(sin dato)"]]){
-      const gk=tipo+"::"+nombre;
-      (groups[gk]=groups[gk]||{tipo,nombre,n:0,tot:0,ac:0,re:0,pcts:[],alert:0});
-      const g=groups[gk]; g.n++; g.tot+=m.total; g.ac+=m.toAc; g.re+=m.toRe;
-      if(m.pct>0)g.pcts.push(m.pct); if(m.score>0)g.alert++;
-    }
+  for(const m of c.rows){
+    const mod=(state.master[m.mda]?.modelo||"(sin dato)").trim()||"(sin dato)";
+    const g=groups[mod]=groups[mod]||{n:0,tot:0,ac:0,re:0,pcts:[],alert:0,mdas:[]};
+    g.n++; g.tot+=m.total; g.ac+=m.toAc; g.re+=m.toRe; g.mdas.push(m.mda);
+    if(m.pct>0)g.pcts.push(m.pct); if(m.score>0)g.alert++;
   }
-  const mk=tipo=>Object.values(groups).filter(g=>g.tipo===tipo).sort((a,b)=>b.tot-a.tot).map(g=>
-    `<tr><td class="left"><b>${g.nombre}</b></td><td>${g.n}</td><td>${fmtN(g.tot)}</td><td>${fmtN(g.re)}</td>
-     <td class="${pctClass(avg(g.pcts))}">${fmtP(avg(g.pcts))}</td>
-     <td class="${pctClass(g.tot>0?g.ac/g.tot:0)}">${g.tot>0?fmtP(g.ac/g.tot):"—"}</td><td>${g.alert}</td></tr>`).join("");
-  const head=`<thead><tr><th class="left sortable">Grupo</th><th class="sortable">Máq.</th><th class="sortable">Total</th><th class="sortable">Rechazos</th><th class="sortable">% prom.</th><th class="sortable">% ponder.</th><th class="sortable">Alertas</th></tr></thead>`;
-  el.innerHTML=`<div class="card"><h2>Comparativa por fabricante y modelo (billetero MEI)</h2>
-    <div class="row"><label class="fld">Semana <select id="fabSel" onchange="renderFabricantes()">${state.weekOrder.map(w=>`<option value="${w}" ${w===d?"selected":""}>${fmtKeyFull(w)}</option>`).join("")}</select></label></div>
-    <div class="grid2">
-      <div><div class="tblWrap" style="max-height:60vh"><table id="tblFabMM">${head}<tbody>${mk("MM")}</tbody></table></div></div>
-      <div><div class="tblWrap" style="max-height:60vh"><table id="tblFabMod">${head}<tbody>${mk("Modelo")}</tbody></table></div></div>
-    </div></div>`;
-  attachSort("tblFabMM"); attachSort("tblFabMod");
+  const rows=Object.entries(groups).sort((a,b)=>b[1].tot-a[1].tot);
+  let body=rows.map(([mod,g])=>`
+    <tr><td class="left"><b>${mod}</b></td><td>${g.n}</td><td>${fmtN(g.tot)}</td><td>${fmtN(g.re)}</td>
+    <td class="${pctClass(avg(g.pcts))}">${fmtP(avg(g.pcts))}</td>
+    <td class="${pctClass(g.tot>0?g.ac/g.tot:0)}">${g.tot>0?fmtP(g.ac/g.tot):"—"}</td>
+    <td>${g.alert}</td></tr>`).join("");
+  // tendencia histórica por modelo
+  const allMods=[...new Set(state.weekOrder.flatMap(d2=>
+    calcs[d2].rows.map(m=>(state.master[m.mda]?.modelo||"(sin dato)").trim()||"(sin dato)")))].sort();
+  const colors=["#2ecc71","#f1c40f","#4f8ff7","#e74c3c","#9b59b6","#1abc9c"];
+  const lbl=state.weekOrder.map(fmtKey);
+  const datasets=allMods.map((mod,i)=>({
+    label:mod,
+    data:state.weekOrder.map(d2=>{
+      const rows2=calcs[d2].rows.filter(m=>(state.master[m.mda]?.modelo||"(sin dato)").trim()===mod&&m.pct>0);
+      return rows2.length?+(avg(rows2.map(m=>m.pct))*100).toFixed(2):null;
+    }),
+    borderColor:colors[i%colors.length],tension:.3,spanGaps:true
+  }));
+  el.innerHTML=`<div class="card"><h2>Comparativa por modelo de billetero</h2>
+    <div class="row"><label class="fld">Semana <select id="modSel" onchange="renderModelos()">${state.weekOrder.map(w=>`<option value="${w}" ${w===d?"selected":""}>${fmtKeyFull(w)}</option>`).join("")}</select></label></div>
+    <div class="tblWrap" style="max-height:40vh"><table id="tblMod">
+      <thead><tr><th class="left sortable">Modelo</th><th class="sortable">Máq.</th><th class="sortable">Total</th><th class="sortable">Rechazos</th><th class="sortable">% prom.</th><th class="sortable">% ponder.</th><th class="sortable">Alertas</th></tr></thead>
+      <tbody>${body}</tbody></table></div></div>
+    <div class="card" style="margin-top:12px"><h2>Tendencia % por modelo</h2><canvas id="cvModTrend" style="max-height:280px"></canvas></div>`;
+  attachSort("tblMod");
+  Chart.defaults.color="#8fa0c0"; Chart.defaults.borderColor="#2e3b58";
+  new Chart(document.getElementById("cvModTrend"),{type:"line",
+    data:{labels:lbl,datasets},
+    options:{scales:{y:{ticks:{callback:v=>v+"%"}}}}});
+}
+
+// ---------- Levantamiento ----------
+function renderLevantamiento(){
+  const el=document.getElementById("tab-levantamiento");
+  const allIslas=[...new Set(Object.values(state.master).map(m=>m.isla||"").filter(Boolean))].sort();
+  if(!allIslas.length){
+    el.innerHTML='<div class="card muted">Sin datos de islas. Carga el archivo cn primero.</div>';return;
+  }
+  const stored=document.getElementById("levSel")?.value||"";
+  const sel=allIslas.includes(stored)?stored:allIslas[0];
+  const machines=Object.entries(state.master)
+    .filter(([,ms])=>(ms.isla||"")===sel)
+    .sort(([a],[b])=>a.localeCompare(b,"es",{numeric:true}));
+  // modelos conocidos (para radio buttons dinámicos)
+  const knownMods=[...new Set(Object.values(state.master).map(m=>m.modelo||"").filter(Boolean))];
+  if(!knownMods.includes("Advance"))knownMods.unshift("Advance");
+  if(!knownMods.includes("Cashflow")&&!knownMods.includes("Advance"))knownMods.push("Cashflow");
+  else if(!knownMods.includes("Cashflow"))knownMods.push("Cashflow");
+  const modOpts=["Advance","Cashflow",...knownMods.filter(m=>m!=="Advance"&&m!=="Cashflow"),""];
+  let rows="";
+  for(const [mda,ms] of machines){
+    const mod=ms.modelo||"";
+    const radios=modOpts.map(v=>`<label><input type="radio" name="lev_${mda}" value="${v}" ${mod===v?"checked":""}> ${v||"—"}</label>`).join(" ");
+    rows+=`<tr>
+      <td class="left"><b>${mda}</b></td>
+      <td class="left">${ms.juego||"—"}</td>
+      <td class="left" style="font-size:10px">${ms.firm||"—"}</td>
+      <td class="left lev-radio">${radios}</td>
+    </tr>`;
+  }
+  const selOpts=allIslas.map(i=>`<option value="${i}" ${i===sel?"selected":""}>${i}</option>`).join("");
+  el.innerHTML=`<div class="card"><h2>Levantamiento de modelos por isla</h2>
+    <div class="row">
+      <label class="fld">ISLA <select id="levSel" onchange="renderLevantamiento()">${selOpts}</select></label>
+      <button class="btn sec" onclick="levSetAll('Advance')">Toda → Advance</button>
+      <button class="btn sec" onclick="levSetAll('Cashflow')">Toda → Cashflow</button>
+      <button class="btn" onclick="levGuardar()">💾 Guardar</button>
+      <span id="levMsg" class="hint"></span>
+    </div>
+    <div class="tblWrap" style="max-height:72vh"><table id="tblLev">
+      <thead><tr>
+        <th class="left sortable">MDA</th>
+        <th class="left sortable">Juego</th>
+        <th class="left sortable">Firmware</th>
+        <th class="left">Modelo</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div></div>`;
+  attachSort("tblLev");
+}
+function levSetAll(modelo){
+  document.querySelectorAll("input[type=radio][name^='lev_']").forEach(inp=>{
+    inp.checked=(inp.value===modelo);
+  });
+}
+function levGuardar(){
+  document.querySelectorAll("input[type=radio][name^='lev_']:checked").forEach(inp=>{
+    const mda=inp.name.replace("lev_","");
+    if(state.master[mda]) state.master[mda].modelo=inp.value;
+  });
+  invalidate(); saveState();
+  const msg=document.getElementById("levMsg");
+  if(msg){ msg.textContent="✓ Guardado."; setTimeout(()=>{ if(msg)msg.textContent=""; },2000); }
 }
 
 // ---------- Denominaciones ----------
@@ -757,47 +854,105 @@ function renderDenos(){
   el.innerHTML=`<div class="card"><h2>Aceptación por denominación</h2>
     <div class="tblWrap"><table id="tblDeno">
       <thead>
-        <tr><th class="left">Denominación</th>${w.map(d=>`<th colspan="2" class="sortable">${fmtKey(d)}</th>`).join("")}</tr>
+        <tr><th class="left">Denominación</th>${w.map(d=>`<th colspan="2">${fmtKey(d)}</th>`).join("")}</tr>
         <tr><th></th>${w.map(()=>`<th class="sortable">%Acep</th><th class="sortable">Intentos</th>`).join("")}</tr>
       </thead><tbody>${body}</tbody></table></div>
     <div class="hint">Detecta problemas sistémicos por denominación (billete deteriorado, calibración, etc.)</div></div>`;
+  attachSort("tblDeno");
 }
 
 // ---------- Buscador ----------
-function renderBuscador(){
+let busMDAVal="", busIslaVal="";
+function busOnInput(field,val){
+  if(field==="mda"){ busMDAVal=val; busIslaVal=""; }
+  else { busIslaVal=val; busMDAVal=""; }
+  renderBuscador(field);
+}
+function renderBuscador(focusField){
   const el=document.getElementById("tab-buscador");
-  const q=(document.getElementById("busQ")?.value||"").trim();
-  let res="";
-  if(q){
-    const calcs=allCalcs();
+  const calcs=state.weekOrder.length?allCalcs():{};
+  let resMDA="", resIsla="";
+
+  if(busMDAVal){
+    const q=busMDAVal.trim();
     const allMdas=new Set(state.weekOrder.flatMap(d=>state.weeks[d].rows.map(r=>r.mda)));
-    const hits=[...allMdas].filter(m=>m.includes(q)||getLoc(m).toLowerCase().includes(q.toLowerCase())).slice(0,20);
-    if(!hits.length)res='<div class="muted" style="padding:8px">Sin resultados.</div>';
+    const hits=[...allMdas].filter(m=>m.includes(q)).slice(0,20);
+    if(!hits.length) resMDA='<div class="card muted">Sin resultados para MDA.</div>';
     for(const mda of hits){
       const ms=state.master[mda]||{};
       let hist="";
       for(const d of state.weekOrder){
         const mm=calcs[d]?.rows.find(r=>r.mda===mda);
         if(mm&&mm.pct>0) hist+=`<td class="${pctClass(mm.pct)}">${fmtP(mm.pct)}<br><span class="muted">${fmtN(mm.total)}</span></td>`;
-        else hist+=`<td style="color:var(--muted)">—</td>`;
+        else hist+=`<td class="muted">—</td>`;
       }
-      res+=`<div class="card"><h2>MDA ${mda}</h2>
+      resMDA+=`<div class="card"><h2>MDA ${mda}</h2>
         <div class="kpis">
-          <div class="kpi"><div class="v" style="font-size:16px">${getLoc(mda)||"—"}</div><div class="l">ISLA (LOCNAME)</div></div>
-          <div class="kpi"><div class="v" style="font-size:15px">${ms.fabricante||"—"}</div><div class="l">Fabricante (MM)</div></div>
-          <div class="kpi"><div class="v" style="font-size:15px">${ms.modelo||"—"}</div><div class="l">Billetero</div></div>
-          <div class="kpi"><div class="v" style="font-size:15px">${ms.juego||"—"}</div><div class="l">Juego</div></div>
-          <div class="kpi"><div class="v" style="font-size:15px">${ms.firm||"—"}</div><div class="l">Firm</div></div>
+          <div class="kpi"><div class="v" style="font-size:16px">${getLoc(mda)||"—"}</div><div class="l">ISLA</div></div>
+          <div class="kpi"><div class="v" style="font-size:14px">${ms.modelo||"—"}</div><div class="l">Modelo</div></div>
+          <div class="kpi"><div class="v" style="font-size:13px">${ms.firm||"—"}</div><div class="l">Firmware</div></div>
+          <div class="kpi"><div class="v" style="font-size:14px">${ms.juego||"—"}</div><div class="l">Juego</div></div>
         </div>
-        <div class="tblWrap" style="margin-top:8px;max-height:120px"><table>
+        <div class="tblWrap" style="margin-top:8px;max-height:100px"><table>
           <thead><tr>${state.weekOrder.map(d=>`<th>${fmtKey(d)}</th>`).join("")}</tr></thead>
           <tbody><tr>${hist}</tr></tbody></table></div></div>`;
     }
   }
-  el.innerHTML=`<div class="card"><h2>Buscador de máquinas</h2>
-    <div class="row"><input id="busQ" placeholder="MDA o ISLA, ej: 100873 o 648" value="${q}" style="width:260px"
-      oninput="renderBuscador()"></div></div>${res}`;
-  const inp=document.getElementById("busQ"); inp.focus(); inp.setSelectionRange(q.length,q.length);
+
+  if(busIslaVal){
+    const q=busIslaVal.trim().toLowerCase();
+    // islas que coinciden
+    const islas=[...new Set(Object.values(state.master).map(m=>m.isla||"").filter(Boolean))]
+      .filter(i=>i.toLowerCase().includes(q)).sort();
+    if(!islas.length) resIsla='<div class="card muted">Sin resultados para ISLA.</div>';
+    for(const isla of islas){
+      const mdas=Object.entries(state.master).filter(([,ms])=>(ms.isla||"")===isla).map(([mda])=>mda);
+      // promedio de la isla en cada semana
+      let histHead="", histBody="";
+      for(const d of state.weekOrder){
+        const wRows=calcs[d]?.rows.filter(m=>mdas.includes(m.mda)&&m.pct>0&&m.total>0)||[];
+        const islaAvg=wRows.length?avg(wRows.map(m=>m.pct)):null;
+        histHead+=`<th>${fmtKey(d)}</th>`;
+        histBody+=islaAvg!=null?`<td class="${pctClass(islaAvg)}"><b>${fmtP(islaAvg)}</b><br><span class="muted">${wRows.length} máq</span></td>`:`<td class="muted">—</td>`;
+      }
+      // tabla de máquinas de la isla
+      let machRows="";
+      for(const mda of mdas.sort((a,b)=>a.localeCompare(b,"es",{numeric:true}))){
+        const ms=state.master[mda]||{};
+        let hist="";
+        for(const d of state.weekOrder){
+          const mm=calcs[d]?.rows.find(r=>r.mda===mda);
+          if(mm&&mm.pct>0) hist+=`<td class="${pctClass(mm.pct)}">${fmtP(mm.pct)}<br><span class="muted">${fmtN(mm.total)}</span></td>`;
+          else hist+=`<td class="muted">—</td>`;
+        }
+        machRows+=`<tr><td class="left"><b>${mda}</b></td><td class="left">${ms.modelo||"—"}</td><td class="left" style="font-size:10px">${ms.firm||"—"}</td>${hist}</tr>`;
+      }
+      resIsla+=`<div class="card"><h2>ISLA ${isla} — ${mdas.length} máquinas</h2>
+        <div class="hint" style="margin-bottom:6px">Promedio de la isla por semana:</div>
+        <div class="tblWrap" style="max-height:60px;margin-bottom:8px"><table>
+          <thead><tr>${histHead}</tr></thead><tbody><tr>${histBody}</tr></tbody></table></div>
+        <div class="tblWrap" style="max-height:260px"><table id="tblIsla_${isla.replace(/-/g,'')}">
+          <thead><tr><th class="left sortable">MDA</th><th class="left sortable">Modelo</th><th class="left sortable">Firm</th>${state.weekOrder.map(d=>`<th class="sortable">${fmtKey(d)}</th>`).join("")}</tr></thead>
+          <tbody>${machRows}</tbody></table></div></div>`;
+      // attach sort after render
+      setTimeout(()=>attachSort(`tblIsla_${isla.replace(/-/g,'')}`),0);
+    }
+  }
+
+  el.innerHTML=`<div class="card"><h2>Buscador</h2>
+    <div class="grid2">
+      <label class="fld">Buscar por MDA (número de máquina)
+        <input id="busMDA" placeholder="Ej: 100020" value="${busMDAVal}"
+          oninput="busOnInput('mda',this.value)" style="cursor:text;margin-top:4px"></label>
+      <label class="fld">Buscar por ISLA (ubicación)
+        <input id="busIsla" placeholder="Ej: 202 o 202-08" value="${busIslaVal}"
+          oninput="busOnInput('isla',this.value)" style="cursor:text;margin-top:4px"></label>
+    </div></div>${resMDA}${resIsla}`;
+
+  // restaurar foco
+  const fid=focusField==="isla"?"busIsla":"busMDA";
+  const inp=document.getElementById(fid);
+  if(inp){ const v=inp.value.length; inp.focus(); inp.setSelectionRange(v,v); }
 }
 
 // ---------- Admin ----------
@@ -809,9 +964,9 @@ function renderAdmin(){
     Mult = ×Crítico si % &lt; UmbCrítico · ×Medio si % &lt; UmbMedio · ×1 en otro caso</p>
     <div class="grid2">
       <div class="card"><h2>Umbrales</h2>
-        <div class="row"><label class="fld">OK (sin alerta si %) <input id="p_thrOk" type="number" step="0.01" min="0" max="1" value="${p.thrOk}"></label></div>
-        <div class="row"><label class="fld">Medio (Seguimiento G2) <input id="p_thrMid" type="number" step="0.01" min="0" max="1" value="${p.thrMid}"></label></div>
-        <div class="row"><label class="fld">Crítico (Seguimiento I2) <input id="p_thrCrit" type="number" step="0.01" min="0" max="1" value="${p.thrCrit}"></label></div>
+        <div class="row"><label class="fld">OK — verde si % ≥ <input id="p_thrOk" type="number" step="0.01" min="0" max="1" value="${p.thrOk}"></label></div>
+        <div class="row"><label class="fld">Medio — amarillo si % ≥ <input id="p_thrMid" type="number" step="0.01" min="0" max="1" value="${p.thrMid}"></label></div>
+        <div class="row"><label class="fld">Crítico — rojo si % &lt; <input id="p_thrCrit" type="number" step="0.01" min="0" max="1" value="${p.thrCrit}"></label></div>
       </div>
       <div class="card"><h2>Multiplicadores</h2>
         <div class="row"><label class="fld">×Medio (AK1) <input id="p_multMid" type="number" step="1" min="1" value="${p.multMid}"></label></div>
