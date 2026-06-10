@@ -42,8 +42,9 @@ tr:hover td{background:#26314c}
 .badge{display:inline-block;border-radius:10px;padding:1px 8px;font-size:11px;font-weight:600}
 .b-ok{background:#1d4d31;color:var(--ok)}.b-mid{background:#4d431d;color:var(--mid)}
 .b-high{background:#4d331d;color:var(--high)}.b-crit{background:#4d1d1d;color:var(--crit)}
-input,select{background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px 9px;font-size:13px}
-input[type=file]{padding:8px}
+input,select{background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px 9px;font-size:13px;cursor:auto}
+input[type=file]{padding:8px;cursor:pointer}
+select{cursor:pointer}
 button.btn{background:var(--accent);color:#fff;border:none;border-radius:6px;padding:8px 16px;cursor:pointer;font-size:13px}
 button.btn.danger{background:var(--crit)}
 .row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:10px}
@@ -57,11 +58,17 @@ label.fld{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--
 #dropzone.over{border-color:var(--accent);color:var(--accent)}
 canvas{max-height:340px}
 .up{color:var(--ok)}.down{color:var(--crit)}
+/* cursor */
+body,table,th,td,.card,.kpi,.kpi .v,.kpi .l,.badge,.hint,p,span,h1,h2,h3,div:not(#dropzone){cursor:default}
+th.sortable{cursor:pointer;user-select:none}
+th.sortable:hover{background:#2e3d60}
+th.sort-asc::after{content:" ▲";font-size:10px;color:var(--accent)}
+th.sort-desc::after{content:" ▼";font-size:10px;color:var(--accent)}
 </style>
 </head>
 <body>
 <header>
-  <h1>REACBILL <span class="ver">v1.1.0 — Seguimiento de Billeteros</span></h1>
+  <h1>REACBILL <span class="ver">v1.2.0-main — Seguimiento de Billeteros</span></h1>
   <span id="dataInfo" class="ver"></span>
   <div id="paramsBar"></div>
   <nav id="nav"></nav>
@@ -74,7 +81,7 @@ canvas{max-height:340px}
    Maestro: se construye de cualquier dato disponible
 ==================================================== */
 
-const VERSION = "1.1.0";
+const VERSION = "1.2.0-main";
 const LS_KEY = "reacbill_v1";
 
 // ---------- Estado ----------
@@ -381,6 +388,16 @@ function renderLoadedInfo(){
 }
 
 // ---------- Pestaña Resumen (= hoja Seguimiento) ----------
+// estado de sort: { weekKey, field: "pct"|"tot", dir: 1|-1 }
+let resSortState = null;
+function resSort(weekKey, field){
+  if(resSortState && resSortState.weekKey===weekKey && resSortState.field===field){
+    resSortState.dir *= -1;
+  } else {
+    resSortState = {weekKey, field, dir: field==="pct" ? 1 : -1};
+  }
+  renderResumen();
+}
 function renderResumen(){
   const el=document.getElementById("tab-resumen");
   if(!state.weekOrder.length){el.innerHTML='<div class="card muted">Sin datos cargados.</div>';return;}
@@ -392,21 +409,45 @@ function renderResumen(){
     mdas.get(m.mda)[d]=m;
   }
   // promedios por semana + dif
+  const ss=resSortState;
   let head1=`<tr><th>MDA</th><th>MM</th><th>Modelo</th><th>Isla</th>`;
   let avgRow=`<tr><td colspan="4"><b>Promedio % (&gt;0) / Δ semana</b></td>`;
   for(let i=0;i<weeks.length;i++){
     const d=weeks[i];
-    head1+=`<th colspan="2">${fmtKey(d)}</th>`;
+    const pctSel = ss && ss.weekKey===d && ss.field==="pct";
+    const totSel = ss && ss.weekKey===d && ss.field==="tot";
+    const pctCls = pctSel ? (ss.dir===1?"sort-asc":"sort-desc") : "";
+    const totCls = totSel ? (ss.dir===1?"sort-asc":"sort-desc") : "";
+    head1+=`<th colspan="2" class="sortable" style="text-align:center" title="Click para ordenar">${fmtKey(d)}</th>`;
     const a=calcs[d].avgPct, prev=i>0?calcs[weeks[i-1]].avgPct:null;
     const dif=prev!=null?a-prev:null;
     avgRow+=`<td><b>${fmtP(a)}</b></td><td class="${dif==null?'':dif>=0?'up':'down'}">${dif==null?"—":(dif>=0?"+":"")+(dif*100).toFixed(2)}</td>`;
   }
   head1+="</tr>"; avgRow+="</tr>";
-  let head2=`<tr><th></th><th></th><th></th><th></th>`+weeks.map(()=>`<th>%</th><th>Tot</th>`).join("")+"</tr>";
+  // fila 2 de encabezados: % y Tot son clickeables
+  let head2=`<tr><th></th><th></th><th></th><th></th>`;
+  for(const d of weeks){
+    const pctSel = ss && ss.weekKey===d && ss.field==="pct";
+    const totSel = ss && ss.weekKey===d && ss.field==="tot";
+    head2+=`<th class="sortable ${pctSel?(ss.dir===1?"sort-asc":"sort-desc"):""}" onclick="resSort('${d}','pct')">%</th>`;
+    head2+=`<th class="sortable ${totSel?(ss.dir===1?"sort-asc":"sort-desc"):""}" onclick="resSort('${d}','tot')">Tot</th>`;
+  }
+  head2+="</tr>";
   const filtro=(document.getElementById("resFiltro")?.value||"").toLowerCase();
+  // ordenar filas
+  let mdaList=[...mdas.keys()];
+  if(ss){
+    mdaList.sort((a,b)=>{
+      const ma=mdas.get(a)[ss.weekKey], mb=mdas.get(b)[ss.weekKey];
+      const va = ma&&ma.total>0 ? (ss.field==="pct"?ma.pct:ma.total) : (ss.dir===1?-1:Infinity);
+      const vb = mb&&mb.total>0 ? (ss.field==="pct"?mb.pct:mb.total) : (ss.dir===1?-1:Infinity);
+      return (va-vb)*ss.dir;
+    });
+  } else {
+    mdaList.sort();
+  }
   let body="";
-  const sorted=[...mdas.keys()].sort();
-  for(const mda of sorted){
+  for(const mda of mdaList){
     const ms=state.master[mda]||{};
     if(filtro && !(mda+(ms.fabricante||"")+(ms.modelo||"")+(ms.isla||"")).toLowerCase().includes(filtro)) continue;
     let tr=`<td><b>${mda}</b></td><td>${ms.fabricante||""}</td><td>${ms.modelo||""}</td><td>${ms.isla||""}</td>`;
@@ -416,10 +457,11 @@ function renderResumen(){
     }
     body+=`<tr>${tr}</tr>`;
   }
+  const sortHint = ss ? `Ordenado por <b>${ss.field==="pct"?"% aceptación":"total billetes"}</b> de la semana <b>${fmtKey(ss.weekKey)}</b> (${ss.dir===1?"▲ asc":"▼ desc"}) — click en otra columna % o Tot para cambiar.` : `Click en <b>%</b> o <b>Tot</b> de cualquier semana para ordenar esa columna.`;
   el.innerHTML=`<div class="card"><h2>Resumen histórico (hoja Seguimiento)</h2>
-    <div class="row"><input id="resFiltro" placeholder="Filtrar por MDA / fabricante / modelo / isla" value="${filtro}" oninput="renderResumen()" style="width:320px"></div>
+    <div class="row"><input id="resFiltro" placeholder="Filtrar por MDA / fabricante / modelo / isla" value="${filtro}" oninput="renderResumen()" style="width:320px;cursor:text"></div>
     <div class="tblWrap"><table><thead>${head1}${head2}</thead><tbody>${avgRow}${body}</tbody></table></div>
-    <div class="hint">% = % aceptación billetes de la semana · Tot = total intentos de billetes. Colores: <span class="sev-ok">OK ≥${(state.params.thrMid*100).toFixed(0)}%</span> · <span class="sev-mid">medio</span> · <span class="sev-high">bajo umbral</span> · <span class="sev-crit">crítico</span></div></div>`;
+    <div class="hint">${sortHint}<br>Colores: <span class="sev-ok">OK ≥${(state.params.thrMid*100).toFixed(0)}%</span> · <span class="sev-mid">medio</span> · <span class="sev-high">bajo umbral</span> · <span class="sev-crit">crítico</span></div></div>`;
 }
 
 // ---------- Pestaña Por Fecha (= hoja dd-mm) ----------
