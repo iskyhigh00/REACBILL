@@ -57,36 +57,60 @@ th.sortable{cursor:pointer}
 th.sortable:hover{background:#2e3d60}
 th.s-asc::after{content:" ▲";font-size:9px;color:var(--accent)}
 th.s-desc::after{content:" ▼";font-size:9px;color:var(--accent)}
-.s1{position:sticky;left:0;    z-index:4;background:var(--panel2)}
-.s2{position:sticky;left:68px; z-index:4;background:var(--panel2)}
-.s3{position:sticky;left:126px;z-index:4;background:var(--panel2)}
-.s4{position:sticky;left:201px;z-index:4;background:var(--panel2)}
+/* sticky cols — widths fijas para coherencia */
+.s1{position:sticky;left:0px;  z-index:4;background:var(--panel2);min-width:76px;width:76px}
+.s2{position:sticky;left:76px; z-index:4;background:var(--panel2);min-width:70px;width:70px}
+.s3{position:sticky;left:146px;z-index:4;background:var(--panel2);min-width:82px;width:82px}
+.s4{position:sticky;left:228px;z-index:4;background:var(--panel2);min-width:58px;width:58px}
 thead .s1,thead .s2,thead .s3,thead .s4{z-index:6}
 tr:hover .s1,tr:hover .s2,tr:hover .s3,tr:hover .s4{background:#26314c}
+/* top scrollbar mirror */
+.tbl-scroll-top{overflow-x:auto;overflow-y:hidden;border:1px solid var(--border);border-bottom:none;border-radius:4px 4px 0 0}
+.tbl-scroll-top>div{height:8px}
+.tbl-scroll-top+.tblWrap{border-radius:0 0 4px 4px}
 input,select{background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:5px;padding:5px 8px;font-size:12px;cursor:text}
 select{cursor:pointer}
 input[type=file]{cursor:pointer}
-input[type=radio]{cursor:pointer;width:auto}
+input[type=radio],input[type=checkbox]{cursor:pointer;width:auto}
 button.btn{background:var(--accent);color:#fff;border:none;border-radius:5px;padding:6px 13px;cursor:pointer;font-size:12px}
 button.btn.danger{background:var(--crit)}
 button.btn.sec{background:var(--panel2);border:1px solid var(--border);color:var(--text)}
+button.btn.sm{padding:3px 9px;font-size:11px}
 .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px}
 .muted{color:var(--muted)}
 .hint{font-size:11px;color:var(--muted);margin-top:5px}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-@media(max-width:900px){.grid2{grid-template-columns:1fr}}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+@media(max-width:900px){.grid2,.grid3{grid-template-columns:1fr}}
 label.fld{display:flex;flex-direction:column;gap:2px;font-size:11px;color:var(--muted)}
 #dropzone{border:2px dashed var(--border);border-radius:7px;padding:20px;text-align:center;color:var(--muted);cursor:pointer}
 #dropzone.over{border-color:var(--accent);color:var(--accent)}
 canvas{max-height:320px}
 .up{color:var(--ok)}.down{color:var(--crit)}
-.lev-radio label{margin-right:10px;cursor:pointer;display:inline-flex;align-items:center;gap:4px}
+/* pctbar */
+.pctbar{display:inline-block;height:8px;border-radius:4px;vertical-align:middle;margin-left:6px}
+/* levantamiento */
+.lev-radio label{margin-right:8px;cursor:pointer;display:inline-flex;align-items:center;gap:3px;font-size:11px}
+/* admin param description */
+.param-block{background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:10px 14px;margin-bottom:8px}
+.param-block .param-title{font-weight:700;font-size:12px;color:var(--accent);margin-bottom:4px}
+.param-block .param-desc{font-size:11px;color:var(--muted);line-height:1.5;margin-bottom:6px}
+.param-block .param-input{display:flex;align-items:center;gap:10px}
+.param-block input{width:90px}
+/* sector cards */
+.sector-card{background:var(--panel2);border:1px solid var(--border);border-radius:7px;padding:10px;cursor:pointer;transition:border-color .15s}
+.sector-card:hover{border-color:var(--accent)}
+.sector-card .sc-num{font-size:28px;font-weight:700}
+.sector-card .sc-lbl{font-size:11px;color:var(--muted)}
+/* maquinas fab cards */
+.fab-card{background:var(--panel2);border:1px solid var(--border);border-radius:7px;padding:12px}
+.fab-card h3{font-size:12px;color:var(--accent);margin-bottom:6px}
 </style>
 </head>
 <body>
 <header>
   <div style="display:flex;align-items:baseline;gap:6px">
-    <h1>REACBILL <span class="ver">v1.5.0-main</span></h1>
+    <h1>REACBILL <span class="ver">v1.5.1-main</span></h1>
     <span id="dataInfo" class="ver"></span>
   </div>
   <div id="statsBar"></div>
@@ -96,19 +120,14 @@ canvas{max-height:320px}
 <main id="main"></main>
 
 <script>
-/* ===== REACBILL v1.5.0-main ===== */
-const VERSION = "1.5.0-main";
+/* ===== REACBILL v1.5.1-main ===== */
+const VERSION = "1.5.1-main";
 const LS_KEY  = "reacbill_v1";
 
 let state = {
-  weeks:     {},
-  weekOrder: [],
-  master:    {},
-  params: {
-    thrOk:0.85, thrMid:0.90, thrCrit:0.40,
-    multMid:3,  multCrit:30,
-    sevMid:10,  sevHigh:50, sevCrit:150
-  }
+  weeks:{}, weekOrder:[],
+  master:{},
+  params:{thrOk:0.85,thrMid:0.90,thrCrit:0.40,multMid:3,multCrit:30,sevMid:10,sevHigh:50,sevCrit:150}
 };
 
 const DENOS = ["20000","10000","5000","2000","1000","SIN_DENO"];
@@ -141,8 +160,12 @@ async function loadState(){
   }catch(e){}
 }
 
+// ---------- Helpers isla/sector ----------
+function islaPrefix(isla){ return isla?isla.split("-")[0]:""; }
+function islaSector(isla){ const p=islaPrefix(isla); return p?p[0]:""; }
+
 // ---------- Cálculos ----------
-function weekCalc(week, params){
+function weekCalc(week,params){
   const out=[]; let sumT=0,nT=0;
   for(const r of week.rows){
     const toAc=DENOS.reduce((s,d)=>s+(r.acc[d]||0),0);
@@ -161,7 +184,6 @@ function weekCalc(week, params){
     }
   }
   const withPct=out.filter(m=>m.pct>0&&m.total>0);
-  // agrupar por modelo dinámico
   const modMap={};
   for(const m of withPct){
     const mod=(state.master[m.mda]?.modelo||"(sin dato)").trim()||"(sin dato)";
@@ -169,17 +191,17 @@ function weekCalc(week, params){
   }
   const avgByMod={};
   for(const mod in modMap) avgByMod[mod]=avg(modMap[mod]);
-  const avgPct=avg(withPct.map(m=>m.pct));
   return {
-    rows:out, avgT, avgPct,
-    avgAdv: avgByMod["Advance"]||0,
-    avgCf:  avgByMod["Cashflow"]||0,
-    cntAdv: (modMap["Advance"]||[]).length,
-    cntCf:  (modMap["Cashflow"]||[]).length,
+    rows:out, avgT,
+    avgPct:   avg(withPct.map(m=>m.pct)),
+    avgAdv:   avgByMod["Advance"]||0,
+    avgCf:    avgByMod["Cashflow"]||0,
+    cntAdv:   (modMap["Advance"]||[]).length,
+    cntCf:    (modMap["Cashflow"]||[]).length,
     avgByMod, modMap,
-    totBill: out.reduce((s,m)=>s+m.total,0),
-    totAc:   out.reduce((s,m)=>s+m.toAc,0),
-    totRe:   out.reduce((s,m)=>s+m.toRe,0)
+    totBill:  out.reduce((s,m)=>s+m.total,0),
+    totAc:    out.reduce((s,m)=>s+m.toAc,0),
+    totRe:    out.reduce((s,m)=>s+m.toRe,0)
   };
 }
 const avg=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:0;
@@ -196,13 +218,20 @@ function allCalcs(){
 function invalidate(){calcCache=null;}
 
 // ---------- Formato ----------
-const fmtP=v=>v==null||isNaN(v)?"—":(v*100).toFixed(2)+"%";
+const fmtP=v=>v==null||isNaN(v)||v<=0?"—":(v*100).toFixed(2)+"%";
 const fmtN=v=>v==null||isNaN(v)?"—":Math.round(v).toLocaleString("es-CL");
 const fmt1=v=>v==null||isNaN(v)?"—":v.toFixed(1);
 function pctClass(p){
   if(!p||p<=0)return"";
   const pr=state.params;
   if(p<pr.thrCrit)return"c-cr";if(p<pr.thrOk)return"c-hi";if(p<pr.thrMid)return"c-mid";return"c-ok";
+}
+function pctBar(p,w=60){
+  if(!p||p<=0)return"";
+  const cls=pctClass(p);
+  const colors={"c-ok":"var(--ok)","c-mid":"var(--mid)","c-hi":"var(--high)","c-cr":"var(--crit)"};
+  const col=colors[cls]||"var(--muted)";
+  return `<span class="pctbar" style="width:${Math.round(p*w)}px;background:${col}"></span>`;
 }
 
 // ---------- Sort genérico ----------
@@ -263,10 +292,7 @@ function fmtLocname(loc){
   const s=String(loc).trim();
   return s.length>2?s.slice(0,s.length-2)+"-"+s.slice(-2):s;
 }
-function getLoc(mda){
-  const m=state.master[mda]; if(!m)return"";
-  return m.isla||(m.locname?fmtLocname(m.locname):"");
-}
+function getLoc(mda){ const m=state.master[mda]; if(!m)return""; return m.isla||(m.locname?fmtLocname(m.locname):""); }
 function getMod(mda){ return (state.master[mda]?.modelo||"").trim(); }
 function getFirm(mda){ return (state.master[mda]?.firm||"").trim(); }
 function dateKeyFromName(name){
@@ -276,17 +302,9 @@ function dateKeyFromName(name){
   if(m)return`${m[3]}-${m[2]}-${m[1]}`;
   return name.replace(/\.[^.]+$/,"").slice(0,10);
 }
-function fmtKey(k){
-  const m=k.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  return m?`${m[3]}-${m[2]}`:k;
-}
-function fmtKeyFull(k){
-  const m=k.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  return m?`${m[3]}/${m[2]}/${m[1]}`:k;
-}
-function sortWeeks(){
-  state.weekOrder=Object.keys(state.weeks).sort((a,b)=>a.localeCompare(b));
-}
+function fmtKey(k){ const m=k.match(/^(\d{4})-(\d{2})-(\d{2})$/); return m?`${m[3]}-${m[2]}`:k; }
+function fmtKeyFull(k){ const m=k.match(/^(\d{4})-(\d{2})-(\d{2})$/); return m?`${m[3]}/${m[2]}/${m[1]}`:k; }
+function sortWeeks(){ state.weekOrder=Object.keys(state.weeks).sort((a,b)=>a.localeCompare(b)); }
 
 function parseCnText(text){
   const lines=text.split(/\r?\n/).filter(l=>l.trim());
@@ -306,7 +324,6 @@ function parseCnText(text){
   }
   return n;
 }
-
 function parseDataSheet(ws){
   const arr=XLSX.utils.sheet_to_json(ws,{header:1,defval:null});
   if(!arr.length)return null;
@@ -341,7 +358,6 @@ function parseDataSheet(ws){
   }
   return rows.length?{rows}:null;
 }
-
 function parseContadores(ws){
   const arr=XLSX.utils.sheet_to_json(ws,{header:1,defval:null});
   const hdr=(arr[0]||[]).map(h=>String(h??"").trim().toUpperCase());
@@ -361,17 +377,14 @@ function parseContadores(ws){
   }
   return n;
 }
-
 function parseSeguimientoModelos(ws){
   const arr=XLSX.utils.sheet_to_json(ws,{header:1,defval:null});
   let n=0;
   for(let r=4;r<arr.length;r++){
     const row=arr[r]; if(!row)continue;
     const mda=String(row[0]??"").trim(); if(!mda||!/^\d+$/.test(mda))continue;
-    const fab=String(row[1]??"").trim();
-    const mod=String(row[2]??"").trim();
-    const firm=String(row[3]??"").trim();
-    const isla=String(row[4]??"").trim();
+    const fab=String(row[1]??"").trim(), mod=String(row[2]??"").trim();
+    const firm=String(row[3]??"").trim(), isla=String(row[4]??"").trim();
     state.master[mda]={...(state.master[mda]||{}),
       fabricante:fab||state.master[mda]?.fabricante||"",
       modelo:mod||state.master[mda]?.modelo||"",
@@ -389,20 +402,12 @@ async function handleFiles(files){
       const ext=(f.name.match(/\.([^.]+)$/)||["",""])[1].toLowerCase();
       const isExcel=["xlsx","xls","xlsm","xlsb"].includes(ext);
       if(!isExcel){
-        let text;
-        try{ text=await f.text(); }catch(e){ text=""; }
+        let text; try{ text=await f.text(); }catch(e){ text=""; }
         if((text.includes("SMDBID")||text.includes("LOCNAME"))&&text.includes(";")){
           const n=parseCnText(text);
-          if(n>0){
-            log.push(`${f.name}: ${n} ubicaciones cargadas (cn)`);
-            await saveState(); renderAll();
-            document.getElementById("uplog").innerHTML=log.map(l=>"• "+l).join("<br>");
-            continue;
-          }
+          if(n>0){ log.push(`${f.name}: ${n} ubicaciones cargadas (cn)`); await saveState(); renderAll(); document.getElementById("uplog").innerHTML=log.map(l=>"• "+l).join("<br>"); continue; }
         }
-        if(ext&&!["csv","txt","tsv"].includes(ext)){
-          log.push(`${f.name}: formato no reconocido`); continue;
-        }
+        if(ext&&!["csv","txt","tsv"].includes(ext)){ log.push(`${f.name}: formato no reconocido`); continue; }
       }
       const wb=XLSX.read(await f.arrayBuffer(),{type:"array"});
       const masterSheets=wb.SheetNames.filter(n=>/^\d{2}-\d{2}$/.test(n));
@@ -425,11 +430,8 @@ async function handleFiles(files){
         let sn=wb.SheetNames.find(n=>/ultima/i.test(n));
         if(!sn){ for(const c of wb.SheetNames){ if(parseDataSheet(wb.Sheets[c])){sn=c;break;} } }
         const wk=sn?parseDataSheet(wb.Sheets[sn]):null;
-        if(wk){
-          const key=dateKeyFromName(f.name);
-          state.weeks[key]=wk;
-          log.push(`${f.name} → ${fmtKeyFull(key)} (${wk.rows.length} máq., hoja: ${sn})`);
-        } else log.push(`${f.name}: formato de datos no reconocido`);
+        if(wk){ const key=dateKeyFromName(f.name); state.weeks[key]=wk; log.push(`${f.name} → ${fmtKeyFull(key)} (${wk.rows.length} máq., hoja: ${sn})`); }
+        else log.push(`${f.name}: formato de datos no reconocido`);
         if(wb.Sheets["Contadores"])log.push("Contadores: "+parseContadores(wb.Sheets["Contadores"])+" máquinas");
         if(wb.Sheets["Seguimiento"])parseSeguimientoModelos(wb.Sheets["Seguimiento"]);
       }
@@ -442,11 +444,10 @@ async function handleFiles(files){
 
 // ---------- UI ----------
 const TABS=[
- ["carga","📂 Carga"],["resumen","📊 Resumen"],["fecha","📅 Por Fecha"],
- ["ranking","🚨 Gravedad"],["tendencias","📈 Tendencias"],
- ["modelos","🔧 Modelos"],["levantamiento","📋 Levantamiento"],
- ["denominaciones","💵 Denominaciones"],
- ["buscador","🔎 Buscador"],["admin","⚙️ Admin"]
+  ["carga","📂 Carga"],["resumen","📊 Resumen"],["fecha","📅 Por Fecha"],
+  ["ranking","🚨 Gravedad"],["sectores","🗺 Sectores"],["tendencias","📈 Tendencias"],
+  ["modelos","🔧 Modelos"],["maquinas","🎰 Máquinas"],
+  ["denominaciones","💵 Denominaciones"],["buscador","🔎 Buscador"],["admin","⚙️ Admin"]
 ];
 let activeTab="carga";
 function buildNav(){
@@ -457,18 +458,16 @@ function showTab(id){
   activeTab=id;
   document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("active",b.id==="nb-"+id));
   document.querySelectorAll(".tab").forEach(t=>t.classList.toggle("active",t.id==="tab-"+id));
-  ({resumen:renderResumen,fecha:renderFecha,ranking:renderRanking,tendencias:renderTendencias,
-    modelos:renderModelos,levantamiento:renderLevantamiento,
+  ({resumen:renderResumen,fecha:renderFecha,ranking:renderRanking,sectores:renderSectores,
+    tendencias:renderTendencias,modelos:renderModelos,maquinas:renderMaquinas,
     denominaciones:renderDenos,buscador:renderBuscador,admin:renderAdmin}[id]||(() => {}))();
 }
 function buildShells(){
   document.getElementById("main").innerHTML=TABS.map(([id])=>`<div class="tab" id="tab-${id}"></div>`).join("");
   document.getElementById("tab-carga").innerHTML=`
     <div class="card"><h2>Carga de archivos</h2>
-      <div id="dropzone">
-        Arrastra aquí archivos Excel semanales, la planilla histórica o el archivo <b>cn</b> de ubicaciones<br>
-        <small style="color:var(--muted)">Puedes subir varios a la vez</small>
-      </div>
+      <div id="dropzone">Arrastra aquí archivos Excel semanales, la planilla histórica o el archivo <b>cn</b> de ubicaciones<br>
+        <small style="color:var(--muted)">Puedes subir varios a la vez</small></div>
       <input type="file" id="fileInput" multiple style="display:none">
       <div class="hint" style="margin-top:8px">
         • <b>Planillas semanales</b>: la fecha se lee del nombre (YYYY-MM-DD o DD-MM-YYYY).<br>
@@ -489,44 +488,48 @@ function buildShells(){
   dz.ondragleave=()=>dz.classList.remove("over");
   dz.ondrop=e=>{e.preventDefault();dz.classList.remove("over");handleFiles([...e.dataTransfer.files]);};
 }
-
 function renderParamsBar(){
   const p=state.params;
   document.getElementById("paramsBar").innerHTML=
-    `<span>OK ≥ <b>${(p.thrOk*100).toFixed(0)}%</b></span>
-     <span>Medio &lt; <b>${(p.thrMid*100).toFixed(0)}%</b> ×<b>${p.multMid}</b></span>
-     <span>Crítico &lt; <b>${(p.thrCrit*100).toFixed(0)}%</b> ×<b>${p.multCrit}</b></span>
-     <span>Badges: ≥<b>${p.sevMid}</b> / ≥<b>${p.sevHigh}</b> / ≥<b>${p.sevCrit}</b></span>`;
+    `<span>Verde ≥ <b>${(p.thrMid*100).toFixed(0)}%</b></span>
+     <span>Amarillo <b>${(p.thrOk*100).toFixed(0)}–${(p.thrMid*100).toFixed(0)}%</b></span>
+     <span>Alerta &lt; <b>${(p.thrOk*100).toFixed(0)}%</b></span>
+     <span>Crítico &lt; <b>${(p.thrCrit*100).toFixed(0)}%</b> ×<b>${p.multCrit}</b></span>`;
 }
-
 function renderLoadedInfo(){
   const el=document.getElementById("loadedInfo"); if(!el)return;
   const sb=document.getElementById("statsBar");
   if(!state.weekOrder.length){
     el.innerHTML='<span class="muted">Sin datos. Sube archivos.</span>';
-    if(sb)sb.innerHTML="";
-    document.getElementById("dataInfo").textContent="";
-    return;
+    if(sb)sb.innerHTML=""; document.getElementById("dataInfo").textContent=""; return;
   }
   const allMdas=new Set(state.weekOrder.flatMap(d=>state.weeks[d].rows.map(r=>r.mda)));
   const withLoc=[...allMdas].filter(m=>getLoc(m)).length;
   el.innerHTML=`<b>${state.weekOrder.length}</b> semanas · <b>${allMdas.size}</b> máquinas · <b>${withLoc}</b> con ubicación<br>
     <span class="muted" style="font-size:11px">${state.weekOrder.map(d=>fmtKeyFull(d)).join("  ·  ")}</span>`;
   document.getElementById("dataInfo").textContent=` · ${state.weekOrder.length} sem · ${allMdas.size} máq`;
-  // Stats del header: última semana
   const lastD=state.weekOrder[state.weekOrder.length-1];
   const lastC=allCalcs()[lastD];
   const withData=lastC.rows.filter(m=>m.pct>0&&m.total>0);
   const above=withData.filter(m=>m.pct>=lastC.avgPct).length;
   const below=withData.filter(m=>m.pct<lastC.avgPct).length;
-  const alerts=lastC.rows.filter(m=>m.score>0).length;
   if(sb) sb.innerHTML=
     `<span><span class="sv">${fmtP(lastC.avgPct)}</span> <span class="sl">% prom. ${fmtKey(lastD)}</span></span>
      <span><span class="sv" style="color:var(--ok)">↑${above}</span> <span class="sl">sobre prom.</span></span>
      <span><span class="sv" style="color:var(--crit)">↓${below}</span> <span class="sl">bajo prom.</span></span>
-     <span><span class="sv" style="color:var(--high)">${alerts}</span> <span class="sl">con alerta</span></span>
+     <span><span class="sv" style="color:var(--high)">${lastC.rows.filter(m=>m.score>0).length}</span> <span class="sl">con alerta</span></span>
      ${lastC.avgAdv>0?`<span><span class="sv" style="color:#2ecc71">${fmtP(lastC.avgAdv)}</span> <span class="sl">Advance (${lastC.cntAdv})</span></span>`:""}
      ${lastC.avgCf>0?`<span><span class="sv" style="color:#f1c40f">${fmtP(lastC.avgCf)}</span> <span class="sl">Cashflow (${lastC.cntCf})</span></span>`:""}`;
+}
+
+// ---------- top scrollbar sync ----------
+function syncTopScroll(topId, wrapId, tblId){
+  const top=document.getElementById(topId), wrap=document.getElementById(wrapId), tbl=document.getElementById(tblId);
+  if(!top||!wrap||!tbl)return;
+  top.firstElementChild.style.width=tbl.offsetWidth+"px";
+  let skip=false;
+  top.onscroll=()=>{ if(skip){skip=false;return;} skip=true; wrap.scrollLeft=top.scrollLeft; };
+  wrap.onscroll=()=>{ if(skip){skip=false;return;} skip=true; top.scrollLeft=wrap.scrollLeft; };
 }
 
 // ---------- Resumen ----------
@@ -546,7 +549,8 @@ function renderResumen(){
         oninput="resFiltroVal=this.value;renderResBody();" style="width:280px;cursor:text">
       <span class="hint">Click en % o Total para ordenar por semana</span>
     </div>
-    <div id="resTblWrap"></div></div>`;
+    <div id="resTopScroll" class="tbl-scroll-top"><div></div></div>
+    <div class="tblWrap" id="resTblWrap" style="max-height:75vh"></div></div>`;
   renderResBody();
 }
 function renderResBody(){
@@ -558,10 +562,13 @@ function renderResBody(){
     mdaMap.get(m.mda)[d]=m;
   }
   const ss=resSortState;
-  // 4 sticky cols: MDA, ISLA, Modelo, Firm
-  const sCols=`<th class="s1 left sortable">MDA</th><th class="s2 left sortable">ISLA</th><th class="s3 left sortable">Modelo</th><th class="s4 left sortable">Firm</th>`;
-  let head=`<tr>${sCols}`;
-  let head2=`<tr><th class="s1"></th><th class="s2"></th><th class="s3"></th><th class="s4"></th>`;
+  let head=`<tr>
+    <th class="s1 left sortable">MDA</th>
+    <th class="s2 left sortable">ISLA</th>
+    <th class="s3 left sortable">Modelo</th>
+    <th class="s4 left sortable">Firm</th>`;
+  let head2=`<tr>
+    <th class="s1"></th><th class="s2"></th><th class="s3"></th><th class="s4"></th>`;
   for(const d of weeks){
     const ps=ss&&ss.wk===d&&ss.field==="pct", ts=ss&&ss.wk===d&&ss.field==="tot";
     head+=`<th colspan="2" style="text-align:center">${fmtKey(d)}</th>`;
@@ -586,14 +593,13 @@ function renderResBody(){
     let tr=`<td class="s1 left"><b>${mda}</b></td><td class="s2 left muted">${loc}</td><td class="s3 left muted">${mod}</td><td class="s4 left muted" style="font-size:10px">${firm}</td>`;
     for(const d of weeks){
       const m=mdaMap.get(mda)?.[d];
-      if(m&&m.pct>0) tr+=`<td class="${pctClass(m.pct)}">${fmtP(m.pct)}</td><td>${fmtN(m.total)}</td>`;
-      else tr+=`<td></td><td></td>`;
+      tr+=(m&&m.pct>0)?`<td class="${pctClass(m.pct)}">${fmtP(m.pct)}</td><td>${fmtN(m.total)}</td>`:`<td></td><td></td>`;
     }
     body+=`<tr>${tr}</tr>`;
   }
-  wrap.innerHTML=`<div class="tblWrap" style="max-height:75vh"><table id="tblResumen">
-    <thead>${head}${head2}</thead><tbody>${body}</tbody></table></div>`;
+  wrap.innerHTML=`<table id="tblResumen"><thead>${head}${head2}</thead><tbody>${body}</tbody></table>`;
   attachSort("tblResumen");
+  requestAnimationFrame(()=>syncTopScroll("resTopScroll","resTblWrap","tblResumen"));
 }
 
 // ---------- Por Fecha ----------
@@ -608,17 +614,14 @@ function renderFecha(){
   for(const m of rows){
     const ms=state.master[m.mda]||{}, sc=sevClass(m.score,p);
     body+=`<tr>
-      <td class="left"><b>${m.mda}</b></td>
-      <td class="left">${getLoc(m.mda)}</td>
-      <td class="left">${ms.modelo||""}</td>
-      <td class="left" style="font-size:10px">${ms.firm||""}</td>
+      <td class="left"><b>${m.mda}</b></td><td class="left">${getLoc(m.mda)}</td>
+      <td class="left">${ms.modelo||""}</td><td class="left" style="font-size:10px">${ms.firm||""}</td>
       <td>${fmtN(m.tarjAc)}</td><td>${fmtN(m.tarjRe)}</td><td class="${pctClass(m.pctTarj)}">${fmtP(m.pctTarj)}</td>
       ${DENOS.map(dn=>`<td>${fmtN(m.acc[dn]||0)}</td>`).join("")}
       ${DENOS.map(dn=>`<td>${fmtN(m.rej[dn]||0)}</td>`).join("")}
       <td><b>${fmtN(m.toAc)}</b></td><td><b>${fmtN(m.toRe)}</b></td><td><b>${fmtN(m.total)}</b></td>
       <td class="${pctClass(m.pct)}"><b>${m.pct>0?fmtP(m.pct):"—"}</b></td>
-      <td>${fmt1(m.score)}</td>
-      <td><span class="badge b-${sc}">${SEVLBL[sc]}</span></td></tr>`;
+      <td>${fmt1(m.score)}</td><td><span class="badge b-${sc}">${SEVLBL[sc]}</span></td></tr>`;
   }
   el.innerHTML=`<div class="card"><h2>Detalle semanal</h2>
     <div class="row">
@@ -634,21 +637,17 @@ function renderFecha(){
     </div>
     <div class="tblWrap" style="max-height:72vh"><table id="tblFecha">
       <thead>
-        <tr>
-          <th class="left sortable">MDA</th><th class="left sortable">ISLA</th>
+        <tr><th class="left sortable">MDA</th><th class="left sortable">ISLA</th>
           <th class="left sortable">Modelo</th><th class="left sortable">Firm</th>
           <th colspan="3" class="sortable">Tarjetas</th>
           <th colspan="6">Bill. Aceptado</th><th colspan="6">Bill. Rechazado</th>
           <th class="sortable">ToAc</th><th class="sortable">ToRe</th><th class="sortable">Total</th>
-          <th class="sortable">%Acep</th><th class="sortable">Puntaje</th><th>Gravedad</th>
-        </tr>
-        <tr>
-          <th></th><th></th><th></th><th></th>
+          <th class="sortable">%Acep</th><th class="sortable">Puntaje</th><th>Gravedad</th></tr>
+        <tr><th></th><th></th><th></th><th></th>
           <th class="sortable">Ac</th><th class="sortable">Re</th><th class="sortable">%</th>
           ${DENOS.map(dn=>`<th class="sortable">${dn}</th>`).join("")}
           ${DENOS.map(dn=>`<th class="sortable">${dn}</th>`).join("")}
-          <th></th><th></th><th></th><th></th><th></th><th></th>
-        </tr>
+          <th></th><th></th><th></th><th></th><th></th><th></th></tr>
       </thead><tbody>${body}</tbody></table></div></div>`;
   attachSort("tblFecha");
 }
@@ -666,16 +665,14 @@ function renderRanking(){
   let body="";
   rows.forEach((m,i)=>{
     const ms=state.master[m.mda]||{}, sc=sevClass(m.score,p);
-    const pm=prevMap[m.mda];
-    const trend=pm&&pm.total>0?m.pct-pm.pct:null;
+    const pm=prevMap[m.mda], trend=pm&&pm.total>0?m.pct-pm.pct:null;
     body+=`<tr>
       <td>${i+1}</td><td class="left"><b>${m.mda}</b></td><td class="left">${getLoc(m.mda)}</td>
       <td class="left">${ms.modelo||""}</td><td class="left" style="font-size:10px">${ms.firm||""}</td>
       <td class="${pctClass(m.pct)}"><b>${fmtP(m.pct)}</b></td>
       <td>${fmtN(m.total)}</td><td>${fmtN(m.toRe)}</td>
       <td class="${trend==null?'':trend>=0?'up':'down'}">${trend==null?"—":(trend>=0?"+":"")+(trend*100).toFixed(1)+"%"}</td>
-      <td><b>${fmt1(m.score)}</b></td>
-      <td><span class="badge b-${sc}">${SEVLBL[sc]}</span></td></tr>`;
+      <td><b>${fmt1(m.score)}</b></td><td><span class="badge b-${sc}">${SEVLBL[sc]}</span></td></tr>`;
   });
   const cnt={cr:0,hi:0,mid:0}; rows.forEach(m=>{const s=sevClass(m.score,p);if(cnt[s]!=null)cnt[s]++;});
   el.innerHTML=`<div class="card"><h2>Ranking de gravedad</h2>
@@ -696,6 +693,111 @@ function renderRanking(){
       </tr></thead><tbody>${body}</tbody></table></div></div>`;
   attachSort("tblRank");
 }
+
+// ---------- Sectores ----------
+function renderSectores(){
+  const el=document.getElementById("tab-sectores");
+  if(!state.weekOrder.length){el.innerHTML='<div class="card muted">Sin datos.</div>';return;}
+  const selSector=document.getElementById("secSel")?.value||"";
+  const selIsla=document.getElementById("secIslaSel")?.value||"";
+  const calcs=allCalcs();
+  const lastD=state.weekOrder[state.weekOrder.length-1];
+  const lastC=calcs[lastD];
+  // agrupar por sector → isla_prefix → máquinas
+  const sectorMap={};
+  for(const [mda,ms] of Object.entries(state.master)){
+    const isla=ms.isla||"";
+    if(!isla)continue;
+    const prefix=islaPrefix(isla);
+    const sector=islaSector(isla);
+    if(!sectorMap[sector])sectorMap[sector]={};
+    if(!sectorMap[sector][prefix])sectorMap[sector][prefix]=[];
+    sectorMap[sector][prefix].push(mda);
+  }
+  const sectors=Object.keys(sectorMap).sort();
+  // Resumen de sectores
+  function islaStats(mdas,c){
+    const rows=c.rows.filter(m=>mdas.includes(m.mda)&&m.pct>0&&m.total>0);
+    return { pct:avg(rows.map(m=>m.pct)), tot:rows.reduce((s,m)=>s+m.total,0), alerts:rows.filter(m=>m.score>0).length, n:rows.length };
+  }
+  // cards de sectores
+  let sectorCards=`<div class="grid3" style="margin-bottom:12px">`;
+  for(const sec of sectors){
+    const allMdas=Object.values(sectorMap[sec]).flat();
+    const st=islaStats(allMdas,lastC);
+    const cls=pctClass(st.pct);
+    const active=sec===selSector?"border:2px solid var(--accent)":"";
+    sectorCards+=`<div class="sector-card" onclick="secSelSector('${sec}')" style="${active}">
+      <div class="sc-num" style="${cls?`color:${cls==='c-ok'?'var(--ok)':cls==='c-mid'?'var(--mid)':cls==='c-hi'?'var(--high)':'var(--crit)'}`:''}">${sec}xx</div>
+      <div style="font-size:14px;font-weight:600;margin:2px 0">${fmtP(st.pct)}</div>
+      <div class="sc-lbl">${Object.keys(sectorMap[sec]).length} islas · ${allMdas.length} máq · ${st.alerts} alertas</div>
+    </div>`;
+  }
+  sectorCards+="</div>";
+  // detalle de sector seleccionado
+  let sectorDetail="";
+  if(selSector&&sectorMap[selSector]){
+    const islas=Object.keys(sectorMap[selSector]).sort();
+    // tabla de islas del sector
+    let islaRows="";
+    for(const prefix of islas){
+      const mdas=sectorMap[selSector][prefix];
+      const st=islaStats(mdas,lastC);
+      const prev=state.weekOrder.length>=2?islaStats(mdas,calcs[state.weekOrder[state.weekOrder.length-2]]):null;
+      const trend=prev&&prev.pct>0?st.pct-prev.pct:null;
+      const active=prefix===selIsla?"background:var(--panel)":"";
+      islaRows+=`<tr style="cursor:pointer;${active}" onclick="secSelIsla('${prefix}')">
+        <td class="left"><b>${prefix}</b></td>
+        <td>${mdas.length}</td>
+        <td class="${pctClass(st.pct)}">${fmtP(st.pct)}</td>
+        <td>${pctBar(st.pct,50)}</td>
+        <td>${fmtN(st.tot)}</td>
+        <td class="${trend==null?'':trend>=0?'up':'down'}">${trend==null?"—":(trend>=0?"+":"")+(trend*100).toFixed(1)+"%"}</td>
+        <td style="color:${st.alerts>0?'var(--high)':'var(--muted)'}">${st.alerts}</td>
+      </tr>`;
+    }
+    sectorDetail=`<div class="card"><h2>Sector ${selSector} — islas</h2>
+      <div class="tblWrap" style="max-height:35vh"><table id="tblSecIslas">
+        <thead><tr>
+          <th class="left sortable">ISLA</th><th class="sortable">Máq.</th>
+          <th class="sortable">% prom.</th><th>Barra</th>
+          <th class="sortable">Total bill.</th><th class="sortable">Δ%</th><th class="sortable">Alertas</th>
+        </tr></thead><tbody>${islaRows}</tbody></table></div></div>`;
+    attachSort("tblSecIslas");
+    // detalle de isla seleccionada
+    if(selIsla&&sectorMap[selSector][selIsla]){
+      const mdas=sectorMap[selSector][selIsla];
+      let machRows="";
+      for(const mda of mdas.sort((a,b)=>a.localeCompare(b,"es",{numeric:true}))){
+        const ms=state.master[mda]||{};
+        let hist="";
+        for(const d of state.weekOrder){
+          const m=calcs[d]?.rows.find(r=>r.mda===mda);
+          hist+=(m&&m.pct>0)?`<td class="${pctClass(m.pct)}">${fmtP(m.pct)}<br><span class="muted">${fmtN(m.total)}</span></td>`:`<td class="muted">—</td>`;
+        }
+        machRows+=`<tr><td class="left"><b>${mda}</b></td><td class="left">${getLoc(mda)}</td>
+          <td class="left">${ms.modelo||"—"}</td><td class="left" style="font-size:10px">${ms.firm||"—"}</td>
+          <td class="left">${ms.juego||"—"}</td>${hist}</tr>`;
+      }
+      const islaS=islaStats(mdas,lastC);
+      sectorDetail+=`<div class="card"><h2>Isla ${selIsla} — ${mdas.length} máquinas · ${fmtP(islaS.pct)} prom. · ${islaS.alerts} alertas</h2>
+        <div class="tblWrap" style="max-height:40vh"><table id="tblSecMach">
+          <thead><tr><th class="left sortable">MDA</th><th class="left sortable">ISLA</th>
+            <th class="left sortable">Modelo</th><th class="left sortable">Firm</th><th class="left sortable">Juego</th>
+            ${state.weekOrder.map(d=>`<th class="sortable">${fmtKey(d)}</th>`).join("")}</tr></thead>
+          <tbody>${machRows}</tbody></table></div></div>`;
+      attachSort("tblSecMach");
+    }
+  }
+  el.innerHTML=`<div class="card"><h2>Vista por sectores</h2>
+    <div class="hint" style="margin-bottom:10px">Sector = primer dígito de la ISLA (ej: sector 5 = islas 5xx). Semana analizada: <b>${fmtKeyFull(lastD)}</b></div>
+    ${sectorCards}
+    <input type="hidden" id="secSel" value="${selSector}">
+    <input type="hidden" id="secIslaSel" value="${selIsla}">
+  </div>${sectorDetail}`;
+}
+function secSelSector(s){ document.getElementById("secSel").value=s; document.getElementById("secIslaSel").value=""; renderSectores(); }
+function secSelIsla(p){ document.getElementById("secIslaSel").value=p; renderSectores(); }
 
 // ---------- Tendencias ----------
 let chTrend=null,chVol=null,chAl=null;
@@ -723,7 +825,7 @@ function renderTendencias(){
     data:{labels:lbl,datasets:[{label:"Máquinas con alerta",data:w.map(d=>calcs[d].rows.filter(m=>m.score>0).length),backgroundColor:"#e67e22"}]}});
 }
 
-// ---------- Modelos (comparativa por modelo de billetero) ----------
+// ---------- Modelos ----------
 function renderModelos(){
   const el=document.getElementById("tab-modelos");
   if(!state.weekOrder.length){el.innerHTML='<div class="card muted">Sin datos.</div>';return;}
@@ -731,21 +833,19 @@ function renderModelos(){
   const sel=document.getElementById("modSel")?.value;
   const d=state.weekOrder.includes(sel)?sel:state.weekOrder[state.weekOrder.length-1];
   const c=calcs[d];
-  // agrupar por modelo
   const groups={};
   for(const m of c.rows){
     const mod=(state.master[m.mda]?.modelo||"(sin dato)").trim()||"(sin dato)";
-    const g=groups[mod]=groups[mod]||{n:0,tot:0,ac:0,re:0,pcts:[],alert:0,mdas:[]};
-    g.n++; g.tot+=m.total; g.ac+=m.toAc; g.re+=m.toRe; g.mdas.push(m.mda);
+    const g=groups[mod]=groups[mod]||{n:0,tot:0,ac:0,re:0,pcts:[],alert:0};
+    g.n++; g.tot+=m.total; g.ac+=m.toAc; g.re+=m.toRe;
     if(m.pct>0)g.pcts.push(m.pct); if(m.score>0)g.alert++;
   }
   const rows=Object.entries(groups).sort((a,b)=>b[1].tot-a[1].tot);
-  let body=rows.map(([mod,g])=>`
-    <tr><td class="left"><b>${mod}</b></td><td>${g.n}</td><td>${fmtN(g.tot)}</td><td>${fmtN(g.re)}</td>
+  let body=rows.map(([mod,g])=>`<tr>
+    <td class="left"><b>${mod}</b></td><td>${g.n}</td><td>${fmtN(g.tot)}</td><td>${fmtN(g.re)}</td>
     <td class="${pctClass(avg(g.pcts))}">${fmtP(avg(g.pcts))}</td>
     <td class="${pctClass(g.tot>0?g.ac/g.tot:0)}">${g.tot>0?fmtP(g.ac/g.tot):"—"}</td>
     <td>${g.alert}</td></tr>`).join("");
-  // tendencia histórica por modelo
   const allMods=[...new Set(state.weekOrder.flatMap(d2=>
     calcs[d2].rows.map(m=>(state.master[m.mda]?.modelo||"(sin dato)").trim()||"(sin dato)")))].sort();
   const colors=["#2ecc71","#f1c40f","#4f8ff7","#e74c3c","#9b59b6","#1abc9c"];
@@ -753,8 +853,8 @@ function renderModelos(){
   const datasets=allMods.map((mod,i)=>({
     label:mod,
     data:state.weekOrder.map(d2=>{
-      const rows2=calcs[d2].rows.filter(m=>(state.master[m.mda]?.modelo||"(sin dato)").trim()===mod&&m.pct>0);
-      return rows2.length?+(avg(rows2.map(m=>m.pct))*100).toFixed(2):null;
+      const r2=calcs[d2].rows.filter(m=>(state.master[m.mda]?.modelo||"(sin dato)").trim()===mod&&m.pct>0);
+      return r2.length?+(avg(r2.map(m=>m.pct))*100).toFixed(2):null;
     }),
     borderColor:colors[i%colors.length],tension:.3,spanGaps:true
   }));
@@ -766,73 +866,61 @@ function renderModelos(){
     <div class="card" style="margin-top:12px"><h2>Tendencia % por modelo</h2><canvas id="cvModTrend" style="max-height:280px"></canvas></div>`;
   attachSort("tblMod");
   Chart.defaults.color="#8fa0c0"; Chart.defaults.borderColor="#2e3b58";
-  new Chart(document.getElementById("cvModTrend"),{type:"line",
-    data:{labels:lbl,datasets},
-    options:{scales:{y:{ticks:{callback:v=>v+"%"}}}}});
+  new Chart(document.getElementById("cvModTrend"),{type:"line",data:{labels:lbl,datasets},options:{scales:{y:{ticks:{callback:v=>v+"%"}}}}});
 }
 
-// ---------- Levantamiento ----------
-function renderLevantamiento(){
-  const el=document.getElementById("tab-levantamiento");
-  const allIslas=[...new Set(Object.values(state.master).map(m=>m.isla||"").filter(Boolean))].sort();
-  if(!allIslas.length){
-    el.innerHTML='<div class="card muted">Sin datos de islas. Carga el archivo cn primero.</div>';return;
+// ---------- Máquinas (por fabricante de gabinete) ----------
+function renderMaquinas(){
+  const el=document.getElementById("tab-maquinas");
+  if(!state.weekOrder.length){el.innerHTML='<div class="card muted">Sin datos.</div>';return;}
+  const calcs=allCalcs();
+  const sel=document.getElementById("maqSel")?.value;
+  const d=state.weekOrder.includes(sel)?sel:state.weekOrder[state.weekOrder.length-1];
+  const c=calcs[d];
+  // agrupar por fabricante → juego
+  const fabMap={};
+  for(const m of c.rows){
+    const ms=state.master[m.mda]||{};
+    const fab=ms.fabricante||"(sin dato)";
+    const jue=ms.juego||"(sin dato)";
+    if(!fabMap[fab])fabMap[fab]={total:0,ac:0,pcts:[],alerts:0,juegos:{}};
+    const f=fabMap[fab];
+    f.total+=m.total; f.ac+=m.toAc; if(m.pct>0)f.pcts.push(m.pct); if(m.score>0)f.alerts++;
+    if(!f.juegos[jue])f.juegos[jue]={n:0,total:0,ac:0,pcts:[],alerts:0};
+    const j=f.juegos[jue];
+    j.n++; j.total+=m.total; j.ac+=m.toAc; if(m.pct>0)j.pcts.push(m.pct); if(m.score>0)j.alerts++;
   }
-  const stored=document.getElementById("levSel")?.value||"";
-  const sel=allIslas.includes(stored)?stored:allIslas[0];
-  const machines=Object.entries(state.master)
-    .filter(([,ms])=>(ms.isla||"")===sel)
-    .sort(([a],[b])=>a.localeCompare(b,"es",{numeric:true}));
-  // modelos conocidos (para radio buttons dinámicos)
-  const knownMods=[...new Set(Object.values(state.master).map(m=>m.modelo||"").filter(Boolean))];
-  if(!knownMods.includes("Advance"))knownMods.unshift("Advance");
-  if(!knownMods.includes("Cashflow")&&!knownMods.includes("Advance"))knownMods.push("Cashflow");
-  else if(!knownMods.includes("Cashflow"))knownMods.push("Cashflow");
-  const modOpts=["Advance","Cashflow",...knownMods.filter(m=>m!=="Advance"&&m!=="Cashflow"),""];
-  let rows="";
-  for(const [mda,ms] of machines){
-    const mod=ms.modelo||"";
-    const radios=modOpts.map(v=>`<label><input type="radio" name="lev_${mda}" value="${v}" ${mod===v?"checked":""}> ${v||"—"}</label>`).join(" ");
-    rows+=`<tr>
-      <td class="left"><b>${mda}</b></td>
-      <td class="left">${ms.juego||"—"}</td>
-      <td class="left" style="font-size:10px">${ms.firm||"—"}</td>
-      <td class="left lev-radio">${radios}</td>
-    </tr>`;
+  const fabs=Object.entries(fabMap).sort((a,b)=>b[1].total-a[1].total);
+  let cards="";
+  for(const [fab,f] of fabs){
+    const pctPond=f.total>0?f.ac/f.total:0;
+    const juegosRows=Object.entries(f.juegos).sort((a,b)=>b[1].total-a[1].total).map(([jue,j])=>{
+      const jp=avg(j.pcts);
+      return `<tr>
+        <td class="left">${jue}</td>
+        <td>${j.n}</td>
+        <td class="${pctClass(jp)}">${fmtP(jp)}</td>
+        <td>${pctBar(jp,50)}</td>
+        <td>${fmtN(j.total)}</td>
+        <td>${j.alerts>0?`<span style="color:var(--high)">${j.alerts}</span>`:"0"}</td>
+      </tr>`;
+    }).join("");
+    cards+=`<div class="fab-card">
+      <h3>${fab}</h3>
+      <div class="kpis" style="margin-bottom:8px">
+        <div class="kpi"><div class="v" style="font-size:15px" class="${pctClass(pctPond)}">${fmtP(pctPond)}</div><div class="l">% ponderado</div></div>
+        <div class="kpi"><div class="v" style="font-size:15px">${fmtP(avg(f.pcts))}</div><div class="l">% promedio</div></div>
+        <div class="kpi"><div class="v" style="font-size:15px;color:var(--high)">${f.alerts}</div><div class="l">Con alerta</div></div>
+      </div>
+      <div class="tblWrap"><table>
+        <thead><tr><th class="left">Juego / Modelo</th><th>Máq.</th><th>% prom.</th><th>Barra</th><th>Total bill.</th><th>Alertas</th></tr></thead>
+        <tbody>${juegosRows}</tbody></table></div>
+    </div>`;
   }
-  const selOpts=allIslas.map(i=>`<option value="${i}" ${i===sel?"selected":""}>${i}</option>`).join("");
-  el.innerHTML=`<div class="card"><h2>Levantamiento de modelos por isla</h2>
-    <div class="row">
-      <label class="fld">ISLA <select id="levSel" onchange="renderLevantamiento()">${selOpts}</select></label>
-      <button class="btn sec" onclick="levSetAll('Advance')">Toda → Advance</button>
-      <button class="btn sec" onclick="levSetAll('Cashflow')">Toda → Cashflow</button>
-      <button class="btn" onclick="levGuardar()">💾 Guardar</button>
-      <span id="levMsg" class="hint"></span>
-    </div>
-    <div class="tblWrap" style="max-height:72vh"><table id="tblLev">
-      <thead><tr>
-        <th class="left sortable">MDA</th>
-        <th class="left sortable">Juego</th>
-        <th class="left sortable">Firmware</th>
-        <th class="left">Modelo</th>
-      </tr></thead>
-      <tbody>${rows}</tbody>
-    </table></div></div>`;
-  attachSort("tblLev");
-}
-function levSetAll(modelo){
-  document.querySelectorAll("input[type=radio][name^='lev_']").forEach(inp=>{
-    inp.checked=(inp.value===modelo);
-  });
-}
-function levGuardar(){
-  document.querySelectorAll("input[type=radio][name^='lev_']:checked").forEach(inp=>{
-    const mda=inp.name.replace("lev_","");
-    if(state.master[mda]) state.master[mda].modelo=inp.value;
-  });
-  invalidate(); saveState();
-  const msg=document.getElementById("levMsg");
-  if(msg){ msg.textContent="✓ Guardado."; setTimeout(()=>{ if(msg)msg.textContent=""; },2000); }
+  el.innerHTML=`<div class="card"><h2>Aceptación por fabricante de máquina</h2>
+    <div class="row"><label class="fld">Semana <select id="maqSel" onchange="renderMaquinas()">${state.weekOrder.map(w=>`<option value="${w}" ${w===d?"selected":""}>${fmtKeyFull(w)}</option>`).join("")}</select></label>
+    <span class="hint">Agrupado por fabricante del gabinete (ATRONIC, IGT, etc.) y modelo de juego</span></div>
+    <div class="grid2">${cards}</div></div>`;
 }
 
 // ---------- Denominaciones ----------
@@ -857,7 +945,7 @@ function renderDenos(){
         <tr><th class="left">Denominación</th>${w.map(d=>`<th colspan="2">${fmtKey(d)}</th>`).join("")}</tr>
         <tr><th></th>${w.map(()=>`<th class="sortable">%Acep</th><th class="sortable">Intentos</th>`).join("")}</tr>
       </thead><tbody>${body}</tbody></table></div>
-    <div class="hint">Detecta problemas sistémicos por denominación (billete deteriorado, calibración, etc.)</div></div>`;
+    <div class="hint">Detecta problemas sistémicos por denominación.</div></div>`;
   attachSort("tblDeno");
 }
 
@@ -872,7 +960,6 @@ function renderBuscador(focusField){
   const el=document.getElementById("tab-buscador");
   const calcs=state.weekOrder.length?allCalcs():{};
   let resMDA="", resIsla="";
-
   if(busMDAVal){
     const q=busMDAVal.trim();
     const allMdas=new Set(state.weekOrder.flatMap(d=>state.weeks[d].rows.map(r=>r.mda)));
@@ -883,31 +970,30 @@ function renderBuscador(focusField){
       let hist="";
       for(const d of state.weekOrder){
         const mm=calcs[d]?.rows.find(r=>r.mda===mda);
-        if(mm&&mm.pct>0) hist+=`<td class="${pctClass(mm.pct)}">${fmtP(mm.pct)}<br><span class="muted">${fmtN(mm.total)}</span></td>`;
-        else hist+=`<td class="muted">—</td>`;
+        hist+=(mm&&mm.pct>0)?`<td class="${pctClass(mm.pct)}">${fmtP(mm.pct)}<br><span class="muted">${fmtN(mm.total)}</span></td>`:`<td class="muted">—</td>`;
       }
       resMDA+=`<div class="card"><h2>MDA ${mda}</h2>
         <div class="kpis">
           <div class="kpi"><div class="v" style="font-size:16px">${getLoc(mda)||"—"}</div><div class="l">ISLA</div></div>
-          <div class="kpi"><div class="v" style="font-size:14px">${ms.modelo||"—"}</div><div class="l">Modelo</div></div>
+          <div class="kpi"><div class="v" style="font-size:14px">${ms.modelo||"—"}</div><div class="l">Modelo billetero</div></div>
           <div class="kpi"><div class="v" style="font-size:13px">${ms.firm||"—"}</div><div class="l">Firmware</div></div>
           <div class="kpi"><div class="v" style="font-size:14px">${ms.juego||"—"}</div><div class="l">Juego</div></div>
+          <div class="kpi"><div class="v" style="font-size:14px">${ms.fabricante||"—"}</div><div class="l">Fabricante</div></div>
         </div>
         <div class="tblWrap" style="margin-top:8px;max-height:100px"><table>
           <thead><tr>${state.weekOrder.map(d=>`<th>${fmtKey(d)}</th>`).join("")}</tr></thead>
           <tbody><tr>${hist}</tr></tbody></table></div></div>`;
     }
   }
-
   if(busIslaVal){
     const q=busIslaVal.trim().toLowerCase();
-    // islas que coinciden
     const islas=[...new Set(Object.values(state.master).map(m=>m.isla||"").filter(Boolean))]
-      .filter(i=>i.toLowerCase().includes(q)).sort();
-    if(!islas.length) resIsla='<div class="card muted">Sin resultados para ISLA.</div>';
-    for(const isla of islas){
-      const mdas=Object.entries(state.master).filter(([,ms])=>(ms.isla||"")===isla).map(([mda])=>mda);
-      // promedio de la isla en cada semana
+      .filter(i=>i.toLowerCase().includes(q)||islaPrefix(i).toLowerCase().includes(q)).sort();
+    // agrupar islas por prefix (isla real) si búsqueda es por prefijo
+    const prefixes=[...new Set(islas.map(islaPrefix))];
+    if(!prefixes.length) resIsla='<div class="card muted">Sin resultados para ISLA.</div>';
+    for(const prefix of prefixes){
+      const mdas=Object.entries(state.master).filter(([,ms])=>islaPrefix(ms.isla||"")===prefix).map(([mda])=>mda);
       let histHead="", histBody="";
       for(const d of state.weekOrder){
         const wRows=calcs[d]?.rows.filter(m=>mdas.includes(m.mda)&&m.pct>0&&m.total>0)||[];
@@ -915,41 +1001,32 @@ function renderBuscador(focusField){
         histHead+=`<th>${fmtKey(d)}</th>`;
         histBody+=islaAvg!=null?`<td class="${pctClass(islaAvg)}"><b>${fmtP(islaAvg)}</b><br><span class="muted">${wRows.length} máq</span></td>`:`<td class="muted">—</td>`;
       }
-      // tabla de máquinas de la isla
       let machRows="";
       for(const mda of mdas.sort((a,b)=>a.localeCompare(b,"es",{numeric:true}))){
         const ms=state.master[mda]||{};
         let hist="";
         for(const d of state.weekOrder){
           const mm=calcs[d]?.rows.find(r=>r.mda===mda);
-          if(mm&&mm.pct>0) hist+=`<td class="${pctClass(mm.pct)}">${fmtP(mm.pct)}<br><span class="muted">${fmtN(mm.total)}</span></td>`;
-          else hist+=`<td class="muted">—</td>`;
+          hist+=(mm&&mm.pct>0)?`<td class="${pctClass(mm.pct)}">${fmtP(mm.pct)}<br><span class="muted">${fmtN(mm.total)}</span></td>`:`<td class="muted">—</td>`;
         }
-        machRows+=`<tr><td class="left"><b>${mda}</b></td><td class="left">${ms.modelo||"—"}</td><td class="left" style="font-size:10px">${ms.firm||"—"}</td>${hist}</tr>`;
+        machRows+=`<tr><td class="left"><b>${mda}</b></td><td class="left">${getLoc(mda)}</td><td class="left">${ms.modelo||"—"}</td><td class="left" style="font-size:10px">${ms.firm||"—"}</td>${hist}</tr>`;
       }
-      resIsla+=`<div class="card"><h2>ISLA ${isla} — ${mdas.length} máquinas</h2>
+      resIsla+=`<div class="card"><h2>Isla ${prefix} — ${mdas.length} máquinas</h2>
         <div class="hint" style="margin-bottom:6px">Promedio de la isla por semana:</div>
-        <div class="tblWrap" style="max-height:60px;margin-bottom:8px"><table>
-          <thead><tr>${histHead}</tr></thead><tbody><tr>${histBody}</tr></tbody></table></div>
-        <div class="tblWrap" style="max-height:260px"><table id="tblIsla_${isla.replace(/-/g,'')}">
-          <thead><tr><th class="left sortable">MDA</th><th class="left sortable">Modelo</th><th class="left sortable">Firm</th>${state.weekOrder.map(d=>`<th class="sortable">${fmtKey(d)}</th>`).join("")}</tr></thead>
+        <div class="tblWrap" style="max-height:60px;margin-bottom:8px"><table><thead><tr>${histHead}</tr></thead><tbody><tr>${histBody}</tr></tbody></table></div>
+        <div class="tblWrap" style="max-height:260px"><table id="tblIsla_${prefix}">
+          <thead><tr><th class="left sortable">MDA</th><th class="left sortable">ISLA</th><th class="left sortable">Modelo</th><th class="left sortable">Firm</th>${state.weekOrder.map(d=>`<th class="sortable">${fmtKey(d)}</th>`).join("")}</tr></thead>
           <tbody>${machRows}</tbody></table></div></div>`;
-      // attach sort after render
-      setTimeout(()=>attachSort(`tblIsla_${isla.replace(/-/g,'')}`),0);
+      setTimeout(()=>attachSort(`tblIsla_${prefix}`),0);
     }
   }
-
   el.innerHTML=`<div class="card"><h2>Buscador</h2>
     <div class="grid2">
       <label class="fld">Buscar por MDA (número de máquina)
-        <input id="busMDA" placeholder="Ej: 100020" value="${busMDAVal}"
-          oninput="busOnInput('mda',this.value)" style="cursor:text;margin-top:4px"></label>
-      <label class="fld">Buscar por ISLA (ubicación)
-        <input id="busIsla" placeholder="Ej: 202 o 202-08" value="${busIslaVal}"
-          oninput="busOnInput('isla',this.value)" style="cursor:text;margin-top:4px"></label>
+        <input id="busMDA" placeholder="Ej: 100020" value="${busMDAVal}" oninput="busOnInput('mda',this.value)" style="cursor:text;margin-top:4px"></label>
+      <label class="fld">Buscar por ISLA (ej: 103 busca todas las 103-xx)
+        <input id="busIsla" placeholder="Ej: 103 o 202-08" value="${busIslaVal}" oninput="busOnInput('isla',this.value)" style="cursor:text;margin-top:4px"></label>
     </div></div>${resMDA}${resIsla}`;
-
-  // restaurar foco
   const fid=focusField==="isla"?"busIsla":"busMDA";
   const inp=document.getElementById(fid);
   if(inp){ const v=inp.value.length; inp.focus(); inp.setSelectionRange(v,v); }
@@ -957,32 +1034,140 @@ function renderBuscador(focusField){
 
 // ---------- Admin ----------
 function renderAdmin(){
-  const el=document.getElementById("tab-admin"), p=state.params;
-  el.innerHTML=`<div class="card"><h2>Parámetros de gravedad</h2>
-    <p class="hint" style="margin-bottom:10px">Fórmula (igual al Excel):<br>
-    <code>si % ≥ UmbralOK → 0 &nbsp;|&nbsp; Total×(1+LOG10(Total))×((UmbralOK−%)/UmbralOK)×(Total/PromTotal)×Mult</code><br>
-    Mult = ×Crítico si % &lt; UmbCrítico · ×Medio si % &lt; UmbMedio · ×1 en otro caso</p>
+  const p=state.params;
+  const el=document.getElementById("tab-admin");
+  // ---------- Levantamiento de modelos (embebido en Admin) ----------
+  const allIslasPrefixes=[...new Set(Object.values(state.master).map(m=>islaPrefix(m.isla||"")).filter(Boolean))].sort();
+  const storedLevIsla=document.getElementById("levIslaAdm")?.value||"";
+  const levIsla=allIslasPrefixes.includes(storedLevIsla)?storedLevIsla:(allIslasPrefixes[0]||"");
+  const levMachines=Object.entries(state.master).filter(([,ms])=>islaPrefix(ms.isla||"")===levIsla)
+    .sort(([a],[b])=>a.localeCompare(b,"es",{numeric:true}));
+  const cntAdv=levMachines.filter(([,ms])=>ms.modelo==="Advance").length;
+  const cntCf=levMachines.filter(([,ms])=>ms.modelo==="Cashflow").length;
+  const cntNone=levMachines.filter(([,ms])=>!ms.modelo).length;
+  let levRows="";
+  for(const [mda,ms] of levMachines){
+    const mod=ms.modelo||"";
+    levRows+=`<tr>
+      <td><input type="checkbox" class="lev-chk" data-mda="${mda}"></td>
+      <td class="left"><b>${mda}</b></td>
+      <td class="left">${ms.isla||""}</td>
+      <td class="left">${ms.juego||"—"}</td>
+      <td class="left" style="font-size:10px">${ms.firm||"—"}</td>
+      <td class="left lev-radio">
+        <label><input type="radio" name="lev_${mda}" value="Advance" ${mod==="Advance"?"checked":""}> Advance</label>
+        <label><input type="radio" name="lev_${mda}" value="Cashflow" ${mod==="Cashflow"?"checked":""}> Cashflow</label>
+        <label><input type="radio" name="lev_${mda}" value="" ${!mod?"checked":""}> —</label>
+      </td></tr>`;
+  }
+  const levIslaOpts=allIslasPrefixes.map(i=>`<option value="${i}" ${i===levIsla?"selected":""}>${i}</option>`).join("");
+
+  el.innerHTML=`
+  <div class="card"><h2>Levantamiento de modelos de billetero</h2>
+    <p class="hint" style="margin-bottom:10px">Asigna el modelo (Advance/Cashflow) a las máquinas de cada isla. Selecciona la isla (por prefijo), usa los botones de lote o cambia individualmente.</p>
+    <div class="row">
+      <label class="fld">Isla (prefijo) <select id="levIslaAdm" onchange="renderAdmin()">${levIslaOpts}</select></label>
+      <span class="hint" style="margin-top:0">${levMachines.length} máquinas · <b>${cntAdv}</b> Advance · <b>${cntCf}</b> Cashflow · <b style="color:var(--high)">${cntNone}</b> sin asignar</span>
+    </div>
+    <div class="row">
+      <button class="btn sec sm" onclick="levAllAdm('Advance')">Toda → Advance</button>
+      <button class="btn sec sm" onclick="levAllAdm('Cashflow')">Toda → Cashflow</button>
+      <button class="btn sec sm" onclick="levSelAdm('Advance')">Seleccionadas → Advance</button>
+      <button class="btn sec sm" onclick="levSelAdm('Cashflow')">Seleccionadas → Cashflow</button>
+      <button class="btn sec sm" onclick="levChkNone()">Marcar sin modelo</button>
+      <button class="btn sm" onclick="levGuardarAdm()">💾 Guardar</button>
+      <span id="levMsgAdm" class="hint" style="margin-top:0"></span>
+    </div>
+    <div class="tblWrap" style="max-height:40vh"><table id="tblLevAdm">
+      <thead><tr><th><input type="checkbox" onchange="levToggleAll(this)"></th>
+        <th class="left sortable">MDA</th><th class="left sortable">ISLA</th>
+        <th class="left sortable">Juego</th><th class="left sortable">Firmware</th>
+        <th class="left">Modelo</th></tr></thead>
+      <tbody>${levRows}</tbody></table></div>
+  </div>
+
+  <div class="card"><h2>Parámetros de gravedad</h2>
+    <p class="hint" style="margin-bottom:12px">
+      La <b>fórmula de gravedad</b> cuantifica cuánto afecta un billetero al negocio:<br>
+      <code>Puntaje = Total × (1 + log₁₀(Total)) × ((UmbralOK − %) / UmbralOK) × (Total / PromedioTotal) × Multiplicador</code><br>
+      A mayor volumen y menor aceptación → mayor puntaje. El multiplicador amplifica casos extremos.
+    </p>
     <div class="grid2">
-      <div class="card"><h2>Umbrales</h2>
-        <div class="row"><label class="fld">OK — verde si % ≥ <input id="p_thrOk" type="number" step="0.01" min="0" max="1" value="${p.thrOk}"></label></div>
-        <div class="row"><label class="fld">Medio — amarillo si % ≥ <input id="p_thrMid" type="number" step="0.01" min="0" max="1" value="${p.thrMid}"></label></div>
-        <div class="row"><label class="fld">Crítico — rojo si % &lt; <input id="p_thrCrit" type="number" step="0.01" min="0" max="1" value="${p.thrCrit}"></label></div>
+      <div>
+        <div class="param-block">
+          <div class="param-title">% mínimo sin alerta (UmbralOK)</div>
+          <div class="param-desc">Si la aceptación es mayor o igual a este valor, el billetero no genera alerta ni puntaje de gravedad. Es el umbral de "todo bien". Valor típico: 85%. Por debajo de este porcentaje el billetero empieza a acumular puntaje.</div>
+          <div class="param-input"><input id="p_thrOk" type="number" step="0.01" min="0" max="1" value="${p.thrOk}"> <span class="muted">Ej: 0.85 = 85%</span></div>
+        </div>
+        <div class="param-block">
+          <div class="param-title">% zona amarilla / medio (UmbralMedio)</div>
+          <div class="param-desc">Por encima de este umbral la celda aparece verde (óptimo). Entre UmbralOK y este valor aparece amarilla (aceptable pero bajo). Valor típico: 90%. Define la banda "aceptable" entre 85-90%.</div>
+          <div class="param-input"><input id="p_thrMid" type="number" step="0.01" min="0" max="1" value="${p.thrMid}"> <span class="muted">Ej: 0.90 = 90%</span></div>
+        </div>
+        <div class="param-block">
+          <div class="param-title">% zona crítica (UmbralCrítico)</div>
+          <div class="param-desc">Si la aceptación cae por debajo de este valor, se aplica el multiplicador máximo (×Crítico). Indica un billetero con problemas graves que requiere intervención urgente. Valor típico: 40%.</div>
+          <div class="param-input"><input id="p_thrCrit" type="number" step="0.01" min="0" max="1" value="${p.thrCrit}"> <span class="muted">Ej: 0.40 = 40%</span></div>
+        </div>
       </div>
-      <div class="card"><h2>Multiplicadores</h2>
-        <div class="row"><label class="fld">×Medio (AK1) <input id="p_multMid" type="number" step="1" min="1" value="${p.multMid}"></label></div>
-        <div class="row"><label class="fld">×Crítico (AM1) <input id="p_multCrit" type="number" step="1" min="1" value="${p.multCrit}"></label></div>
-      </div>
-      <div class="card"><h2>Cortes de badge (puntaje)</h2>
-        <div class="row"><label class="fld">Medio ≥ <input id="p_sevMid" type="number" step="1" value="${p.sevMid}"></label></div>
-        <div class="row"><label class="fld">Alto ≥ <input id="p_sevHigh" type="number" step="1" value="${p.sevHigh}"></label></div>
-        <div class="row"><label class="fld">Urgente ≥ <input id="p_sevCrit" type="number" step="1" value="${p.sevCrit}"></label></div>
+      <div>
+        <div class="param-block">
+          <div class="param-title">Multiplicador zona media (×Medio)</div>
+          <div class="param-desc">Factor que amplifica el puntaje cuando el billetero está en alerta pero no en zona crítica (entre UmbralCrítico y UmbralOK). Aumenta la visibilidad de problemas moderados. Valor típico: 3.</div>
+          <div class="param-input"><input id="p_multMid" type="number" step="1" min="1" value="${p.multMid}"> <span class="muted">Sin dimensiones (factor)</span></div>
+        </div>
+        <div class="param-block">
+          <div class="param-title">Multiplicador zona crítica (×Crítico)</div>
+          <div class="param-desc">Factor que amplifica fuertemente el puntaje cuando la aceptación está por debajo del UmbralCrítico. Garantiza que los casos más graves escalen al tope del ranking incluso con poco volumen. Valor típico: 30.</div>
+          <div class="param-input"><input id="p_multCrit" type="number" step="1" min="1" value="${p.multCrit}"> <span class="muted">Sin dimensiones (factor)</span></div>
+        </div>
+        <div class="param-block">
+          <div class="param-title">Cortes del badge de gravedad</div>
+          <div class="param-desc">Rangos de puntaje para clasificar el badge: <b>Medio</b> (amarillo): puntaje ≥ este valor. <b>Alto</b> (naranja): puntaje ≥ este valor. <b>Urgente</b> (rojo): puntaje ≥ este valor. Los rangos dependen de tus datos; ajusta según la distribución observada.</div>
+          <div class="param-input" style="flex-wrap:wrap;gap:12px">
+            <label class="fld">Medio ≥ <input id="p_sevMid" type="number" step="1" value="${p.sevMid}" style="width:70px"></label>
+            <label class="fld">Alto ≥ <input id="p_sevHigh" type="number" step="1" value="${p.sevHigh}" style="width:70px"></label>
+            <label class="fld">Urgente ≥ <input id="p_sevCrit" type="number" step="1" value="${p.sevCrit}" style="width:70px"></label>
+          </div>
+        </div>
       </div>
     </div>
     <div class="row" style="margin-top:8px">
       <button class="btn" onclick="saveParams()">Guardar y recalcular</button>
       <button class="btn danger" onclick="resetParams()">Restaurar valores Excel</button>
       <span id="adminMsg" class="hint"></span>
-    </div></div>`;
+    </div>
+  </div>`;
+  attachSort("tblLevAdm");
+}
+function levAllAdm(mod){
+  document.querySelectorAll("input[type=radio][name^='lev_']").forEach(inp=>{ inp.checked=(inp.value===mod); });
+}
+function levSelAdm(mod){
+  document.querySelectorAll(".lev-chk:checked").forEach(chk=>{
+    const mda=chk.getAttribute("data-mda");
+    const radios=document.querySelectorAll(`input[name="lev_${mda}"]`);
+    radios.forEach(r=>{ r.checked=(r.value===mod); });
+  });
+}
+function levChkNone(){
+  document.querySelectorAll(".lev-chk").forEach(chk=>{
+    const mda=chk.getAttribute("data-mda");
+    const ms=state.master[mda];
+    chk.checked=ms&&!ms.modelo;
+  });
+}
+function levToggleAll(masterChk){
+  document.querySelectorAll(".lev-chk").forEach(c=>c.checked=masterChk.checked);
+}
+function levGuardarAdm(){
+  document.querySelectorAll("input[type=radio][name^='lev_']:checked").forEach(inp=>{
+    const mda=inp.name.replace("lev_","");
+    if(state.master[mda]) state.master[mda].modelo=inp.value;
+  });
+  invalidate(); saveState();
+  const msg=document.getElementById("levMsgAdm");
+  if(msg){ msg.textContent="✓ Guardado."; setTimeout(()=>{ if(msg)msg.textContent=""; },2000); }
 }
 function saveParams(){
   const g=id=>Number(document.getElementById(id).value);
