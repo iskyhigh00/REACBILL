@@ -64,11 +64,16 @@ th.sortable{cursor:pointer;user-select:none}
 th.sortable:hover{background:#2e3d60}
 th.sort-asc::after{content:" ▲";font-size:10px;color:var(--accent)}
 th.sort-desc::after{content:" ▼";font-size:10px;color:var(--accent)}
+/* columnas sticky (MDA + Ubicación) */
+.sticky-1{position:sticky;left:0;z-index:4;background:var(--panel2)}
+.sticky-2{position:sticky;left:72px;z-index:4;background:var(--panel2)}
+tr:hover .sticky-1,tr:hover .sticky-2{background:#26314c}
+thead .sticky-1,thead .sticky-2{z-index:6;background:var(--panel2)}
 </style>
 </head>
 <body>
 <header>
-  <h1>REACBILL <span class="ver">v1.2.0-main — Seguimiento de Billeteros</span></h1>
+  <h1>REACBILL <span class="ver">v1.3.0-main — Seguimiento de Billeteros</span></h1>
   <span id="dataInfo" class="ver"></span>
   <div id="paramsBar"></div>
   <nav id="nav"></nav>
@@ -76,9 +81,10 @@ th.sort-desc::after{content:" ▼";font-size:10px;color:var(--accent)}
 <main id="main"></main>
 
 <script>
-/* ================= REACBILL v1.1.0 =================
-   Clave de semana: YYYY-MM-DD (fecha completa del nombre de archivo)
-   Maestro: se construye de cualquier dato disponible
+/* ================= REACBILL v1.3.0-main =================
+   - Columnas MDA + Ubicación sticky al scroll horizontal
+   - Parseo de archivo cn (SMDBID;LOCNAME)
+   - SMDBID → LOCNAME en todas las vistas
 ==================================================== */
 
 const VERSION = "1.2.0-main";
@@ -244,6 +250,25 @@ function parseContadores(ws){
   }
   return n;
 }
+// Parsea archivo cn (semicolon): SMDBID → LOCNAME
+function parseCnText(text){
+  const lines=text.split(/\r?\n/).filter(l=>l.trim());
+  if(!lines.length) return 0;
+  const hdr=lines[0].split(";").map(h=>h.trim().toUpperCase());
+  const iSMDB=hdr.indexOf("SMDBID"), iLOC=hdr.indexOf("LOCNAME");
+  if(iSMDB<0||iLOC<0) return 0;
+  let n=0;
+  for(let i=1;i<lines.length;i++){
+    const cols=lines[i].split(";");
+    if(cols.length<=Math.max(iSMDB,iLOC)) continue;
+    const mda=cols[iSMDB].trim(); const loc=cols[iLOC].trim();
+    if(!mda||!loc) continue;
+    state.master[mda]={...(state.master[mda]||{}), locname:loc};
+    n++;
+  }
+  return n;
+}
+function getLoc(mda){return state.master[mda]?.locname||state.master[mda]?.isla||""}
 function parseSeguimientoModelos(ws){
   // hoja Seguimiento: col A=MDA, B=MM, C=Modelo, E=ISLA (desde fila 5)
   const arr=XLSX.utils.sheet_to_json(ws,{header:1,defval:null});
@@ -264,6 +289,18 @@ async function handleFiles(files){
   const log=[];
   for(const f of files){
     try{
+      // Detectar archivo cn (texto plano con SMDBID;LOCNAME)
+      const isText = /^cn$/i.test(f.name) || /\.(csv|txt)$/i.test(f.name);
+      if(isText){
+        const text=await f.text();
+        if(text.includes("SMDBID")&&text.includes("LOCNAME")){
+          const n=parseCnText(text);
+          log.push(`${f.name}: ${n} ubicaciones cargadas`);
+          await saveState(); renderAll();
+          document.getElementById("uplog").innerHTML=log.map(l=>"• "+l).join("<br>");
+          continue;
+        }
+      }
       const wb=XLSX.read(await f.arrayBuffer(),{type:"array"});
       // Detectar hojas con formato dd-mm (planilla maestra histórica)
       const masterDateSheets=wb.SheetNames.filter(n=>/^\d{2}-\d{2}$/.test(n));
@@ -349,11 +386,14 @@ function buildShells(){
   document.getElementById("main").innerHTML=TABS.map(([id])=>`<div class="tab" id="tab-${id}"></div>`).join("");
   document.getElementById("tab-carga").innerHTML=`
     <div class="card"><h2>Carga de archivos</h2>
-      <div id="dropzone">Arrastra aquí los archivos Excel (planillas semanales y/o la planilla Seguimiento_Auto completa)<br>
+      <div id="dropzone">Arrastra aquí los archivos Excel semanales, la planilla histórica y/o el archivo <b>cn</b> de ubicaciones<br>
       o haz clic para seleccionar — puedes subir varios a la vez</div>
-      <input type="file" id="fileInput" multiple accept=".xlsx,.xls,.xlsm" style="display:none">
-      <div class="hint">• La planilla <b>Seguimiento_Auto.xlsx</b> importa todas las hojas con fecha (dd-mm), Contadores y modelos de una vez.<br>
-      • Las planillas semanales nuevas toman la fecha del nombre del archivo (busca dd-mm en el nombre).</div>
+      <input type="file" id="fileInput" multiple accept=".xlsx,.xls,.xlsm,.csv,.txt,*" style="display:none">
+      <div class="hint">
+        • <b>Planillas semanales</b>: cada archivo = una semana, la fecha se toma del nombre (YYYY-MM-DD).<br>
+        • <b>Seguimiento_Auto.xlsx</b>: importa todas las semanas históricas de un golpe.<br>
+        • <b>Archivo cn</b> (texto semicolon SMDBID;LOCNAME): carga las ubicaciones de máquinas.
+      </div>
       <div id="uplog" class="hint"></div>
     </div>
     <div class="card"><h2>Datos cargados</h2><div id="loadedInfo"></div>
@@ -410,22 +450,19 @@ function renderResumen(){
   }
   // promedios por semana + dif
   const ss=resSortState;
-  let head1=`<tr><th>MDA</th><th>MM</th><th>Modelo</th><th>Isla</th>`;
-  let avgRow=`<tr><td colspan="4"><b>Promedio % (&gt;0) / Δ semana</b></td>`;
+  // 2 columnas fijas: MDA (sticky-1) + Ubicación (sticky-2)
+  let head1=`<tr><th class="sticky-1">MDA</th><th class="sticky-2">Ubicación</th>`;
+  let avgRow=`<tr><td class="sticky-1" colspan="1"><b>Prom. % / Δ</b></td><td class="sticky-2"></td>`;
   for(let i=0;i<weeks.length;i++){
     const d=weeks[i];
-    const pctSel = ss && ss.weekKey===d && ss.field==="pct";
-    const totSel = ss && ss.weekKey===d && ss.field==="tot";
-    const pctCls = pctSel ? (ss.dir===1?"sort-asc":"sort-desc") : "";
-    const totCls = totSel ? (ss.dir===1?"sort-asc":"sort-desc") : "";
-    head1+=`<th colspan="2" class="sortable" style="text-align:center" title="Click para ordenar">${fmtKey(d)}</th>`;
+    head1+=`<th colspan="2" class="sortable" style="text-align:center" title="Click % o Tot para ordenar">${fmtKey(d)}</th>`;
     const a=calcs[d].avgPct, prev=i>0?calcs[weeks[i-1]].avgPct:null;
     const dif=prev!=null?a-prev:null;
     avgRow+=`<td><b>${fmtP(a)}</b></td><td class="${dif==null?'':dif>=0?'up':'down'}">${dif==null?"—":(dif>=0?"+":"")+(dif*100).toFixed(2)}</td>`;
   }
   head1+="</tr>"; avgRow+="</tr>";
-  // fila 2 de encabezados: % y Tot son clickeables
-  let head2=`<tr><th></th><th></th><th></th><th></th>`;
+  // fila 2 de encabezados: % y Tot clickeables
+  let head2=`<tr><th class="sticky-1"></th><th class="sticky-2"></th>`;
   for(const d of weeks){
     const pctSel = ss && ss.weekKey===d && ss.field==="pct";
     const totSel = ss && ss.weekKey===d && ss.field==="tot";
@@ -449,17 +486,18 @@ function renderResumen(){
   let body="";
   for(const mda of mdaList){
     const ms=state.master[mda]||{};
-    if(filtro && !(mda+(ms.fabricante||"")+(ms.modelo||"")+(ms.isla||"")).toLowerCase().includes(filtro)) continue;
-    let tr=`<td><b>${mda}</b></td><td>${ms.fabricante||""}</td><td>${ms.modelo||""}</td><td>${ms.isla||""}</td>`;
+    const loc=getLoc(mda);
+    if(filtro && !(mda+loc+(ms.fabricante||"")+(ms.modelo||"")).toLowerCase().includes(filtro)) continue;
+    let tr=`<td class="sticky-1"><b>${mda}</b></td><td class="sticky-2" style="color:var(--muted)">${loc}</td>`;
     for(const d of weeks){
       const m=mdas.get(mda)[d];
       tr+= m? `<td class="${pctColor(m.pct)}">${m.total>0?fmtP(m.pct):"—"}</td><td>${m.total>0?fmtN(m.total):"—"}</td>` : `<td></td><td></td>`;
     }
     body+=`<tr>${tr}</tr>`;
   }
-  const sortHint = ss ? `Ordenado por <b>${ss.field==="pct"?"% aceptación":"total billetes"}</b> de la semana <b>${fmtKey(ss.weekKey)}</b> (${ss.dir===1?"▲ asc":"▼ desc"}) — click en otra columna % o Tot para cambiar.` : `Click en <b>%</b> o <b>Tot</b> de cualquier semana para ordenar esa columna.`;
+  const sortHint = ss ? `Ordenado por <b>${ss.field==="pct"?"% aceptación":"total billetes"}</b> · semana <b>${fmtKey(ss.weekKey)}</b> (${ss.dir===1?"▲":"▼"}) — click en otra % o Tot para cambiar.` : `Click en <b>%</b> o <b>Tot</b> de cualquier semana para ordenar.`;
   el.innerHTML=`<div class="card"><h2>Resumen histórico (hoja Seguimiento)</h2>
-    <div class="row"><input id="resFiltro" placeholder="Filtrar por MDA / fabricante / modelo / isla" value="${filtro}" oninput="renderResumen()" style="width:320px;cursor:text"></div>
+    <div class="row"><input id="resFiltro" placeholder="Filtrar por MDA / ubicación / fabricante" value="${filtro}" oninput="renderResumen()" style="width:320px;cursor:text"></div>
     <div class="tblWrap"><table><thead>${head1}${head2}</thead><tbody>${avgRow}${body}</tbody></table></div>
     <div class="hint">${sortHint}<br>Colores: <span class="sev-ok">OK ≥${(state.params.thrMid*100).toFixed(0)}%</span> · <span class="sev-mid">medio</span> · <span class="sev-high">bajo umbral</span> · <span class="sev-crit">crítico</span></div></div>`;
 }
@@ -476,7 +514,7 @@ function renderFecha(){
   for(const m of rows){
     const ms=state.master[m.mda]||{};
     const sc=sevClass(m.score,p);
-    body+=`<tr><td><b>${m.mda}</b></td><td>${ms.isla||""}</td><td>${ms.fabricante||""}</td>
+    body+=`<tr><td><b>${m.mda}</b></td><td>${getLoc(m.mda)}</td><td>${ms.fabricante||""}</td>
       <td>${fmtN(m.tarjAc)}</td><td>${fmtN(m.tarjRe)}</td><td>${fmtP(m.pctTarj)}</td>
       ${DENOS.map(dn=>`<td>${fmtN(m.acc[dn]||0)}</td>`).join("")}
       ${DENOS.map(dn=>`<td>${fmtN(m.rej[dn]||0)}</td>`).join("")}
@@ -518,7 +556,7 @@ function renderRanking(){
     const ms=state.master[m.mda]||{}, sc=sevClass(m.score,p);
     const pm=prevMap[m.mda];
     const trend=pm&&pm.total>0 ? m.pct-pm.pct : null;
-    body+=`<tr><td>${i+1}</td><td><b>${m.mda}</b></td><td>${ms.isla||""}</td><td>${ms.fabricante||""}</td><td>${ms.juego||""}</td>
+    body+=`<tr><td>${i+1}</td><td><b>${m.mda}</b></td><td>${getLoc(m.mda)}</td><td>${ms.fabricante||""}</td><td>${ms.juego||""}</td>
       <td class="${pctColor(m.pct)}"><b>${fmtP(m.pct)}</b></td><td>${fmtN(m.total)}</td><td>${fmtN(m.toRe)}</td>
       <td class="${trend==null?'':trend>=0?'up':'down'}">${trend==null?"—":(trend>=0?"+":"")+(trend*100).toFixed(1)}</td>
       <td><b>${fmt1(m.score)}</b></td><td><span class="badge b-${sc}">${SEVLBL[sc]}</span></td></tr>`;
@@ -640,7 +678,7 @@ function renderBuscador(){
       }
       res+=`<div class="card"><h2>MDA ${mda}</h2>
         <div class="kpis">
-          <div class="kpi"><div class="v">${ms.isla||"—"}</div><div class="l">Isla / Posición</div></div>
+          <div class="kpi"><div class="v">${getLoc(mda)||"—"}</div><div class="l">Ubicación (LOCNAME)</div></div>
           <div class="kpi"><div class="v">${ms.fabricante||"—"}</div><div class="l">Gabinete</div></div>
           <div class="kpi"><div class="v" style="font-size:15px">${ms.juego||"—"}</div><div class="l">Juego</div></div>
           <div class="kpi"><div class="v">${ms.modelo||"—"}</div><div class="l">Billetero</div></div>
