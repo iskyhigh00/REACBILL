@@ -11,69 +11,80 @@
   --bg:#0f1420; --panel:#1a2233; --panel2:#222d44; --border:#2e3b58;
   --text:#e8edf7; --muted:#8fa0c0; --accent:#4f8ff7; --ok:#2ecc71;
   --mid:#f1c40f; --high:#e67e22; --crit:#e74c3c;
+  --bg-ok:#1a4d2e; --bg-mid:#4d3d00; --bg-high:#4d1e00; --bg-crit:#4d0000;
 }
 *{box-sizing:border-box;margin:0;padding:0}
-body{background:var(--bg);color:var(--text);font:14px/1.45 'Segoe UI',system-ui,sans-serif}
-header{position:sticky;top:0;z-index:50;background:var(--panel);border-bottom:1px solid var(--border);padding:10px 16px}
-header h1{font-size:18px;display:inline-block;margin-right:14px}
-header .ver{color:var(--muted);font-size:12px}
-#paramsBar{display:flex;flex-wrap:wrap;gap:10px;margin-top:8px;font-size:12px}
-#paramsBar span{background:var(--panel2);border:1px solid var(--border);border-radius:14px;padding:3px 10px}
+/* scrollbars */
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--accent)}
+*{scrollbar-width:thin;scrollbar-color:var(--border) transparent}
+body{background:var(--bg);color:var(--text);font:13px/1.45 'Segoe UI',system-ui,sans-serif;cursor:default}
+header{position:sticky;top:0;z-index:50;background:var(--panel);border-bottom:1px solid var(--border);padding:8px 16px}
+header h1{font-size:17px;display:inline-block;margin-right:10px}
+.ver{color:var(--muted);font-size:11px}
+#paramsBar{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px;font-size:11px}
+#paramsBar span{background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:2px 9px}
 #paramsBar b{color:var(--accent)}
-nav{display:flex;flex-wrap:wrap;gap:4px;margin-top:10px}
-nav button{background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:6px 6px 0 0;padding:7px 14px;cursor:pointer;font-size:13px}
+nav{display:flex;flex-wrap:wrap;gap:3px;margin-top:8px}
+nav button{background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:5px 5px 0 0;padding:6px 12px;cursor:pointer;font-size:12px}
 nav button.active{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
-main{padding:16px}
+main{padding:14px}
 .tab{display:none}.tab.active{display:block}
-.card{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:14px}
-.card h2{font-size:15px;margin-bottom:10px;color:var(--accent)}
-.kpis{display:flex;flex-wrap:wrap;gap:12px}
-.kpi{background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:10px 16px;min-width:130px}
-.kpi .v{font-size:22px;font-weight:700}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:7px;padding:12px;margin-bottom:12px}
+.card h2{font-size:13px;margin-bottom:8px;color:var(--accent)}
+.kpis{display:flex;flex-wrap:wrap;gap:10px}
+.kpi{background:var(--panel2);border:1px solid var(--border);border-radius:7px;padding:8px 14px;min-width:120px}
+.kpi .v{font-size:20px;font-weight:700}
 .kpi .l{font-size:11px;color:var(--muted)}
-table{border-collapse:collapse;width:100%;font-size:12px}
-th,td{border:1px solid var(--border);padding:4px 7px;text-align:right;white-space:nowrap}
-th{background:var(--panel2);position:sticky;top:0}
-td:first-child,th:first-child{text-align:left}
-.tblWrap{overflow:auto;max-height:72vh;border:1px solid var(--border)}
-.tblWrap th{z-index:5}
-tr:hover td{background:#26314c}
-.sev-ok{color:var(--ok)}.sev-mid{color:var(--mid)}.sev-high{color:var(--high)}.sev-crit{color:var(--crit);font-weight:700}
-.badge{display:inline-block;border-radius:10px;padding:1px 8px;font-size:11px;font-weight:600}
+table{border-collapse:collapse;font-size:11px}
+th,td{border:1px solid var(--border);padding:3px 6px;text-align:right;white-space:nowrap}
+th{background:var(--panel2);top:0;position:sticky;z-index:3;user-select:none}
+td.left,th.left{text-align:left}
+.tblWrap{overflow:auto;border:1px solid var(--border);border-radius:4px}
+tr:hover td{filter:brightness(1.15)}
+/* celda % con fondo de color (como Excel) */
+.c-ok {background:var(--bg-ok) !important;color:#7fffb0;font-weight:600}
+.c-mid{background:var(--bg-mid)!important;color:#ffe066;font-weight:600}
+.c-hi {background:var(--bg-high)!important;color:#ffb04f;font-weight:600}
+.c-cr {background:var(--bg-crit)!important;color:#ff6b6b;font-weight:600}
+/* badge gravedad */
+.badge{display:inline-block;border-radius:9px;padding:1px 7px;font-size:10px;font-weight:700}
 .b-ok{background:#1d4d31;color:var(--ok)}.b-mid{background:#4d431d;color:var(--mid)}
-.b-high{background:#4d331d;color:var(--high)}.b-crit{background:#4d1d1d;color:var(--crit)}
-input,select{background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px 9px;font-size:13px;cursor:auto}
-input[type=file]{padding:8px;cursor:pointer}
-select{cursor:pointer}
-button.btn{background:var(--accent);color:#fff;border:none;border-radius:6px;padding:8px 16px;cursor:pointer;font-size:13px}
-button.btn.danger{background:var(--crit)}
-.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:10px}
-.pctcell{position:relative}
-.muted{color:var(--muted)}
-.hint{font-size:12px;color:var(--muted);margin-top:6px}
-.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-@media(max-width:900px){.grid2{grid-template-columns:1fr}}
-label.fld{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--muted)}
-#dropzone{border:2px dashed var(--border);border-radius:8px;padding:24px;text-align:center;color:var(--muted);cursor:pointer}
-#dropzone.over{border-color:var(--accent);color:var(--accent)}
-canvas{max-height:340px}
-.up{color:var(--ok)}.down{color:var(--crit)}
-/* cursor */
-body,table,th,td,.card,.kpi,.kpi .v,.kpi .l,.badge,.hint,p,span,h1,h2,h3,div:not(#dropzone){cursor:default}
-th.sortable{cursor:pointer;user-select:none}
+.b-hi{background:#4d331d;color:var(--high)}.b-cr{background:#4d1d1d;color:var(--crit)}
+/* sort */
+th.sortable{cursor:pointer}
 th.sortable:hover{background:#2e3d60}
-th.sort-asc::after{content:" ▲";font-size:10px;color:var(--accent)}
-th.sort-desc::after{content:" ▼";font-size:10px;color:var(--accent)}
-/* columnas sticky (MDA + Ubicación) */
-.sticky-1{position:sticky;left:0;z-index:4;background:var(--panel2)}
-.sticky-2{position:sticky;left:72px;z-index:4;background:var(--panel2)}
-tr:hover .sticky-1,tr:hover .sticky-2{background:#26314c}
-thead .sticky-1,thead .sticky-2{z-index:6;background:var(--panel2)}
+th.s-asc::after{content:" ▲";font-size:9px;color:var(--accent)}
+th.s-desc::after{content:" ▼";font-size:9px;color:var(--accent)}
+/* sticky columns */
+.s1{position:sticky;left:0;   z-index:4;background:var(--panel2)}
+.s2{position:sticky;left:68px;z-index:4;background:var(--panel2)}
+.s3{position:sticky;left:126px;z-index:4;background:var(--panel2)}
+thead .s1,thead .s2,thead .s3{z-index:6}
+tr:hover .s1,tr:hover .s2,tr:hover .s3{background:#26314c}
+/* forms */
+input,select{background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:5px;padding:5px 8px;font-size:12px;cursor:text}
+select{cursor:pointer}
+input[type=file]{cursor:pointer}
+button.btn{background:var(--accent);color:#fff;border:none;border-radius:5px;padding:7px 14px;cursor:pointer;font-size:12px}
+button.btn.danger{background:var(--crit)}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px}
+.muted{color:var(--muted)}
+.hint{font-size:11px;color:var(--muted);margin-top:5px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:900px){.grid2{grid-template-columns:1fr}}
+label.fld{display:flex;flex-direction:column;gap:2px;font-size:11px;color:var(--muted)}
+#dropzone{border:2px dashed var(--border);border-radius:7px;padding:20px;text-align:center;color:var(--muted);cursor:pointer}
+#dropzone.over{border-color:var(--accent);color:var(--accent)}
+canvas{max-height:320px}
+.up{color:var(--ok)}.down{color:var(--crit)}
 </style>
 </head>
 <body>
 <header>
-  <h1>REACBILL <span class="ver">v1.3.0-main — Seguimiento de Billeteros</span></h1>
+  <h1>REACBILL <span class="ver">v1.4.0-main</span></h1>
   <span id="dataInfo" class="ver"></span>
   <div id="paramsBar"></div>
   <nav id="nav"></nav>
@@ -81,45 +92,42 @@ thead .sticky-1,thead .sticky-2{z-index:6;background:var(--panel2)}
 <main id="main"></main>
 
 <script>
-/* ================= REACBILL v1.3.0-main =================
-   - Columnas MDA + Ubicación sticky al scroll horizontal
-   - Parseo de archivo cn (SMDBID;LOCNAME)
-   - SMDBID → LOCNAME en todas las vistas
-==================================================== */
+/* ===== REACBILL v1.4.0-main =====
+   - cn sin extensión: detección robusta por contenido
+   - LOCNAME → formato XXX-XX (ISLA)
+   - Colores de fondo en celdas % (igual que Excel)
+   - Resumen: columnas MM + Modelo visibles
+   - Sort genérico en todas las tablas
+   - Scrollbars delgados
+================================= */
 
-const VERSION = "1.2.0-main";
-const LS_KEY = "reacbill_v1";
+const VERSION = "1.4.0-main";
+const LS_KEY  = "reacbill_v1";
 
-// ---------- Estado ----------
 let state = {
-  weeks: {},        // { "dd-mm": { rows:[{mda, tarjAc, tarjRe, sesiones, acc:{deno:n}, rej:{deno:n}, pctTarj, pctBill}] } }
-  weekOrder: [],    // fechas ordenadas
-  master: {},       // mda -> {isla, fabricante, juego, modelo}
+  weeks:     {},   // { "YYYY-MM-DD": { rows:[...] } }
+  weekOrder: [],
+  master:    {},   // mda -> {locname,isla,fabricante,modelo,juego,firm}
   params: {
-    thrOk: 0.85,    // umbral aceptable (AJ1)
-    thrMid: 0.90,   // umbral medio (AH1 = Seguimiento!G2)
-    thrCrit: 0.40,  // umbral crítico (AL1 = Seguimiento!I2)
-    multMid: 3,     // multiplicador medio (AK1)
-    multCrit: 30,   // multiplicador crítico (AM1)
-    sevMid: 10,     // puntaje para badge "Medio"
-    sevHigh: 50,    // puntaje para badge "Alto"
-    sevCrit: 150    // puntaje para badge "Urgente"
+    thrOk:0.85, thrMid:0.90, thrCrit:0.40,
+    multMid:3,  multCrit:30,
+    sevMid:10,  sevHigh:50, sevCrit:150
   }
 };
 
 const DENOS = ["20000","10000","5000","2000","1000","SIN_DENO"];
 
-// ---------- Persistencia (IndexedDB) ----------
+// ---------- Persistencia ----------
 function idb(){return new Promise((res,rej)=>{
-  const r=indexedDB.open("reacbill",1);
-  r.onupgradeneeded=e=>e.target.result.createObjectStore("kv");
+  const r=indexedDB.open("reacbill",2);
+  r.onupgradeneeded=e=>{ try{e.target.result.createObjectStore("kv");}catch(x){} };
   r.onsuccess=e=>res(e.target.result); r.onerror=rej;
 });}
 async function saveState(){
   const db=await idb();
   return new Promise((res,rej)=>{
     const tx=db.transaction("kv","readwrite");
-    tx.objectStore("kv").put(JSON.stringify(state), LS_KEY);
+    tx.objectStore("kv").put(JSON.stringify(state),LS_KEY);
     tx.oncomplete=res; tx.onerror=rej;
   });
 }
@@ -128,246 +136,287 @@ async function loadState(){
     const db=await idb();
     return new Promise(res=>{
       const rq=db.transaction("kv").objectStore("kv").get(LS_KEY);
-      rq.onsuccess=()=>{ if(rq.result){ const s=JSON.parse(rq.result); state={...state,...s,params:{...state.params,...s.params}}; } res(); };
+      rq.onsuccess=()=>{
+        if(rq.result){ const s=JSON.parse(rq.result); state={...state,...s,params:{...state.params,...s.params}}; }
+        res();
+      };
       rq.onerror=()=>res();
     });
   }catch(e){}
 }
 
-// ---------- Cálculos (réplica de fórmulas Excel) ----------
+// ---------- Cálculos ----------
 function weekCalc(week, params){
-  // por máquina: toAc, toRe, total, pct ; promedio total>0 ; score
-  const out=[];
-  let sumT=0,nT=0;
+  const out=[]; let sumT=0,nT=0;
   for(const r of week.rows){
     const toAc=DENOS.reduce((s,d)=>s+(r.acc[d]||0),0);
     const toRe=DENOS.reduce((s,d)=>s+(r.rej[d]||0),0);
     const total=toAc+toRe;
-    const pct = r.pctBill!=null ? r.pctBill : (total>0? toAc/total : 0);
+    // Usar pctBill del archivo si está disponible, sino calcular de denominaciones
+    const pct = (r.pctBill!=null && r.pctBill>0) ? r.pctBill : (total>0 ? toAc/total : null);
     if(total>0){sumT+=total;nT++;}
     out.push({...r,toAc,toRe,total,pct});
   }
-  const avgT = nT? sumT/nT : 1;
+  const avgT=nT?sumT/nT:1;
   for(const m of out){
-    if(m.total<=0 || m.pct>=params.thrOk){ m.score=0; }
+    if(!m.pct||m.pct>=params.thrOk){ m.score=0; }
     else{
-      const mult = m.pct<params.thrCrit ? params.multCrit : (m.pct<params.thrMid ? params.multMid : 1);
-      m.score = m.total*(1+Math.log10(m.total))*((params.thrOk-m.pct)/params.thrOk)*(m.total/avgT)*mult;
+      const mult=m.pct<params.thrCrit?params.multCrit:(m.pct<params.thrMid?params.multMid:1);
+      m.score=m.total*(1+Math.log10(m.total))*((params.thrOk-m.pct)/params.thrOk)*(m.total/avgT)*mult;
     }
   }
-  return {rows:out, avgT,
-    avgPct: avg(out.filter(m=>m.pct>0).map(m=>m.pct)),
-    totBill: out.reduce((s,m)=>s+m.total,0),
-    totAc: out.reduce((s,m)=>s+m.toAc,0),
-    totRe: out.reduce((s,m)=>s+m.toRe,0)};
+  const withPct=out.filter(m=>m.pct>0&&m.total>0);
+  const byMod={Advance:withPct.filter(m=>(state.master[m.mda]?.modelo||"").includes("Advance")),
+               Cashflow:withPct.filter(m=>(state.master[m.mda]?.modelo||"").includes("Cashflow"))};
+  return {
+    rows:out, avgT,
+    avgPct:   avg(withPct.map(m=>m.pct)),
+    avgAdv:   avg(byMod.Advance.map(m=>m.pct)),
+    avgCf:    avg(byMod.Cashflow.map(m=>m.pct)),
+    cntAdv:   byMod.Advance.length,
+    cntCf:    byMod.Cashflow.length,
+    totBill:  out.reduce((s,m)=>s+m.total,0),
+    totAc:    out.reduce((s,m)=>s+m.toAc,0),
+    totRe:    out.reduce((s,m)=>s+m.toRe,0)
+  };
 }
-function avg(a){return a.length? a.reduce((x,y)=>x+y,0)/a.length : 0;}
-function sevClass(score,p){ if(score<=0)return"ok"; if(score>=p.sevCrit)return"crit"; if(score>=p.sevHigh)return"high"; if(score>=p.sevMid)return"mid"; return"ok"; }
-const SEVLBL={ok:"OK",mid:"Medio",high:"Alto",crit:"Urgente"};
+const avg=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:0;
+function sevClass(sc,p){if(sc<=0)return"ok";if(sc>=p.sevCrit)return"cr";if(sc>=p.sevHigh)return"hi";if(sc>=p.sevMid)return"mid";return"ok";}
+const SEVLBL={ok:"OK",mid:"Medio",hi:"Alto",cr:"Urgente"};
 
 let calcCache=null;
 function allCalcs(){
-  if(calcCache) return calcCache;
+  if(calcCache)return calcCache;
   const r={};
-  for(const d of state.weekOrder) r[d]=weekCalc(state.weeks[d], state.params);
+  for(const d of state.weekOrder) r[d]=weekCalc(state.weeks[d],state.params);
   calcCache=r; return r;
 }
 function invalidate(){calcCache=null;}
 
-// ---------- Parseo de archivos ----------
-// Clave interna: YYYY-MM-DD. Muestra: DD/MM/YYYY.
+// ---------- Formato ----------
+const fmtP=v=>v==null||isNaN(v)?"—":(v*100).toFixed(2)+"%";
+const fmtN=v=>v==null||isNaN(v)?"—":Math.round(v).toLocaleString("es-CL");
+const fmt1=v=>v==null||isNaN(v)?"—":v.toFixed(1);
+function pctClass(p){
+  if(!p||p<=0)return"";
+  const pr=state.params;
+  if(p<pr.thrCrit)return"c-cr";if(p<pr.thrOk)return"c-hi";if(p<pr.thrMid)return"c-mid";return"c-ok";
+}
+
+// ---------- Sort genérico para cualquier tabla ----------
+const sortStates={};
+function attachSort(tableId){
+  const tbl=document.getElementById(tableId); if(!tbl)return;
+  tbl.querySelectorAll("th.sortable").forEach(th=>{
+    th.addEventListener("click",()=>{
+      const col=th.cellIndex;
+      const st=sortStates[tableId]||{col:-1,dir:1};
+      const dir=(st.col===col)?-st.dir:1;
+      sortStates[tableId]={col,dir};
+      tbl.querySelectorAll("th.sortable").forEach(h=>{h.classList.remove("s-asc","s-desc");});
+      th.classList.add(dir===1?"s-asc":"s-desc");
+      const tbody=tbl.tBodies[0]; if(!tbody)return;
+      const rows=[...tbody.querySelectorAll("tr:not(.no-sort)")];
+      rows.sort((a,b)=>{
+        const av=a.cells[col]?.textContent.trim()||"";
+        const bv=b.cells[col]?.textContent.trim()||"";
+        const an=parseFloat(av.replace(/[%,\.]/g,m=>m===","?"":m));
+        const bn=parseFloat(bv.replace(/[%,\.]/g,m=>m===","?"":m));
+        if(!isNaN(an)&&!isNaN(bn)) return(an-bn)*dir;
+        return av.localeCompare(bv,"es")*dir;
+      });
+      rows.forEach(r=>tbody.appendChild(r));
+    });
+  });
+}
+
+// ---------- Parseo ----------
+function fmtLocname(loc){
+  const s=String(loc).trim();
+  return s.length>2?s.slice(0,s.length-2)+"-"+s.slice(-2):s;
+}
+function getLoc(mda){
+  const m=state.master[mda]; if(!m)return"";
+  return m.isla||(m.locname?fmtLocname(m.locname):"");
+}
 function dateKeyFromName(name){
-  // 1) YYYY-MM-DD en cualquier parte del nombre
   let m=name.match(/(\d{4})[-_.](\d{2})[-_.](\d{2})/);
-  if(m) return `${m[1]}-${m[2]}-${m[3]}`;
-  // 2) DD-MM-YYYY  o  DD_MM_YYYY
+  if(m)return`${m[1]}-${m[2]}-${m[3]}`;
   m=name.match(/(\d{2})[-_.](\d{2})[-_.](\d{4})/);
-  if(m) return `${m[3]}-${m[2]}-${m[1]}`;
-  // 3) fallback: nombre sin extensión (max 10 chars)
+  if(m)return`${m[3]}-${m[2]}-${m[1]}`;
   return name.replace(/\.[^.]+$/,"").slice(0,10);
 }
 function fmtKey(k){
-  // YYYY-MM-DD -> DD/MM/YYYY
+  const m=k.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return m?`${m[3]}-${m[2]}`:k;  // DD-MM para encabezados compactos
+}
+function fmtKeyFull(k){
   const m=k.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   return m?`${m[3]}/${m[2]}/${m[1]}`:k;
 }
 function sortWeeks(){
   state.weekOrder=Object.keys(state.weeks).sort((a,b)=>a.localeCompare(b));
 }
+
+function parseCnText(text){
+  const lines=text.split(/\r?\n/).filter(l=>l.trim());
+  if(!lines.length)return 0;
+  const sep=lines[0].includes(";")?";":"\t";
+  const hdr=lines[0].split(sep).map(h=>h.trim().toUpperCase());
+  const iS=hdr.indexOf("SMDBID"),iL=hdr.indexOf("LOCNAME");
+  if(iS<0||iL<0)return 0;
+  let n=0;
+  for(let i=1;i<lines.length;i++){
+    const c=lines[i].split(sep);
+    if(c.length<=Math.max(iS,iL))continue;
+    const mda=c[iS].trim(),loc=c[iL].trim();
+    if(!mda||!loc||loc==="err")continue;
+    state.master[mda]={...(state.master[mda]||{}),locname:loc,isla:fmtLocname(loc)};
+    n++;
+  }
+  return n;
+}
+
 function parseDataSheet(ws){
-  // hoja con encabezados: maquina, Tarjeta..., Billete Aceptado X, Billete Rechazado X, % Aceptacion...
   const arr=XLSX.utils.sheet_to_json(ws,{header:1,defval:null});
-  if(!arr.length) return null;
+  if(!arr.length)return null;
   const hdr=arr[0].map(h=>String(h??"").trim());
   const idx={maq:-1,tA:-1,tR:-1,ses:-1,pT:-1,pB:-1,acc:{},rej:{}};
   hdr.forEach((h,i)=>{
     const hl=h.toLowerCase();
-    if(hl==="maquina"||hl==="máquina"||hl==="mda") idx.maq=i;
-    else if(hl.startsWith("tarjeta acepta")) idx.tA=i;
-    else if(hl.startsWith("tarjeta rechaza")) idx.tR=i;
-    else if(hl.includes("sesiones")) idx.ses=i;
-    else if(hl.includes("aceptacion tarjeta")||hl.includes("aceptación tarjeta")) idx.pT=i;
-    else if(hl.includes("aceptacion billetes")||hl.includes("aceptación billetes")) idx.pB=i;
+    if(hl==="maquina"||hl==="máquina"||hl==="mda"||hl==="smdbid") idx.maq=i;
+    else if(/^tarjeta acepta/i.test(h)) idx.tA=i;
+    else if(/^tarjeta rechaza/i.test(h)) idx.tR=i;
+    else if(/sesion/i.test(h)) idx.ses=i;
+    else if(/aceptaci[oó]n tarjeta/i.test(h)) idx.pT=i;
+    else if(/aceptaci[oó]n billetes?/i.test(h)) idx.pB=i;
     else if(/billete aceptado/i.test(h)){const d=h.replace(/billete aceptado/i,"").trim()||"SIN_DENO";idx.acc[d]=i;}
     else if(/billete rechazado/i.test(h)){const d=h.replace(/billete rechazado/i,"").trim()||"SIN_DENO";idx.rej[d]=i;}
   });
-  if(idx.maq<0) return null;
+  if(idx.maq<0)return null;
   const rows=[];
   for(let r=1;r<arr.length;r++){
-    const row=arr[r]; if(!row) continue;
+    const row=arr[r]; if(!row)continue;
     const mda=String(row[idx.maq]??"").trim();
-    if(!mda||mda==="0") continue;
+    if(!mda||mda==="0"||mda==="err"||!/^\d+$/.test(mda))continue;
     const num=i=>i>=0&&row[i]!=null?Number(row[i])||0:0;
+    const pNum=i=>i>=0&&row[i]!=null&&row[i]!=="":Number(row[i]);
     const acc={},rej={};
-    for(const d in idx.acc) acc[d]=num(idx.acc[d]);
-    for(const d in idx.rej) rej[d]=num(idx.rej[d]);
-    rows.push({mda, tarjAc:num(idx.tA), tarjRe:num(idx.tR), sesiones:num(idx.ses),
-      acc,rej, pctTarj:idx.pT>=0&&row[idx.pT]!=null?Number(row[idx.pT]):null,
-      pctBill:idx.pB>=0&&row[idx.pB]!=null?Number(row[idx.pB]):null});
+    for(const d in idx.acc)acc[d]=num(idx.acc[d]);
+    for(const d in idx.rej)rej[d]=num(idx.rej[d]);
+    const pB=pNum(idx.pB);
+    rows.push({mda,tarjAc:num(idx.tA),tarjRe:num(idx.tR),sesiones:num(idx.ses),
+      acc,rej,pctTarj:pNum(idx.pT),pctBill:isNaN(pB)?null:pB});
+    if(!state.master[mda])state.master[mda]={isla:"",fabricante:"",juego:"",modelo:"",firm:""};
   }
-  if(!rows.length) return null;
-  // Poblar maestro mínimo con las MDAs encontradas
-  for(const r of rows){
-    if(!state.master[r.mda]) state.master[r.mda]={isla:"",fabricante:"",juego:"",modelo:""};
-  }
-  return {rows};
+  return rows.length?{rows}:null;
 }
+
 function parseContadores(ws){
   const arr=XLSX.utils.sheet_to_json(ws,{header:1,defval:null});
   const hdr=(arr[0]||[]).map(h=>String(h??"").trim().toUpperCase());
-  const iId=hdr.indexOf("SMDBID"), iLoc=hdr.indexOf("LOCNAME"), iMan=hdr.findIndex(h=>h.startsWith("MANUF")), iJue=hdr.indexOf("JUEGO");
-  if(iId<0) return 0;
+  const iId=hdr.indexOf("SMDBID"),iLoc=hdr.indexOf("LOCNAME"),
+        iMan=hdr.findIndex(h=>h.startsWith("MANUF")),iJue=hdr.indexOf("JUEGO");
+  if(iId<0)return 0;
   let n=0;
   for(let r=1;r<arr.length;r++){
-    const row=arr[r]; if(!row||row[iId]==null) continue;
-    const mda=String(row[iId]).trim(); if(!mda) continue;
-    const loc=iLoc>=0?String(row[iLoc]??""):"";
-    // LOCNAME ej 61504 -> isla "615-04"
-    const isla= loc.length>2 ? loc.slice(0,loc.length-2)+"-"+loc.slice(-2) : loc;
-    state.master[mda]={...(state.master[mda]||{}), isla,
-      fabricante:iMan>=0?String(row[iMan]??""):"", juego:iJue>=0?String(row[iJue]??""):""};
+    const row=arr[r]; if(!row||row[iId]==null)continue;
+    const mda=String(row[iId]).trim(); if(!mda)continue;
+    const loc=iLoc>=0?String(row[iLoc]??"").trim():"";
+    state.master[mda]={...(state.master[mda]||{}),
+      locname:loc, isla:loc?fmtLocname(loc):"",
+      fabricante:iMan>=0?String(row[iMan]??"").trim():"",
+      juego:iJue>=0?String(row[iJue]??"").trim():""};
     n++;
   }
   return n;
 }
-// Parsea archivo cn (semicolon): SMDBID → LOCNAME
-function parseCnText(text){
-  const lines=text.split(/\r?\n/).filter(l=>l.trim());
-  if(!lines.length) return 0;
-  const hdr=lines[0].split(";").map(h=>h.trim().toUpperCase());
-  const iSMDB=hdr.indexOf("SMDBID"), iLOC=hdr.indexOf("LOCNAME");
-  if(iSMDB<0||iLOC<0) return 0;
-  let n=0;
-  for(let i=1;i<lines.length;i++){
-    const cols=lines[i].split(";");
-    if(cols.length<=Math.max(iSMDB,iLOC)) continue;
-    const mda=cols[iSMDB].trim(); const loc=cols[iLOC].trim();
-    if(!mda||!loc) continue;
-    state.master[mda]={...(state.master[mda]||{}), locname:loc};
-    n++;
-  }
-  return n;
-}
-function getLoc(mda){return state.master[mda]?.locname||state.master[mda]?.isla||""}
+
 function parseSeguimientoModelos(ws){
-  // hoja Seguimiento: col A=MDA, B=MM, C=Modelo, E=ISLA (desde fila 5)
   const arr=XLSX.utils.sheet_to_json(ws,{header:1,defval:null});
   let n=0;
   for(let r=4;r<arr.length;r++){
-    const row=arr[r]; if(!row) continue;
-    const mda=String(row[0]??"").trim(); if(!mda) continue;
+    const row=arr[r]; if(!row)continue;
+    const mda=String(row[0]??"").trim(); if(!mda||!/^\d+$/.test(mda))continue;
+    const fab=String(row[1]??"").trim();
     const mod=String(row[2]??"").trim();
+    const firm=String(row[3]??"").trim();
+    const isla=String(row[4]??"").trim();
     state.master[mda]={...(state.master[mda]||{}),
-      modelo: mod||state.master[mda]?.modelo||"",
-      fabricante: String(row[1]??"")||state.master[mda]?.fabricante||"",
-      isla: String(row[4]??"")||state.master[mda]?.isla||""};
+      fabricante:fab||state.master[mda]?.fabricante||"",
+      modelo:mod||state.master[mda]?.modelo||"",
+      firm:firm||state.master[mda]?.firm||"",
+      isla:isla||state.master[mda]?.isla||""};
     if(mod)n++;
   }
   return n;
 }
+
 async function handleFiles(files){
   const log=[];
   for(const f of files){
     try{
-      // Detectar archivo cn (texto plano con SMDBID;LOCNAME)
-      const isText = /^cn$/i.test(f.name) || /\.(csv|txt)$/i.test(f.name);
-      if(isText){
-        const text=await f.text();
-        if(text.includes("SMDBID")&&text.includes("LOCNAME")){
+      // Intentar leer como texto primero para cualquier archivo sin extensión Excel conocida
+      const ext=(f.name.match(/\.([^.]+)$/)||["",""])[1].toLowerCase();
+      const isExcel=["xlsx","xls","xlsm","xlsb"].includes(ext);
+      if(!isExcel){
+        let text;
+        try{ text=await f.text(); }catch(e){ text=""; }
+        if((text.includes("SMDBID")||text.includes("LOCNAME")) && text.includes(";")){
           const n=parseCnText(text);
-          log.push(`${f.name}: ${n} ubicaciones cargadas`);
-          await saveState(); renderAll();
-          document.getElementById("uplog").innerHTML=log.map(l=>"• "+l).join("<br>");
-          continue;
+          if(n>0){
+            log.push(`${f.name}: ${n} ubicaciones cargadas (cn)`);
+            await saveState(); renderAll();
+            document.getElementById("uplog").innerHTML=log.map(l=>"• "+l).join("<br>");
+            continue;
+          }
+        }
+        if(!isExcel&&ext&&!["csv","txt","tsv"].includes(ext)){
+          log.push(`${f.name}: formato no reconocido`); continue;
         }
       }
       const wb=XLSX.read(await f.arrayBuffer(),{type:"array"});
-      // Detectar hojas con formato dd-mm (planilla maestra histórica)
-      const masterDateSheets=wb.SheetNames.filter(n=>/^\d{2}-\d{2}$/.test(n));
-
-      if(masterDateSheets.length){
-        // Planilla maestra (Seguimiento_Auto): múltiples hojas dd-mm
-        let imported=0;
-        for(const sn of masterDateSheets){
+      const masterSheets=wb.SheetNames.filter(n=>/^\d{2}-\d{2}$/.test(n));
+      if(masterSheets.length){
+        let imp=0;
+        for(const sn of masterSheets){
           const wk=parseDataSheet(wb.Sheets[sn]);
           if(wk){
-            // Convertir dd-mm a YYYY-MM-DD asumiendo año del contexto actual
-            // (las hojas son dd-mm, p.ej. "04-01" = 4 de enero)
             const [dd,mm]=sn.split("-").map(Number);
-            // Detectar año: si mm > mes actual podría ser año anterior
             const now=new Date(); let yr=now.getFullYear();
-            if(mm>now.getMonth()+1) yr--;
+            if(mm>now.getMonth()+1)yr--;
             const key=`${yr}-${String(mm).padStart(2,"0")}-${String(dd).padStart(2,"0")}`;
-            state.weeks[key]=wk; imported++;
+            state.weeks[key]=wk; imp++;
           }
         }
-        if(wb.Sheets["Contadores"]){const n=parseContadores(wb.Sheets["Contadores"]); log.push(`Contadores: ${n} máquinas`);}
-        if(wb.Sheets["Seguimiento"]) parseSeguimientoModelos(wb.Sheets["Seguimiento"]);
-        log.push(`${f.name}: ${imported} semanas históricas importadas`);
+        if(wb.Sheets["Contadores"])log.push("Contadores: "+parseContadores(wb.Sheets["Contadores"])+" máquinas");
+        if(wb.Sheets["Seguimiento"])parseSeguimientoModelos(wb.Sheets["Seguimiento"]);
+        log.push(`${f.name}: ${imp} semanas históricas importadas`);
       } else {
-        // Planilla semanal: busca hoja con "ultima" en el nombre, si no la primera con datos
         let sn=wb.SheetNames.find(n=>/ultima/i.test(n));
-        if(!sn){
-          // intentar todas las hojas hasta encontrar una con datos válidos
-          for(const candidate of wb.SheetNames){
-            const wk=parseDataSheet(wb.Sheets[candidate]);
-            if(wk){sn=candidate;break;}
-          }
-        }
+        if(!sn){ for(const c of wb.SheetNames){ if(parseDataSheet(wb.Sheets[c])){sn=c;break;} } }
         const wk=sn?parseDataSheet(wb.Sheets[sn]):null;
         if(wk){
           const key=dateKeyFromName(f.name);
           state.weeks[key]=wk;
-          log.push(`${f.name} → ${fmtKey(key)} (${wk.rows.length} máquinas, hoja: ${sn})`);
-        }else log.push(`${f.name}: no se reconoció el formato de datos`);
-        // Si trae Contadores también lo cargamos
-        if(wb.Sheets["Contadores"]){const n=parseContadores(wb.Sheets["Contadores"]); log.push(`Contadores: ${n} máquinas`);}
+          log.push(`${f.name} → ${fmtKeyFull(key)} (${wk.rows.length} máq., hoja: ${sn})`);
+        } else log.push(`${f.name}: formato de datos no reconocido`);
+        if(wb.Sheets["Contadores"])log.push("Contadores: "+parseContadores(wb.Sheets["Contadores"])+" máquinas");
+        if(wb.Sheets["Seguimiento"])parseSeguimientoModelos(wb.Sheets["Seguimiento"]);
       }
-    }catch(e){log.push(`${f.name}: ERROR ${e.message}`);}
+    }catch(e){ log.push(`${f.name}: ERROR — ${e.message}`); }
   }
-  sortWeeks(); invalidate(); await saveState();
-  renderAll();
-  document.getElementById("uplog").innerHTML=log.map(l=>"• "+l).join("<br>");
+  sortWeeks(); invalidate(); await saveState(); renderAll();
+  const ul=document.getElementById("uplog");
+  if(ul)ul.innerHTML=log.map(l=>"• "+l).join("<br>");
 }
-
-// ---------- Formato ----------
-const fmtP=v=>v==null||isNaN(v)?"—":(v*100).toFixed(1)+"%";
-const fmtN=v=>v==null||isNaN(v)?"—":Math.round(v).toLocaleString("es-CL");
-const fmt1=v=>v==null||isNaN(v)?"—":v.toFixed(1);
-function pctColor(p){if(p==null||isNaN(p)||p===0)return"";const pr=state.params;
-  if(p<pr.thrCrit)return"sev-crit";if(p<pr.thrOk)return"sev-high";if(p<pr.thrMid)return"sev-mid";return"sev-ok";}
 
 // ---------- UI ----------
 const TABS=[
- ["carga","📂 Carga"],
- ["resumen","📊 Resumen"],
- ["fecha","📅 Por Fecha"],
- ["ranking","🚨 Ranking Gravedad"],
- ["tendencias","📈 Tendencias"],
- ["fabricantes","🏭 Fabricantes"],
- ["denominaciones","💵 Denominaciones"],
- ["buscador","🔎 Buscador"],
- ["admin","⚙️ Admin"]
+ ["carga","📂 Carga"],["resumen","📊 Resumen"],["fecha","📅 Por Fecha"],
+ ["ranking","🚨 Gravedad"],["tendencias","📈 Tendencias"],
+ ["fabricantes","🏭 Fabricantes"],["denominaciones","💵 Denominaciones"],
+ ["buscador","🔎 Buscador"],["admin","⚙️ Admin"]
 ];
 let activeTab="carga";
 function buildNav(){
@@ -378,27 +427,28 @@ function showTab(id){
   activeTab=id;
   document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("active",b.id==="nb-"+id));
   document.querySelectorAll(".tab").forEach(t=>t.classList.toggle("active",t.id==="tab-"+id));
-  const fn={resumen:renderResumen,fecha:renderFecha,ranking:renderRanking,tendencias:renderTendencias,
-    fabricantes:renderFabricantes,denominaciones:renderDenos,buscador:renderBuscador,admin:renderAdmin}[id];
-  if(fn)fn();
+  ({resumen:renderResumen,fecha:renderFecha,ranking:renderRanking,tendencias:renderTendencias,
+    fabricantes:renderFabricantes,denominaciones:renderDenos,buscador:renderBuscador,admin:renderAdmin}[id]||(() => {}))();
 }
 function buildShells(){
   document.getElementById("main").innerHTML=TABS.map(([id])=>`<div class="tab" id="tab-${id}"></div>`).join("");
   document.getElementById("tab-carga").innerHTML=`
     <div class="card"><h2>Carga de archivos</h2>
-      <div id="dropzone">Arrastra aquí los archivos Excel semanales, la planilla histórica y/o el archivo <b>cn</b> de ubicaciones<br>
-      o haz clic para seleccionar — puedes subir varios a la vez</div>
-      <input type="file" id="fileInput" multiple accept=".xlsx,.xls,.xlsm,.csv,.txt,*" style="display:none">
-      <div class="hint">
-        • <b>Planillas semanales</b>: cada archivo = una semana, la fecha se toma del nombre (YYYY-MM-DD).<br>
-        • <b>Seguimiento_Auto.xlsx</b>: importa todas las semanas históricas de un golpe.<br>
-        • <b>Archivo cn</b> (texto semicolon SMDBID;LOCNAME): carga las ubicaciones de máquinas.
+      <div id="dropzone">
+        Arrastra aquí archivos Excel semanales, la planilla histórica o el archivo <b>cn</b> de ubicaciones<br>
+        <small style="color:var(--muted)">Puedes subir varios a la vez</small>
       </div>
-      <div id="uplog" class="hint"></div>
+      <input type="file" id="fileInput" multiple style="display:none">
+      <div class="hint" style="margin-top:8px">
+        • <b>Planillas semanales</b>: la fecha se lee del nombre (YYYY-MM-DD o DD-MM-YYYY).<br>
+        • <b>Seguimiento_Auto.xlsx</b>: importa todas las semanas + maestro de una vez.<br>
+        • <b>Archivo cn</b>: cualquier archivo con columnas <code>SMDBID;LOCNAME</code> separadas por <code>;</code>.
+      </div>
+      <div id="uplog" class="hint" style="margin-top:8px"></div>
     </div>
     <div class="card"><h2>Datos cargados</h2><div id="loadedInfo"></div>
-      <div class="row" style="margin-top:10px">
-        <button class="btn danger" onclick="if(confirm('¿Borrar todos los datos cargados?')){state.weeks={};state.weekOrder=[];state.master={};invalidate();saveState();renderAll();}">Borrar todo</button>
+      <div class="row" style="margin-top:8px">
+        <button class="btn danger" onclick="if(confirm('¿Borrar todos los datos?')){state.weeks={};state.weekOrder=[];state.master={};invalidate();saveState();renderAll();}">Borrar todo</button>
       </div>
     </div>`;
   const dz=document.getElementById("dropzone"),fi=document.getElementById("fileInput");
@@ -411,140 +461,147 @@ function buildShells(){
 function renderParamsBar(){
   const p=state.params;
   document.getElementById("paramsBar").innerHTML=
-    `<span>Umbral OK ≥ <b>${(p.thrOk*100).toFixed(0)}%</b></span>
+    `<span>OK ≥ <b>${(p.thrOk*100).toFixed(0)}%</b></span>
      <span>Medio &lt; <b>${(p.thrMid*100).toFixed(0)}%</b> ×<b>${p.multMid}</b></span>
      <span>Crítico &lt; <b>${(p.thrCrit*100).toFixed(0)}%</b> ×<b>${p.multCrit}</b></span>
-     <span>Badges: Medio ≥ <b>${p.sevMid}</b> · Alto ≥ <b>${p.sevHigh}</b> · Urgente ≥ <b>${p.sevCrit}</b></span>`;
+     <span>Badges: ≥<b>${p.sevMid}</b> / ≥<b>${p.sevHigh}</b> / ≥<b>${p.sevCrit}</b></span>`;
 }
 function renderLoadedInfo(){
-  const el=document.getElementById("loadedInfo");
-  if(!state.weekOrder.length){el.innerHTML='<span class="muted">Sin datos. Sube archivos en esta pestaña.</span>';return;}
-  const totalMdas=new Set(state.weekOrder.flatMap(d=>state.weeks[d].rows.map(r=>r.mda))).size;
-  el.innerHTML=`<b>${state.weekOrder.length}</b> semanas cargadas:<br>
-    ${state.weekOrder.map(d=>`<span style="white-space:nowrap">${fmtKey(d)} (${state.weeks[d].rows.length} máq.)</span>`).join(" · ")}<br><br>
-    Maestro de máquinas: <b>${Object.keys(state.master).length}</b> registros · <b>${totalMdas}</b> MDAs únicas en los datos`;
-  document.getElementById("dataInfo").textContent=
-    ` · ${state.weekOrder.length} semanas · ${totalMdas} máquinas`;
+  const el=document.getElementById("loadedInfo"); if(!el)return;
+  if(!state.weekOrder.length){el.innerHTML='<span class="muted">Sin datos. Sube archivos.</span>';return;}
+  const allMdas=new Set(state.weekOrder.flatMap(d=>state.weeks[d].rows.map(r=>r.mda)));
+  const withLoc=[...allMdas].filter(m=>getLoc(m)).length;
+  el.innerHTML=`<b>${state.weekOrder.length}</b> semanas · <b>${allMdas.size}</b> máquinas · <b>${withLoc}</b> con ubicación<br>
+    <span class="muted" style="font-size:11px">${state.weekOrder.map(d=>fmtKeyFull(d)).join("  ·  ")}</span>`;
+  document.getElementById("dataInfo").textContent=` · ${state.weekOrder.length} sem · ${allMdas.size} máq`;
 }
 
-// ---------- Pestaña Resumen (= hoja Seguimiento) ----------
-// estado de sort: { weekKey, field: "pct"|"tot", dir: 1|-1 }
-let resSortState = null;
-function resSort(weekKey, field){
-  if(resSortState && resSortState.weekKey===weekKey && resSortState.field===field){
-    resSortState.dir *= -1;
-  } else {
-    resSortState = {weekKey, field, dir: field==="pct" ? 1 : -1};
-  }
+// ---------- Resumen (= hoja Seguimiento) ----------
+let resSortState=null;
+function resSort(wk,field){
+  if(resSortState&&resSortState.wk===wk&&resSortState.field===field) resSortState.dir*=-1;
+  else resSortState={wk,field,dir:field==="pct"?1:-1};
   renderResumen();
 }
 function renderResumen(){
   const el=document.getElementById("tab-resumen");
-  if(!state.weekOrder.length){el.innerHTML='<div class="card muted">Sin datos cargados.</div>';return;}
+  if(!state.weekOrder.length){el.innerHTML='<div class="card muted">Sin datos.</div>';return;}
   const calcs=allCalcs(), weeks=state.weekOrder;
-  // mapa mda -> por semana
-  const mdas=new Map();
+  const mdaMap=new Map();
   for(const d of weeks) for(const m of calcs[d].rows){
-    if(!mdas.has(m.mda)) mdas.set(m.mda,{});
-    mdas.get(m.mda)[d]=m;
+    if(!mdaMap.has(m.mda))mdaMap.set(m.mda,{});
+    mdaMap.get(m.mda)[d]=m;
   }
-  // promedios por semana + dif
   const ss=resSortState;
-  // 2 columnas fijas: MDA (sticky-1) + Ubicación (sticky-2)
-  let head1=`<tr><th class="sticky-1">MDA</th><th class="sticky-2">Ubicación</th>`;
-  let avgRow=`<tr><td class="sticky-1" colspan="1"><b>Prom. % / Δ</b></td><td class="sticky-2"></td>`;
-  for(let i=0;i<weeks.length;i++){
-    const d=weeks[i];
-    head1+=`<th colspan="2" class="sortable" style="text-align:center" title="Click % o Tot para ordenar">${fmtKey(d)}</th>`;
-    const a=calcs[d].avgPct, prev=i>0?calcs[weeks[i-1]].avgPct:null;
-    const dif=prev!=null?a-prev:null;
-    avgRow+=`<td><b>${fmtP(a)}</b></td><td class="${dif==null?'':dif>=0?'up':'down'}">${dif==null?"—":(dif>=0?"+":"")+(dif*100).toFixed(2)}</td>`;
-  }
-  head1+="</tr>"; avgRow+="</tr>";
-  // fila 2 de encabezados: % y Tot clickeables
-  let head2=`<tr><th class="sticky-1"></th><th class="sticky-2"></th>`;
+  // 3 cols fijas sticky: MDA, ISLA, MM·Modelo
+  const sCols=`<th class="s1 left sortable">MDA</th><th class="s2 left sortable">ISLA</th><th class="s3 left sortable">MM · Modelo</th>`;
+  let head=`<tr>${sCols}`;
+  let avgAdv=`<tr class="no-sort"><td class="s1 left" style="color:var(--muted);font-size:10px">Adv</td><td class="s2"></td><td class="s3"></td>`;
+  let avgCf =`<tr class="no-sort"><td class="s1 left" style="color:var(--muted);font-size:10px">CF</td><td class="s2"></td><td class="s3"></td>`;
+  let head2 =`<tr><th class="s1"></th><th class="s2"></th><th class="s3"></th>`;
   for(const d of weeks){
-    const pctSel = ss && ss.weekKey===d && ss.field==="pct";
-    const totSel = ss && ss.weekKey===d && ss.field==="tot";
-    head2+=`<th class="sortable ${pctSel?(ss.dir===1?"sort-asc":"sort-desc"):""}" onclick="resSort('${d}','pct')">%</th>`;
-    head2+=`<th class="sortable ${totSel?(ss.dir===1?"sort-asc":"sort-desc"):""}" onclick="resSort('${d}','tot')">Tot</th>`;
+    const ps=ss&&ss.wk===d&&ss.field==="pct", ts=ss&&ss.wk===d&&ss.field==="tot";
+    head+=`<th colspan="2" class="sortable" style="text-align:center">${fmtKey(d)}</th>`;
+    const c=calcs[d];
+    avgAdv+=`<td class="${c.avgAdv>0?pctClass(c.avgAdv):""}">${c.avgAdv>0?fmtP(c.avgAdv):"—"}</td><td class="muted">${c.cntAdv}</td>`;
+    avgCf +=`<td class="${c.avgCf>0?pctClass(c.avgCf):""}">${c.avgCf>0?fmtP(c.avgCf):"—"}</td><td class="muted">${c.cntCf}</td>`;
+    head2+=`<th class="sortable ${ps?(ss.dir===1?"s-asc":"s-desc"):""}" onclick="resSort('${d}','pct')">%</th>`;
+    head2+=`<th class="sortable ${ts?(ss.dir===1?"s-asc":"s-desc"):""}" onclick="resSort('${d}','tot')">Total</th>`;
   }
-  head2+="</tr>";
+  head+="</tr>"; avgAdv+="</tr>"; avgCf+="</tr>"; head2+="</tr>";
   const filtro=(document.getElementById("resFiltro")?.value||"").toLowerCase();
-  // ordenar filas
-  let mdaList=[...mdas.keys()];
+  let mdaList=[...mdaMap.keys()];
   if(ss){
     mdaList.sort((a,b)=>{
-      const ma=mdas.get(a)[ss.weekKey], mb=mdas.get(b)[ss.weekKey];
-      const va = ma&&ma.total>0 ? (ss.field==="pct"?ma.pct:ma.total) : (ss.dir===1?-1:Infinity);
-      const vb = mb&&mb.total>0 ? (ss.field==="pct"?mb.pct:mb.total) : (ss.dir===1?-1:Infinity);
-      return (va-vb)*ss.dir;
+      const ma=mdaMap.get(a)[ss.wk], mb=mdaMap.get(b)[ss.wk];
+      const va=ma&&ma.pct>0?(ss.field==="pct"?ma.pct:ma.total):(ss.dir===1?-1:Infinity);
+      const vb=mb&&mb.pct>0?(ss.field==="pct"?mb.pct:mb.total):(ss.dir===1?-1:Infinity);
+      return(va-vb)*ss.dir;
     });
-  } else {
-    mdaList.sort();
-  }
+  } else mdaList.sort();
   let body="";
   for(const mda of mdaList){
     const ms=state.master[mda]||{};
     const loc=getLoc(mda);
-    if(filtro && !(mda+loc+(ms.fabricante||"")+(ms.modelo||"")).toLowerCase().includes(filtro)) continue;
-    let tr=`<td class="sticky-1"><b>${mda}</b></td><td class="sticky-2" style="color:var(--muted)">${loc}</td>`;
+    const mmmod=[ms.fabricante,ms.modelo].filter(Boolean).join(" · ");
+    if(filtro&&!(mda+loc+mmmod).toLowerCase().includes(filtro))continue;
+    let tr=`<td class="s1 left"><b>${mda}</b></td><td class="s2 left" style="color:var(--muted)">${loc}</td><td class="s3 left" style="color:var(--muted)">${mmmod}</td>`;
     for(const d of weeks){
-      const m=mdas.get(mda)[d];
-      tr+= m? `<td class="${pctColor(m.pct)}">${m.total>0?fmtP(m.pct):"—"}</td><td>${m.total>0?fmtN(m.total):"—"}</td>` : `<td></td><td></td>`;
+      const m=mdaMap.get(mda)?.[d];
+      if(m&&m.pct>0) tr+=`<td class="${pctClass(m.pct)}">${fmtP(m.pct)}</td><td>${fmtN(m.total)}</td>`;
+      else tr+=`<td></td><td></td>`;
     }
     body+=`<tr>${tr}</tr>`;
   }
-  const sortHint = ss ? `Ordenado por <b>${ss.field==="pct"?"% aceptación":"total billetes"}</b> · semana <b>${fmtKey(ss.weekKey)}</b> (${ss.dir===1?"▲":"▼"}) — click en otra % o Tot para cambiar.` : `Click en <b>%</b> o <b>Tot</b> de cualquier semana para ordenar.`;
-  el.innerHTML=`<div class="card"><h2>Resumen histórico (hoja Seguimiento)</h2>
-    <div class="row"><input id="resFiltro" placeholder="Filtrar por MDA / ubicación / fabricante" value="${filtro}" oninput="renderResumen()" style="width:320px;cursor:text"></div>
-    <div class="tblWrap"><table><thead>${head1}${head2}</thead><tbody>${avgRow}${body}</tbody></table></div>
-    <div class="hint">${sortHint}<br>Colores: <span class="sev-ok">OK ≥${(state.params.thrMid*100).toFixed(0)}%</span> · <span class="sev-mid">medio</span> · <span class="sev-high">bajo umbral</span> · <span class="sev-crit">crítico</span></div></div>`;
+  el.innerHTML=`<div class="card"><h2>Resumen histórico</h2>
+    <div class="row"><input id="resFiltro" placeholder="Filtrar MDA / ISLA / fabricante" value="${filtro}" oninput="renderResumen()" style="width:280px">
+    <span class="hint">Click en % o Total para ordenar por esa semana</span></div>
+    <div class="tblWrap" style="max-height:78vh"><table id="tblResumen">
+      <thead>${head}${avgAdv}${avgCf}${head2}</thead><tbody>${body}</tbody></table></div></div>`;
 }
 
-// ---------- Pestaña Por Fecha (= hoja dd-mm) ----------
+// ---------- Por Fecha ----------
 function renderFecha(){
   const el=document.getElementById("tab-fecha");
-  if(!state.weekOrder.length){el.innerHTML='<div class="card muted">Sin datos cargados.</div>';return;}
+  if(!state.weekOrder.length){el.innerHTML='<div class="card muted">Sin datos.</div>';return;}
   const sel=document.getElementById("fechaSel")?.value;
   const d=state.weekOrder.includes(sel)?sel:state.weekOrder[state.weekOrder.length-1];
   const c=allCalcs()[d], p=state.params;
   const rows=[...c.rows].sort((a,b)=>b.score-a.score);
   let body="";
   for(const m of rows){
-    const ms=state.master[m.mda]||{};
-    const sc=sevClass(m.score,p);
-    body+=`<tr><td><b>${m.mda}</b></td><td>${getLoc(m.mda)}</td><td>${ms.fabricante||""}</td>
-      <td>${fmtN(m.tarjAc)}</td><td>${fmtN(m.tarjRe)}</td><td>${fmtP(m.pctTarj)}</td>
+    const ms=state.master[m.mda]||{}, sc=sevClass(m.score,p);
+    body+=`<tr>
+      <td class="left"><b>${m.mda}</b></td>
+      <td class="left">${getLoc(m.mda)}</td>
+      <td class="left">${ms.fabricante||""}</td>
+      <td class="left">${ms.modelo||""}</td>
+      <td class="left">${ms.firm||""}</td>
+      <td>${fmtN(m.tarjAc)}</td><td>${fmtN(m.tarjRe)}</td><td class="${pctClass(m.pctTarj)}">${fmtP(m.pctTarj)}</td>
       ${DENOS.map(dn=>`<td>${fmtN(m.acc[dn]||0)}</td>`).join("")}
       ${DENOS.map(dn=>`<td>${fmtN(m.rej[dn]||0)}</td>`).join("")}
       <td><b>${fmtN(m.toAc)}</b></td><td><b>${fmtN(m.toRe)}</b></td><td><b>${fmtN(m.total)}</b></td>
-      <td class="${pctColor(m.pct)}"><b>${m.total>0?fmtP(m.pct):"—"}</b></td>
-      <td>${fmt1(m.score)}</td><td><span class="badge b-${sc}">${SEVLBL[sc]}</span></td></tr>`;
+      <td class="${pctClass(m.pct)}"><b>${m.pct>0?fmtP(m.pct):"—"}</b></td>
+      <td>${fmt1(m.score)}</td>
+      <td><span class="badge b-${sc}">${SEVLBL[sc]}</span></td></tr>`;
   }
   el.innerHTML=`<div class="card"><h2>Detalle semanal</h2>
-    <div class="row"><label class="fld">Semana
-      <select id="fechaSel" onchange="renderFecha()">${state.weekOrder.map(w=>`<option value="${w}" ${w===d?"selected":""}>${fmtKey(w)}</option>`).join("")}</select></label>
+    <div class="row">
+      <label class="fld">Semana <select id="fechaSel" onchange="renderFecha()">${state.weekOrder.map(w=>`<option value="${w}" ${w===d?"selected":""}>${fmtKeyFull(w)}</option>`).join("")}</select></label>
       <div class="kpis">
-        <div class="kpi"><div class="v">${fmtP(c.avgPct)}</div><div class="l">% acept. promedio (&gt;0)</div></div>
-        <div class="kpi"><div class="v">${fmtN(c.totBill)}</div><div class="l">Total intentos billetes</div></div>
+        <div class="kpi"><div class="v">${fmtP(c.avgPct)}</div><div class="l">% prom. (>0)</div></div>
+        <div class="kpi"><div class="v">${fmtP(c.avgAdv)}</div><div class="l">Advance</div></div>
+        <div class="kpi"><div class="v">${fmtP(c.avgCf)}</div><div class="l">Cashflow</div></div>
+        <div class="kpi"><div class="v">${fmtN(c.totBill)}</div><div class="l">Total billetes</div></div>
         <div class="kpi"><div class="v">${fmtN(c.totRe)}</div><div class="l">Rechazos</div></div>
-        <div class="kpi"><div class="v">${fmtN(c.avgT)}</div><div class="l">Prom. intentos/máquina</div></div>
-        <div class="kpi"><div class="v">${c.rows.filter(m=>m.score>0).length}</div><div class="l">Máquinas con alerta</div></div>
-      </div></div>
-    <div class="tblWrap"><table><thead>
-      <tr><th rowspan="2">MDA</th><th rowspan="2">Isla</th><th rowspan="2">MM</th>
-      <th colspan="3">Tarjetas</th><th colspan="6">Billete Aceptado</th><th colspan="6">Billete Rechazado</th>
-      <th rowspan="2">ToAc</th><th rowspan="2">ToRe</th><th rowspan="2">Total</th><th rowspan="2">%Acep</th>
-      <th rowspan="2">Puntaje</th><th rowspan="2">Gravedad</th></tr>
-      <tr><th>Acep</th><th>Rech</th><th>%</th>${DENOS.map(dn=>`<th>${dn}</th>`).join("")}${DENOS.map(dn=>`<th>${dn}</th>`).join("")}</tr>
+        <div class="kpi"><div class="v">${c.rows.filter(m=>m.score>0).length}</div><div class="l">Con alerta</div></div>
+      </div>
+    </div>
+    <div class="tblWrap" style="max-height:72vh"><table id="tblFecha">
+      <thead>
+        <tr>
+          <th class="left sortable">MDA</th><th class="left sortable">ISLA</th>
+          <th class="left sortable">MM</th><th class="left sortable">Modelo</th><th class="left sortable">Firm</th>
+          <th colspan="3" class="sortable">Tarjetas</th>
+          <th colspan="6">Bill. Aceptado</th><th colspan="6">Bill. Rechazado</th>
+          <th class="sortable">ToAc</th><th class="sortable">ToRe</th><th class="sortable">Total</th>
+          <th class="sortable">%Acep</th><th class="sortable">Puntaje</th><th>Gravedad</th>
+        </tr>
+        <tr>
+          <th></th><th></th><th></th><th></th><th></th>
+          <th class="sortable">Ac</th><th class="sortable">Re</th><th class="sortable">%</th>
+          ${DENOS.map(dn=>`<th class="sortable">${dn}</th>`).join("")}
+          ${DENOS.map(dn=>`<th class="sortable">${dn}</th>`).join("")}
+          <th></th><th></th><th></th><th></th><th></th><th></th>
+        </tr>
       </thead><tbody>${body}</tbody></table></div></div>`;
+  attachSort("tblFecha");
 }
 
 // ---------- Ranking Gravedad ----------
 function renderRanking(){
   const el=document.getElementById("tab-ranking");
-  if(!state.weekOrder.length){el.innerHTML='<div class="card muted">Sin datos cargados.</div>';return;}
+  if(!state.weekOrder.length){el.innerHTML='<div class="card muted">Sin datos.</div>';return;}
   const p=state.params, calcs=allCalcs();
   const sel=document.getElementById("rankSel")?.value;
   const d=state.weekOrder.includes(sel)?sel:state.weekOrder[state.weekOrder.length-1];
@@ -555,106 +612,126 @@ function renderRanking(){
   rows.forEach((m,i)=>{
     const ms=state.master[m.mda]||{}, sc=sevClass(m.score,p);
     const pm=prevMap[m.mda];
-    const trend=pm&&pm.total>0 ? m.pct-pm.pct : null;
-    body+=`<tr><td>${i+1}</td><td><b>${m.mda}</b></td><td>${getLoc(m.mda)}</td><td>${ms.fabricante||""}</td><td>${ms.juego||""}</td>
-      <td class="${pctColor(m.pct)}"><b>${fmtP(m.pct)}</b></td><td>${fmtN(m.total)}</td><td>${fmtN(m.toRe)}</td>
-      <td class="${trend==null?'':trend>=0?'up':'down'}">${trend==null?"—":(trend>=0?"+":"")+(trend*100).toFixed(1)}</td>
-      <td><b>${fmt1(m.score)}</b></td><td><span class="badge b-${sc}">${SEVLBL[sc]}</span></td></tr>`;
+    const trend=pm&&pm.total>0?m.pct-pm.pct:null;
+    body+=`<tr>
+      <td>${i+1}</td><td class="left"><b>${m.mda}</b></td><td class="left">${getLoc(m.mda)}</td>
+      <td class="left">${ms.fabricante||""}</td><td class="left">${ms.modelo||""}</td>
+      <td class="${pctClass(m.pct)}"><b>${fmtP(m.pct)}</b></td>
+      <td>${fmtN(m.total)}</td><td>${fmtN(m.toRe)}</td>
+      <td class="${trend==null?'':trend>=0?'up':'down'}">${trend==null?"—":(trend>=0?"+":"")+(trend*100).toFixed(1)+"%"}</td>
+      <td><b>${fmt1(m.score)}</b></td>
+      <td><span class="badge b-${sc}">${SEVLBL[sc]}</span></td></tr>`;
   });
-  const counts={crit:0,high:0,mid:0}; rows.forEach(m=>{const s=sevClass(m.score,p); if(counts[s]!=null)counts[s]++;});
-  el.innerHTML=`<div class="card"><h2>Ranking de gravedad — máquinas a intervenir</h2>
-    <div class="row"><label class="fld">Semana
-      <select id="rankSel" onchange="renderRanking()">${state.weekOrder.map(w=>`<option value="${w}" ${w===d?"selected":""}>${fmtKey(w)}</option>`).join("")}</select></label>
+  const cnt={cr:0,hi:0,mid:0}; rows.forEach(m=>{const s=sevClass(m.score,p);if(cnt[s]!=null)cnt[s]++;});
+  el.innerHTML=`<div class="card"><h2>Ranking de gravedad</h2>
+    <div class="row">
+      <label class="fld">Semana <select id="rankSel" onchange="renderRanking()">${state.weekOrder.map(w=>`<option value="${w}" ${w===d?"selected":""}>${fmtKeyFull(w)}</option>`).join("")}</select></label>
       <div class="kpis">
-        <div class="kpi"><div class="v sev-crit">${counts.crit}</div><div class="l">Urgentes</div></div>
-        <div class="kpi"><div class="v sev-high">${counts.high}</div><div class="l">Altas</div></div>
-        <div class="kpi"><div class="v sev-mid">${counts.mid}</div><div class="l">Medias</div></div>
-      </div></div>
-    <div class="tblWrap"><table><thead><tr><th>#</th><th>MDA</th><th>Isla</th><th>MM</th><th>Juego</th>
-      <th>%Acep</th><th>Total</th><th>Rechazos</th><th>Δ% vs sem. ant.</th><th>Puntaje</th><th>Gravedad</th></tr></thead>
-      <tbody>${body}</tbody></table></div></div>`;
+        <div class="kpi"><div class="v" style="color:var(--crit)">${cnt.cr}</div><div class="l">Urgentes</div></div>
+        <div class="kpi"><div class="v" style="color:var(--high)">${cnt.hi}</div><div class="l">Altas</div></div>
+        <div class="kpi"><div class="v" style="color:var(--mid)">${cnt.mid}</div><div class="l">Medias</div></div>
+      </div>
+    </div>
+    <div class="tblWrap" style="max-height:72vh"><table id="tblRank">
+      <thead><tr>
+        <th class="sortable">#</th><th class="left sortable">MDA</th><th class="left sortable">ISLA</th>
+        <th class="left sortable">MM</th><th class="left sortable">Modelo</th>
+        <th class="sortable">%Acep</th><th class="sortable">Total</th><th class="sortable">Rechazos</th>
+        <th class="sortable">Δ%</th><th class="sortable">Puntaje</th><th>Gravedad</th>
+      </tr></thead><tbody>${body}</tbody></table></div></div>`;
+  attachSort("tblRank");
 }
 
 // ---------- Tendencias ----------
-let chTrend=null,chVol=null;
+let chTrend=null,chVol=null,chAl=null;
 function renderTendencias(){
   const el=document.getElementById("tab-tendencias");
-  if(!state.weekOrder.length){el.innerHTML='<div class="card muted">Sin datos cargados.</div>';return;}
+  if(!state.weekOrder.length){el.innerHTML='<div class="card muted">Sin datos.</div>';return;}
   el.innerHTML=`<div class="grid2">
     <div class="card"><h2>% aceptación promedio por semana</h2><canvas id="cvTrend"></canvas></div>
-    <div class="card"><h2>Volumen de billetes por semana</h2><canvas id="cvVol"></canvas></div></div>
-    <div class="card"><h2>Máquinas con alerta por semana</h2><canvas id="cvAlert" style="max-height:240px"></canvas></div>`;
-  const calcs=allCalcs(), w=state.weekOrder, lbl=w.map(fmtKey);
-  const avgs=w.map(d=>calcs[d].avgPct*100);
-  const rej=w.map(d=>calcs[d].totRe);
-  const al=w.map(d=>calcs[d].rows.filter(m=>m.score>0).length);
-  if(chTrend)chTrend.destroy(); if(chVol)chVol.destroy();
+    <div class="card"><h2>Advance vs Cashflow</h2><canvas id="cvModelo"></canvas></div></div>
+    <div class="grid2">
+    <div class="card"><h2>Volumen de billetes</h2><canvas id="cvVol"></canvas></div>
+    <div class="card"><h2>Máquinas con alerta</h2><canvas id="cvAl"></canvas></div></div>`;
+  const calcs=allCalcs(),w=state.weekOrder,lbl=w.map(fmtKey);
+  const avgs=w.map(d=>+(calcs[d].avgPct*100).toFixed(2));
+  const advs=w.map(d=>+(calcs[d].avgAdv*100).toFixed(2));
+  const cfs =w.map(d=>+(calcs[d].avgCf*100).toFixed(2));
+  if(chTrend)chTrend.destroy(); if(chVol)chVol.destroy(); if(chAl)chAl.destroy();
   Chart.defaults.color="#8fa0c0"; Chart.defaults.borderColor="#2e3b58";
   chTrend=new Chart(document.getElementById("cvTrend"),{type:"line",
-    data:{labels:lbl,datasets:[{label:"% aceptación",data:avgs,borderColor:"#4f8ff7",backgroundColor:"#4f8ff733",fill:true,tension:.3},
-      {label:"Umbral OK",data:w.map(()=>state.params.thrOk*100),borderColor:"#e74c3c",borderDash:[6,4],pointRadius:0}]},
+    data:{labels:lbl,datasets:[
+      {label:"% general",data:avgs,borderColor:"#4f8ff7",backgroundColor:"#4f8ff722",fill:true,tension:.3},
+      {label:"Umbral OK",data:w.map(()=>state.params.thrOk*100),borderColor:"#e74c3c",borderDash:[5,4],pointRadius:0}]},
+    options:{scales:{y:{ticks:{callback:v=>v+"%"}}}}});
+  new Chart(document.getElementById("cvModelo"),{type:"line",
+    data:{labels:lbl,datasets:[
+      {label:"Advance",data:advs,borderColor:"#2ecc71",tension:.3},
+      {label:"Cashflow",data:cfs,borderColor:"#f1c40f",tension:.3}]},
     options:{scales:{y:{ticks:{callback:v=>v+"%"}}}}});
   chVol=new Chart(document.getElementById("cvVol"),{type:"bar",
-    data:{labels:lbl,datasets:[{label:"Aceptados",data:w.map(d=>calcs[d].totAc),backgroundColor:"#2ecc71"},
-      {label:"Rechazados",data:rej,backgroundColor:"#e74c3c"}]},
+    data:{labels:lbl,datasets:[
+      {label:"Aceptados",data:w.map(d=>calcs[d].totAc),backgroundColor:"#2ecc71"},
+      {label:"Rechazados",data:w.map(d=>calcs[d].totRe),backgroundColor:"#e74c3c"}]},
     options:{scales:{x:{stacked:true},y:{stacked:true}}}});
-  new Chart(document.getElementById("cvAlert"),{type:"bar",
-    data:{labels:lbl,datasets:[{label:"Máquinas con puntaje > 0",data:al,backgroundColor:"#e67e22"}]}});
+  chAl=new Chart(document.getElementById("cvAl"),{type:"bar",
+    data:{labels:lbl,datasets:[{label:"Máquinas con alerta",data:w.map(d=>calcs[d].rows.filter(m=>m.score>0).length),backgroundColor:"#e67e22"}]}});
 }
 
 // ---------- Fabricantes ----------
 function renderFabricantes(){
   const el=document.getElementById("tab-fabricantes");
-  if(!state.weekOrder.length){el.innerHTML='<div class="card muted">Sin datos cargados.</div>';return;}
+  if(!state.weekOrder.length){el.innerHTML='<div class="card muted">Sin datos.</div>';return;}
   const calcs=allCalcs();
   const sel=document.getElementById("fabSel")?.value;
   const d=state.weekOrder.includes(sel)?sel:state.weekOrder[state.weekOrder.length-1];
   const groups={};
   for(const m of calcs[d].rows){
     const ms=state.master[m.mda]||{};
-    for(const key of [["MM",ms.fabricante||"(sin dato)"],["Modelo",ms.modelo||"(sin dato)"]]){
-      const gk=key[0]+"::"+key[1];
-      (groups[gk]=groups[gk]||{tipo:key[0],nombre:key[1],n:0,tot:0,ac:0,re:0,pcts:[],alert:0});
+    for(const [tipo,nombre] of [["MM",ms.fabricante||"(sin dato)"],["Modelo",ms.modelo||"(sin dato)"]]){
+      const gk=tipo+"::"+nombre;
+      (groups[gk]=groups[gk]||{tipo,nombre,n:0,tot:0,ac:0,re:0,pcts:[],alert:0});
       const g=groups[gk]; g.n++; g.tot+=m.total; g.ac+=m.toAc; g.re+=m.toRe;
       if(m.pct>0)g.pcts.push(m.pct); if(m.score>0)g.alert++;
     }
   }
   const mk=tipo=>Object.values(groups).filter(g=>g.tipo===tipo).sort((a,b)=>b.tot-a.tot).map(g=>
-    `<tr><td><b>${g.nombre}</b></td><td>${g.n}</td><td>${fmtN(g.tot)}</td><td>${fmtN(g.re)}</td>
-     <td class="${pctColor(avg(g.pcts))}">${fmtP(avg(g.pcts))}</td>
-     <td class="${pctColor(g.tot>0?g.ac/g.tot:null)}">${g.tot>0?fmtP(g.ac/g.tot):"—"}</td><td>${g.alert}</td></tr>`).join("");
-  const head=`<tr><th>Grupo</th><th>Máquinas</th><th>Total bill.</th><th>Rechazos</th><th>% prom.</th><th>% ponderado</th><th>Alertas</th></tr>`;
-  el.innerHTML=`<div class="card"><h2>Comparativa por fabricante y modelo de billetero</h2>
-    <div class="row"><label class="fld">Semana
-      <select id="fabSel" onchange="renderFabricantes()">${state.weekOrder.map(w=>`<option value="${w}" ${w===d?"selected":""}>${fmtKey(w)}</option>`).join("")}</select></label></div>
+    `<tr><td class="left"><b>${g.nombre}</b></td><td>${g.n}</td><td>${fmtN(g.tot)}</td><td>${fmtN(g.re)}</td>
+     <td class="${pctClass(avg(g.pcts))}">${fmtP(avg(g.pcts))}</td>
+     <td class="${pctClass(g.tot>0?g.ac/g.tot:0)}">${g.tot>0?fmtP(g.ac/g.tot):"—"}</td><td>${g.alert}</td></tr>`).join("");
+  const head=`<thead><tr><th class="left sortable">Grupo</th><th class="sortable">Máq.</th><th class="sortable">Total</th><th class="sortable">Rechazos</th><th class="sortable">% prom.</th><th class="sortable">% ponder.</th><th class="sortable">Alertas</th></tr></thead>`;
+  el.innerHTML=`<div class="card"><h2>Comparativa por fabricante y modelo (billetero MEI)</h2>
+    <div class="row"><label class="fld">Semana <select id="fabSel" onchange="renderFabricantes()">${state.weekOrder.map(w=>`<option value="${w}" ${w===d?"selected":""}>${fmtKeyFull(w)}</option>`).join("")}</select></label></div>
     <div class="grid2">
-      <div><h2>Por fabricante (MM)</h2><div class="tblWrap" style="max-height:50vh"><table><thead>${head}</thead><tbody>${mk("MM")}</tbody></table></div></div>
-      <div><h2>Por modelo (Advance / Cashflow)</h2><div class="tblWrap" style="max-height:50vh"><table><thead>${head}</thead><tbody>${mk("Modelo")}</tbody></table></div></div>
+      <div><div class="tblWrap" style="max-height:60vh"><table id="tblFabMM">${head}<tbody>${mk("MM")}</tbody></table></div></div>
+      <div><div class="tblWrap" style="max-height:60vh"><table id="tblFabMod">${head}<tbody>${mk("Modelo")}</tbody></table></div></div>
     </div></div>`;
+  attachSort("tblFabMM"); attachSort("tblFabMod");
 }
 
 // ---------- Denominaciones ----------
 function renderDenos(){
   const el=document.getElementById("tab-denominaciones");
-  if(!state.weekOrder.length){el.innerHTML='<div class="card muted">Sin datos cargados.</div>';return;}
+  if(!state.weekOrder.length){el.innerHTML='<div class="card muted">Sin datos.</div>';return;}
   const calcs=allCalcs(), w=state.weekOrder;
   let body="";
   for(const dn of DENOS){
-    let tr=`<td><b>$${dn}</b></td>`;
+    let tr=`<td class="left"><b>$${dn}</b></td>`;
     for(const d of w){
       let ac=0,re=0;
       for(const m of calcs[d].rows){ac+=m.acc[dn]||0;re+=m.rej[dn]||0;}
       const t=ac+re;
-      tr+=`<td class="${t>0?pctColor(ac/t):''}">${t>0?fmtP(ac/t):"—"}</td><td>${fmtN(t)}</td>`;
+      tr+=`<td class="${t>0?pctClass(ac/t):''}">${t>0?fmtP(ac/t):"—"}</td><td>${fmtN(t)}</td>`;
     }
     body+=`<tr>${tr}</tr>`;
   }
-  el.innerHTML=`<div class="card"><h2>Aceptación por denominación de billete</h2>
-    <div class="tblWrap"><table><thead>
-      <tr><th rowspan="2">Denominación</th>${w.map(d=>`<th colspan="2">${fmtKey(d)}</th>`).join("")}</tr>
-      <tr>${w.map(()=>"<th>%Acep</th><th>Intentos</th>").join("")}</tr></thead>
-      <tbody>${body}</tbody></table></div>
-    <div class="hint">Permite detectar problemas sistémicos con una denominación específica (billete deteriorado en circulación, calibración, etc.)</div></div>`;
+  el.innerHTML=`<div class="card"><h2>Aceptación por denominación</h2>
+    <div class="tblWrap"><table id="tblDeno">
+      <thead>
+        <tr><th class="left">Denominación</th>${w.map(d=>`<th colspan="2" class="sortable">${fmtKey(d)}</th>`).join("")}</tr>
+        <tr><th></th>${w.map(()=>`<th class="sortable">%Acep</th><th class="sortable">Intentos</th>`).join("")}</tr>
+      </thead><tbody>${body}</tbody></table></div>
+    <div class="hint">Detecta problemas sistémicos por denominación (billete deteriorado, calibración, etc.)</div></div>`;
 }
 
 // ---------- Buscador ----------
@@ -664,54 +741,54 @@ function renderBuscador(){
   let res="";
   if(q){
     const calcs=allCalcs();
-    const hits=Object.keys(state.master).filter(m=>m.includes(q)).slice(0,30);
-    const dataMdas=new Set(state.weekOrder.flatMap(d=>state.weeks[d].rows.map(r=>r.mda)));
-    for(const m of dataMdas) if(m.includes(q)&&!hits.includes(m)&&hits.length<30) hits.push(m);
-    if(!hits.length) res='<div class="muted">Sin resultados.</div>';
+    const allMdas=new Set(state.weekOrder.flatMap(d=>state.weeks[d].rows.map(r=>r.mda)));
+    const hits=[...allMdas].filter(m=>m.includes(q)||getLoc(m).toLowerCase().includes(q.toLowerCase())).slice(0,20);
+    if(!hits.length)res='<div class="muted" style="padding:8px">Sin resultados.</div>';
     for(const mda of hits){
       const ms=state.master[mda]||{};
       let hist="";
       for(const d of state.weekOrder){
         const mm=calcs[d]?.rows.find(r=>r.mda===mda);
-        if(mm&&mm.total>0) hist+=`<td class="${pctColor(mm.pct)}">${fmtP(mm.pct)}<br><span class="muted">${fmtN(mm.total)}</span></td>`;
-        else hist+="<td>—</td>";
+        if(mm&&mm.pct>0) hist+=`<td class="${pctClass(mm.pct)}">${fmtP(mm.pct)}<br><span class="muted">${fmtN(mm.total)}</span></td>`;
+        else hist+=`<td style="color:var(--muted)">—</td>`;
       }
       res+=`<div class="card"><h2>MDA ${mda}</h2>
         <div class="kpis">
-          <div class="kpi"><div class="v">${getLoc(mda)||"—"}</div><div class="l">Ubicación (LOCNAME)</div></div>
-          <div class="kpi"><div class="v">${ms.fabricante||"—"}</div><div class="l">Gabinete</div></div>
+          <div class="kpi"><div class="v" style="font-size:16px">${getLoc(mda)||"—"}</div><div class="l">ISLA (LOCNAME)</div></div>
+          <div class="kpi"><div class="v" style="font-size:15px">${ms.fabricante||"—"}</div><div class="l">Fabricante (MM)</div></div>
+          <div class="kpi"><div class="v" style="font-size:15px">${ms.modelo||"—"}</div><div class="l">Billetero</div></div>
           <div class="kpi"><div class="v" style="font-size:15px">${ms.juego||"—"}</div><div class="l">Juego</div></div>
-          <div class="kpi"><div class="v">${ms.modelo||"—"}</div><div class="l">Billetero</div></div>
+          <div class="kpi"><div class="v" style="font-size:15px">${ms.firm||"—"}</div><div class="l">Firm</div></div>
         </div>
-        <div class="tblWrap" style="margin-top:10px;max-height:140px"><table>
+        <div class="tblWrap" style="margin-top:8px;max-height:120px"><table>
           <thead><tr>${state.weekOrder.map(d=>`<th>${fmtKey(d)}</th>`).join("")}</tr></thead>
           <tbody><tr>${hist}</tr></tbody></table></div></div>`;
     }
   }
-  el.innerHTML=`<div class="card"><h2>Buscador de máquinas (Busca Listado)</h2>
-    <div class="row"><input id="busQ" placeholder="MDA o parte del número, ej: 100873" value="${q}" style="width:280px"
-      oninput="renderBuscador()" autofocus></div></div>${res}`;
+  el.innerHTML=`<div class="card"><h2>Buscador de máquinas</h2>
+    <div class="row"><input id="busQ" placeholder="MDA o ISLA, ej: 100873 o 648" value="${q}" style="width:260px"
+      oninput="renderBuscador()"></div></div>${res}`;
   const inp=document.getElementById("busQ"); inp.focus(); inp.setSelectionRange(q.length,q.length);
 }
 
 // ---------- Admin ----------
 function renderAdmin(){
   const el=document.getElementById("tab-admin"), p=state.params;
-  el.innerHTML=`<div class="card"><h2>Ponderaciones de gravedad</h2>
-    <p class="hint" style="margin-bottom:12px">Fórmula (idéntica al Excel): si %Acep ≥ Umbral OK → puntaje 0. Si no:<br>
-    <code>Total × (1+LOG10(Total)) × ((UmbralOK − %) / UmbralOK) × (Total / PromedioTotal) × Multiplicador</code><br>
-    Multiplicador = ×Crítico si % &lt; Umbral crítico; ×Medio si % &lt; Umbral medio; ×1 en otro caso.</p>
+  el.innerHTML=`<div class="card"><h2>Parámetros de gravedad</h2>
+    <p class="hint" style="margin-bottom:10px">Fórmula (igual al Excel):<br>
+    <code>si % ≥ UmbralOK → 0 &nbsp;|&nbsp; Total×(1+LOG10(Total))×((UmbralOK−%)/UmbralOK)×(Total/PromTotal)×Mult</code><br>
+    Mult = ×Crítico si % &lt; UmbCrítico · ×Medio si % &lt; UmbMedio · ×1 en otro caso</p>
     <div class="grid2">
-      <div class="card"><h2>Umbrales (%)</h2>
-        <div class="row"><label class="fld">Umbral OK (sin alerta si % ≥) <input id="p_thrOk" type="number" step="0.01" min="0" max="1" value="${p.thrOk}"></label></div>
-        <div class="row"><label class="fld">Umbral medio (AH1 / Seguimiento!G2) <input id="p_thrMid" type="number" step="0.01" min="0" max="1" value="${p.thrMid}"></label></div>
-        <div class="row"><label class="fld">Umbral crítico (AL1 / Seguimiento!I2) <input id="p_thrCrit" type="number" step="0.01" min="0" max="1" value="${p.thrCrit}"></label></div>
+      <div class="card"><h2>Umbrales</h2>
+        <div class="row"><label class="fld">OK (sin alerta si %) <input id="p_thrOk" type="number" step="0.01" min="0" max="1" value="${p.thrOk}"></label></div>
+        <div class="row"><label class="fld">Medio (Seguimiento G2) <input id="p_thrMid" type="number" step="0.01" min="0" max="1" value="${p.thrMid}"></label></div>
+        <div class="row"><label class="fld">Crítico (Seguimiento I2) <input id="p_thrCrit" type="number" step="0.01" min="0" max="1" value="${p.thrCrit}"></label></div>
       </div>
       <div class="card"><h2>Multiplicadores</h2>
-        <div class="row"><label class="fld">Multiplicador medio (AK1) <input id="p_multMid" type="number" step="1" min="1" value="${p.multMid}"></label></div>
-        <div class="row"><label class="fld">Multiplicador crítico (AM1) <input id="p_multCrit" type="number" step="1" min="1" value="${p.multCrit}"></label></div>
+        <div class="row"><label class="fld">×Medio (AK1) <input id="p_multMid" type="number" step="1" min="1" value="${p.multMid}"></label></div>
+        <div class="row"><label class="fld">×Crítico (AM1) <input id="p_multCrit" type="number" step="1" min="1" value="${p.multCrit}"></label></div>
       </div>
-      <div class="card"><h2>Cortes de badges (puntaje)</h2>
+      <div class="card"><h2>Cortes de badge (puntaje)</h2>
         <div class="row"><label class="fld">Medio ≥ <input id="p_sevMid" type="number" step="1" value="${p.sevMid}"></label></div>
         <div class="row"><label class="fld">Alto ≥ <input id="p_sevHigh" type="number" step="1" value="${p.sevHigh}"></label></div>
         <div class="row"><label class="fld">Urgente ≥ <input id="p_sevCrit" type="number" step="1" value="${p.sevCrit}"></label></div>
@@ -719,7 +796,7 @@ function renderAdmin(){
     </div>
     <div class="row" style="margin-top:8px">
       <button class="btn" onclick="saveParams()">Guardar y recalcular</button>
-      <button class="btn danger" onclick="resetParams()">Restaurar valores del Excel</button>
+      <button class="btn danger" onclick="resetParams()">Restaurar valores Excel</button>
       <span id="adminMsg" class="hint"></span>
     </div></div>`;
 }
@@ -729,7 +806,7 @@ function saveParams(){
     multMid:g("p_multMid"),multCrit:g("p_multCrit"),
     sevMid:g("p_sevMid"),sevHigh:g("p_sevHigh"),sevCrit:g("p_sevCrit")};
   invalidate(); saveState(); renderParamsBar();
-  document.getElementById("adminMsg").textContent="✓ Guardado. Todos los puntajes fueron recalculados.";
+  document.getElementById("adminMsg").textContent="✓ Guardado.";
 }
 function resetParams(){
   state.params={thrOk:0.85,thrMid:0.90,thrCrit:0.40,multMid:3,multCrit:30,sevMid:10,sevHigh:50,sevCrit:150};
