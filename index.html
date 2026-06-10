@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>REACBILL — Seguimiento Billeteros</title>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<style>
+:root{
+  --bg:#0f1420; --panel:#1a2233; --panel2:#222d44; --border:#2e3b58;
+  --text:#e8edf7; --muted:#8fa0c0; --accent:#4f8ff7; --ok:#2ecc71;
+  --mid:#f1c40f; --high:#e67e22; --crit:#e74c3c;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font:14px/1.45 'Segoe UI',system-ui,sans-serif}
+header{position:sticky;top:0;z-index:50;background:var(--panel);border-bottom:1px solid var(--border);padding:10px 16px}
+header h1{font-size:18px;display:inline-block;margin-right:14px}
+header .ver{color:var(--muted);font-size:12px}
+#paramsBar{display:flex;flex-wrap:wrap;gap:10px;margin-top:8px;font-size:12px}
+#paramsBar span{background:var(--panel2);border:1px solid var(--border);border-radius:14px;padding:3px 10px}
+#paramsBar b{color:var(--accent)}
+nav{display:flex;flex-wrap:wrap;gap:4px;margin-top:10px}
+nav button{background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:6px 6px 0 0;padding:7px 14px;cursor:pointer;font-size:13px}
+nav button.active{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+main{padding:16px}
+.tab{display:none}.tab.active{display:block}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:14px}
+.card h2{font-size:15px;margin-bottom:10px;color:var(--accent)}
+.kpis{display:flex;flex-wrap:wrap;gap:12px}
+.kpi{background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:10px 16px;min-width:130px}
+.kpi .v{font-size:22px;font-weight:700}
+.kpi .l{font-size:11px;color:var(--muted)}
+table{border-collapse:collapse;width:100%;font-size:12px}
+th,td{border:1px solid var(--border);padding:4px 7px;text-align:right;white-space:nowrap}
+th{background:var(--panel2);position:sticky;top:0}
+td:first-child,th:first-child{text-align:left}
+.tblWrap{overflow:auto;max-height:72vh;border:1px solid var(--border)}
+.tblWrap th{z-index:5}
+tr:hover td{background:#26314c}
+.sev-ok{color:var(--ok)}.sev-mid{color:var(--mid)}.sev-high{color:var(--high)}.sev-crit{color:var(--crit);font-weight:700}
+.badge{display:inline-block;border-radius:10px;padding:1px 8px;font-size:11px;font-weight:600}
+.b-ok{background:#1d4d31;color:var(--ok)}.b-mid{background:#4d431d;color:var(--mid)}
+.b-high{background:#4d331d;color:var(--high)}.b-crit{background:#4d1d1d;color:var(--crit)}
+input,select{background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px 9px;font-size:13px}
+input[type=file]{padding:8px}
+button.btn{background:var(--accent);color:#fff;border:none;border-radius:6px;padding:8px 16px;cursor:pointer;font-size:13px}
+button.btn.danger{background:var(--crit)}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:10px}
+.pctcell{position:relative}
+.muted{color:var(--muted)}
+.hint{font-size:12px;color:var(--muted);margin-top:6px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:900px){.grid2{grid-template-columns:1fr}}
+label.fld{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--muted)}
+#dropzone{border:2px dashed var(--border);border-radius:8px;padding:24px;text-align:center;color:var(--muted);cursor:pointer}
+#dropzone.over{border-color:var(--accent);color:var(--accent)}
+canvas{max-height:340px}
+.up{color:var(--ok)}.down{color:var(--crit)}
+</style>
+</head>
+<body>
+<header>
+  <h1>REACBILL <span class="ver">v1.0.0 — Seguimiento de Billeteros</span></h1>
+  <span id="dataInfo" class="ver"></span>
+  <div id="paramsBar"></div>
+  <nav id="nav"></nav>
+</header>
+<main id="main"></main>
+
+<script>
+/* ================= REACBILL v1.0.0 =================
+   Réplica de la planilla Seguimiento_Auto.xlsx:
+   - Hojas por fecha: ToAc/ToRe/Total/%Acep + puntaje gravedad
+   - Seguimiento: matriz máquina × semana (% y Total Bill)
+   - Fórmula gravedad (igual al Excel):
+     IF(p>=thrOk,0, T*(1+LOG10(T))*((thrOk-p)/thrOk)*(T/avgT)*
+        IF(p<thrCrit,multCrit, IF(p<thrMid,multMid,1)))
+==================================================== */
+
+const VERSION = "1.0.0";
+const LS_KEY = "reacbill_v1";
+
+// ---------- Estado ----------
+let state = {
+  weeks: {},        // { "dd-mm": { rows:[{mda, tarjAc, tarjRe, sesiones, acc:{deno:n}, rej:{deno:n}, pctTarj, pctBill}] } }
+  weekOrder: [],    // fechas ordenadas
+  master: {},       // mda -> {isla, fabricante, juego, modelo}
+  params: {
+    thrOk: 0.85,    // umbral aceptable (AJ1)
+    thrMid: 0.90,   // umbral medio (AH1 = Seguimiento!G2)
+    thrCrit: 0.40,  // umbral crítico (AL1 = Seguimiento!I2)
+    multMid: 3,     // multiplicador medio (AK1)
+    multCrit: 30,   // multiplicador crítico (AM1)
+    sevMid: 10,     // puntaje para badge "Medio"
+    sevHigh: 50,    // puntaje para badge "Alto"
+    sevCrit: 150    // puntaje para badge "Urgente"
+  }
+};
+
+const DENOS = ["20000","10000","5000","2000","1000","SIN_DENO"];
+
+// ---------- Persistencia (IndexedDB) ----------
+function idb(){return new Promise((res,rej)=>{
+  const r=indexedDB.open("reacbill",1);
+  r.onupgradeneeded=e=>e.target.result.createObjectStore("kv");
+  r.onsuccess=e=>res(e.target.result); r.onerror=rej;
+});}
+async function saveState(){
+  const db=await idb();
+  return new Promise((res,rej)=>{
+    const tx=db.transaction("kv","readwrite");
+    tx.objectStore("kv").put(JSON.stringify(state), LS_KEY);
+    tx.oncomplete=res; tx.onerror=rej;
+  });
+}
+async function loadState(){
+  try{
+    const db=await idb();
+    return new Promise(res=>{
+      const rq=db.transaction("kv").objectStore("kv").get(LS_KEY);
+      rq.onsuccess=()=>{ if(rq.result){ const s=JSON.parse(rq.result); state={...state,...s,params:{...state.params,...s.params}}; } res(); };
+      rq.onerror=()=>res();
+    });
+  }catch(e){}
+}
+
+// ---------- Cálculos (réplica de fórmulas Excel) ----------
+function weekCalc(week, params){
+  // por máquina: toAc, toRe, total, pct ; promedio total>0 ; score
+  const out=[];
+  let sumT=0,nT=0;
+  for(const r of week.rows){
+    const toAc=DENOS.reduce((s,d)=>s+(r.acc[d]||0),0);
+    const toRe=DENOS.reduce((s,d)=>s+(r.rej[d]||0),0);
+    const total=toAc+toRe;
+    const pct = r.pctBill!=null ? r.pctBill : (total>0? toAc/total : 0);
+    if(total>0){sumT+=total;nT++;}
+    out.push({...r,toAc,toRe,total,pct});
+  }
+  const avgT = nT? sumT/nT : 1;
+  for(const m of out){
+    if(m.total<=0 || m.pct>=params.thrOk){ m.score=0; }
+    else{
+      const mult = m.pct<params.thrCrit ? params.multCrit : (m.pct<params.thrMid ? params.multMid : 1);
+      m.score = m.total*(1+Math.log10(m.total))*((params.thrOk-m.pct)/params.thrOk)*(m.total/avgT)*mult;
+    }
+  }
+  return {rows:out, avgT,
+    avgPct: avg(out.filter(m=>m.pct>0).map(m=>m.pct)),
+    totBill: out.reduce((s,m)=>s+m.total,0),
+    totAc: out.reduce((s,m)=>s+m.toAc,0),
+    totRe: out.reduce((s,m)=>s+m.toRe,0)};
+}
+function avg(a){return a.length? a.reduce((x,y)=>x+y,0)/a.length : 0;}
+function sevClass(score,p){ if(score<=0)return"ok"; if(score>=p.sevCrit)return"crit"; if(score>=p.sevHigh)return"high"; if(score>=p.sevMid)return"mid"; return"ok"; }
+const SEVLBL={ok:"OK",mid:"Medio",high:"Alto",crit:"Urgente"};
+
+let calcCache=null;
+function allCalcs(){
+  if(calcCache) return calcCache;
+  const r={};
+  for(const d of state.weekOrder) r[d]=weekCalc(state.weeks[d], state.params);
+  calcCache=r; return r;
+}
+function invalidate(){calcCache=null;}
+
+// ---------- Parseo de archivos ----------
+function dateKeyFromName(name){
+  // busca dd-mm en el nombre del archivo
+  let m=name.match(/(\d{2})[-_.](\d{2})/);
+  if(m) return m[1]+"-"+m[2];
+  return name.replace(/\.[^.]+$/,"").slice(0,8);
+}
+function sortWeeks(){
+  state.weekOrder=Object.keys(state.weeks).sort((a,b)=>{
+    const [da,ma]=a.split("-").map(Number),[db,mb]=b.split("-").map(Number);
+    return (ma-mb)||(da-db);
+  });
+}
+function parseDataSheet(ws){
+  // hoja con encabezados: maquina, Tarjeta..., Billete Aceptado X, Billete Rechazado X, % Aceptacion...
+  const arr=XLSX.utils.sheet_to_json(ws,{header:1,defval:null});
+  if(!arr.length) return null;
+  const hdr=arr[0].map(h=>String(h??"").trim());
+  const idx={maq:-1,tA:-1,tR:-1,ses:-1,pT:-1,pB:-1,acc:{},rej:{}};
+  hdr.forEach((h,i)=>{
+    const hl=h.toLowerCase();
+    if(hl==="maquina"||hl==="máquina"||hl==="mda") idx.maq=i;
+    else if(hl.startsWith("tarjeta acepta")) idx.tA=i;
+    else if(hl.startsWith("tarjeta rechaza")) idx.tR=i;
+    else if(hl.includes("sesiones")) idx.ses=i;
+    else if(hl.includes("aceptacion tarjeta")||hl.includes("aceptación tarjeta")) idx.pT=i;
+    else if(hl.includes("aceptacion billetes")||hl.includes("aceptación billetes")) idx.pB=i;
+    else if(/billete aceptado/i.test(h)){const d=h.replace(/billete aceptado/i,"").trim()||"SIN_DENO";idx.acc[d]=i;}
+    else if(/billete rechazado/i.test(h)){const d=h.replace(/billete rechazado/i,"").trim()||"SIN_DENO";idx.rej[d]=i;}
+  });
+  if(idx.maq<0) return null;
+  const rows=[];
+  for(let r=1;r<arr.length;r++){
+    const row=arr[r]; if(!row) continue;
+    const mda=String(row[idx.maq]??"").trim();
+    if(!mda||mda==="0") continue;
+    const num=i=>i>=0&&row[i]!=null?Number(row[i])||0:0;
+    const acc={},rej={};
+    for(const d in idx.acc) acc[d]=num(idx.acc[d]);
+    for(const d in idx.rej) rej[d]=num(idx.rej[d]);
+    rows.push({mda, tarjAc:num(idx.tA), tarjRe:num(idx.tR), sesiones:num(idx.ses),
+      acc,rej, pctTarj:idx.pT>=0&&row[idx.pT]!=null?Number(row[idx.pT]):null,
+      pctBill:idx.pB>=0&&row[idx.pB]!=null?Number(row[idx.pB]):null});
+  }
+  return rows.length?{rows}:null;
+}
+function parseContadores(ws){
+  const arr=XLSX.utils.sheet_to_json(ws,{header:1,defval:null});
+  const hdr=(arr[0]||[]).map(h=>String(h??"").trim().toUpperCase());
+  const iId=hdr.indexOf("SMDBID"), iLoc=hdr.indexOf("LOCNAME"), iMan=hdr.findIndex(h=>h.startsWith("MANUF")), iJue=hdr.indexOf("JUEGO");
+  if(iId<0) return 0;
+  let n=0;
+  for(let r=1;r<arr.length;r++){
+    const row=arr[r]; if(!row||row[iId]==null) continue;
+    const mda=String(row[iId]).trim(); if(!mda) continue;
+    const loc=iLoc>=0?String(row[iLoc]??""):"";
+    // LOCNAME ej 61504 -> isla "615-04"
+    const isla= loc.length>2 ? loc.slice(0,loc.length-2)+"-"+loc.slice(-2) : loc;
+    state.master[mda]={...(state.master[mda]||{}), isla,
+      fabricante:iMan>=0?String(row[iMan]??""):"", juego:iJue>=0?String(row[iJue]??""):""};
+    n++;
+  }
+  return n;
+}
+function parseSeguimientoModelos(ws){
+  // hoja Seguimiento: col A=MDA, B=MM, C=Modelo, E=ISLA (desde fila 5)
+  const arr=XLSX.utils.sheet_to_json(ws,{header:1,defval:null});
+  let n=0;
+  for(let r=4;r<arr.length;r++){
+    const row=arr[r]; if(!row) continue;
+    const mda=String(row[0]??"").trim(); if(!mda) continue;
+    const mod=String(row[2]??"").trim();
+    state.master[mda]={...(state.master[mda]||{}),
+      modelo: mod||state.master[mda]?.modelo||"",
+      fabricante: String(row[1]??"")||state.master[mda]?.fabricante||"",
+      isla: String(row[4]??"")||state.master[mda]?.isla||""};
+    if(mod)n++;
+  }
+  return n;
+}
+async function handleFiles(files){
+  const log=[];
+  for(const f of files){
+    try{
+      const wb=XLSX.read(await f.arrayBuffer(),{type:"array"});
+      const dateSheets=wb.SheetNames.filter(n=>/^\d{2}-\d{2}$/.test(n));
+      let imported=0;
+      if(dateSheets.length){
+        // planilla maestra: importa cada hoja de fecha + Contadores + modelos
+        for(const sn of dateSheets){
+          const wk=parseDataSheet(wb.Sheets[sn]);
+          if(wk){state.weeks[sn]=wk;imported++;}
+        }
+        if(wb.Sheets["Contadores"]) log.push("Contadores: "+parseContadores(wb.Sheets["Contadores"])+" máquinas");
+        if(wb.Sheets["Seguimiento"]) log.push("Modelos: "+parseSeguimientoModelos(wb.Sheets["Seguimiento"]));
+        log.push(`${f.name}: ${imported} semanas importadas`);
+      }else{
+        // planilla semanal: Ultima_Semana o primera hoja
+        const sn=wb.SheetNames.find(n=>/ultima/i.test(n))||wb.SheetNames[0];
+        const wk=parseDataSheet(wb.Sheets[sn]);
+        if(wk){
+          const key=dateKeyFromName(f.name);
+          state.weeks[key]=wk;
+          log.push(`${f.name} → semana ${key} (${wk.rows.length} máquinas)`);
+        }else log.push(`${f.name}: no se reconoció el formato`);
+        if(wb.Sheets["Contadores"]) log.push("Contadores: "+parseContadores(wb.Sheets["Contadores"])+" máquinas");
+      }
+    }catch(e){log.push(`${f.name}: ERROR ${e.message}`);}
+  }
+  sortWeeks(); invalidate(); await saveState();
+  renderAll();
+  document.getElementById("uplog").innerHTML=log.map(l=>"• "+l).join("<br>");
+}
+
+// ---------- Formato ----------
+const fmtP=v=>v==null||isNaN(v)?"—":(v*100).toFixed(1)+"%";
+const fmtN=v=>v==null||isNaN(v)?"—":Math.round(v).toLocaleString("es-CL");
+const fmt1=v=>v==null||isNaN(v)?"—":v.toFixed(1);
+function pctColor(p){if(p==null||isNaN(p)||p===0)return"";const pr=state.params;
+  if(p<pr.thrCrit)return"sev-crit";if(p<pr.thrOk)return"sev-high";if(p<pr.thrMid)return"sev-mid";return"sev-ok";}
+
+// ---------- UI ----------
+const TABS=[
+ ["carga","📂 Carga"],
+ ["resumen","📊 Resumen"],
+ ["fecha","📅 Por Fecha"],
+ ["ranking","🚨 Ranking Gravedad"],
+ ["tendencias","📈 Tendencias"],
+ ["fabricantes","🏭 Fabricantes"],
+ ["denominaciones","💵 Denominaciones"],
+ ["buscador","🔎 Buscador"],
+ ["admin","⚙️ Admin"]
+];
+let activeTab="carga";
+function buildNav(){
+  document.getElementById("nav").innerHTML=TABS.map(([id,lbl])=>
+    `<button id="nb-${id}" onclick="showTab('${id}')">${lbl}</button>`).join("");
+}
+function showTab(id){
+  activeTab=id;
+  document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("active",b.id==="nb-"+id));
+  document.querySelectorAll(".tab").forEach(t=>t.classList.toggle("active",t.id==="tab-"+id));
+  const fn={resumen:renderResumen,fecha:renderFecha,ranking:renderRanking,tendencias:renderTendencias,
+    fabricantes:renderFabricantes,denominaciones:renderDenos,buscador:renderBuscador,admin:renderAdmin}[id];
+  if(fn)fn();
+}
+function buildShells(){
+  document.getElementById("main").innerHTML=TABS.map(([id])=>`<div class="tab" id="tab-${id}"></div>`).join("");
+  document.getElementById("tab-carga").innerHTML=`
+    <div class="card"><h2>Carga de archivos</h2>
+      <div id="dropzone">Arrastra aquí los archivos Excel (planillas semanales y/o la planilla Seguimiento_Auto completa)<br>
+      o haz clic para seleccionar — puedes subir varios a la vez</div>
+      <input type="file" id="fileInput" multiple accept=".xlsx,.xls,.xlsm" style="display:none">
+      <div class="hint">• La planilla <b>Seguimiento_Auto.xlsx</b> importa todas las hojas con fecha (dd-mm), Contadores y modelos de una vez.<br>
+      • Las planillas semanales nuevas toman la fecha del nombre del archivo (busca dd-mm en el nombre).</div>
+      <div id="uplog" class="hint"></div>
+    </div>
+    <div class="card"><h2>Datos cargados</h2><div id="loadedInfo"></div>
+      <div class="row" style="margin-top:10px">
+        <button class="btn danger" onclick="if(confirm('¿Borrar todos los datos cargados?')){state.weeks={};state.weekOrder=[];state.master={};invalidate();saveState();renderAll();}">Borrar todo</button>
+      </div>
+    </div>`;
+  const dz=document.getElementById("dropzone"),fi=document.getElementById("fileInput");
+  dz.onclick=()=>fi.click();
+  fi.onchange=()=>handleFiles([...fi.files]);
+  dz.ondragover=e=>{e.preventDefault();dz.classList.add("over");};
+  dz.ondragleave=()=>dz.classList.remove("over");
+  dz.ondrop=e=>{e.preventDefault();dz.classList.remove("over");handleFiles([...e.dataTransfer.files]);};
+}
+function renderParamsBar(){
+  const p=state.params;
+  document.getElementById("paramsBar").innerHTML=
+    `<span>Umbral OK ≥ <b>${(p.thrOk*100).toFixed(0)}%</b></span>
+     <span>Medio &lt; <b>${(p.thrMid*100).toFixed(0)}%</b> ×<b>${p.multMid}</b></span>
+     <span>Crítico &lt; <b>${(p.thrCrit*100).toFixed(0)}%</b> ×<b>${p.multCrit}</b></span>
+     <span>Badges: Medio ≥ <b>${p.sevMid}</b> · Alto ≥ <b>${p.sevHigh}</b> · Urgente ≥ <b>${p.sevCrit}</b></span>`;
+}
+function renderLoadedInfo(){
+  const el=document.getElementById("loadedInfo");
+  if(!state.weekOrder.length){el.innerHTML='<span class="muted">Sin datos. Sube archivos en esta pestaña.</span>';return;}
+  el.innerHTML=`<b>${state.weekOrder.length}</b> semanas: ${state.weekOrder.join(", ")}<br>
+    Maestro de máquinas: <b>${Object.keys(state.master).length}</b> registros`;
+  document.getElementById("dataInfo").textContent=
+    ` · ${state.weekOrder.length} semanas · ${new Set(state.weekOrder.flatMap(d=>state.weeks[d].rows.map(r=>r.mda))).size} máquinas`;
+}
+
+// ---------- Pestaña Resumen (= hoja Seguimiento) ----------
+function renderResumen(){
+  const el=document.getElementById("tab-resumen");
+  if(!state.weekOrder.length){el.innerHTML='<div class="card muted">Sin datos cargados.</div>';return;}
+  const calcs=allCalcs(), weeks=state.weekOrder;
+  // mapa mda -> por semana
+  const mdas=new Map();
+  for(const d of weeks) for(const m of calcs[d].rows){
+    if(!mdas.has(m.mda)) mdas.set(m.mda,{});
+    mdas.get(m.mda)[d]=m;
+  }
+  // promedios por semana + dif
+  let head1=`<tr><th>MDA</th><th>MM</th><th>Modelo</th><th>Isla</th>`;
+  let avgRow=`<tr><td colspan="4"><b>Promedio % (&gt;0) / Δ semana</b></td>`;
+  for(let i=0;i<weeks.length;i++){
+    const d=weeks[i];
+    head1+=`<th colspan="2">${d}</th>`;
+    const a=calcs[d].avgPct, prev=i>0?calcs[weeks[i-1]].avgPct:null;
+    const dif=prev!=null?a-prev:null;
+    avgRow+=`<td><b>${fmtP(a)}</b></td><td class="${dif==null?'':dif>=0?'up':'down'}">${dif==null?"—":(dif>=0?"+":"")+(dif*100).toFixed(2)}</td>`;
+  }
+  head1+="</tr>"; avgRow+="</tr>";
+  let head2=`<tr><th></th><th></th><th></th><th></th>`+weeks.map(()=>`<th>%</th><th>Tot</th>`).join("")+"</tr>";
+  const filtro=(document.getElementById("resFiltro")?.value||"").toLowerCase();
+  let body="";
+  const sorted=[...mdas.keys()].sort();
+  for(const mda of sorted){
+    const ms=state.master[mda]||{};
+    if(filtro && !(mda+(ms.fabricante||"")+(ms.modelo||"")+(ms.isla||"")).toLowerCase().includes(filtro)) continue;
+    let tr=`<td><b>${mda}</b></td><td>${ms.fabricante||""}</td><td>${ms.modelo||""}</td><td>${ms.isla||""}</td>`;
+    for(const d of weeks){
+      const m=mdas.get(mda)[d];
+      tr+= m? `<td class="${pctColor(m.pct)}">${m.total>0?fmtP(m.pct):"—"}</td><td>${m.total>0?fmtN(m.total):"—"}</td>` : `<td></td><td></td>`;
+    }
+    body+=`<tr>${tr}</tr>`;
+  }
+  el.innerHTML=`<div class="card"><h2>Resumen histórico (hoja Seguimiento)</h2>
+    <div class="row"><input id="resFiltro" placeholder="Filtrar por MDA / fabricante / modelo / isla" value="${filtro}" oninput="renderResumen()" style="width:320px"></div>
+    <div class="tblWrap"><table><thead>${head1}${head2}</thead><tbody>${avgRow}${body}</tbody></table></div>
+    <div class="hint">% = % aceptación billetes de la semana · Tot = total intentos de billetes. Colores: <span class="sev-ok">OK ≥${(state.params.thrMid*100).toFixed(0)}%</span> · <span class="sev-mid">medio</span> · <span class="sev-high">bajo umbral</span> · <span class="sev-crit">crítico</span></div></div>`;
+}
+
+// ---------- Pestaña Por Fecha (= hoja dd-mm) ----------
+function renderFecha(){
+  const el=document.getElementById("tab-fecha");
+  if(!state.weekOrder.length){el.innerHTML='<div class="card muted">Sin datos cargados.</div>';return;}
+  const sel=document.getElementById("fechaSel")?.value;
+  const d=state.weekOrder.includes(sel)?sel:state.weekOrder[state.weekOrder.length-1];
+  const c=allCalcs()[d], p=state.params;
+  const rows=[...c.rows].sort((a,b)=>b.score-a.score);
+  let body="";
+  for(const m of rows){
+    const ms=state.master[m.mda]||{};
+    const sc=sevClass(m.score,p);
+    body+=`<tr><td><b>${m.mda}</b></td><td>${ms.isla||""}</td><td>${ms.fabricante||""}</td>
+      <td>${fmtN(m.tarjAc)}</td><td>${fmtN(m.tarjRe)}</td><td>${fmtP(m.pctTarj)}</td>
+      ${DENOS.map(dn=>`<td>${fmtN(m.acc[dn]||0)}</td>`).join("")}
+      ${DENOS.map(dn=>`<td>${fmtN(m.rej[dn]||0)}</td>`).join("")}
+      <td><b>${fmtN(m.toAc)}</b></td><td><b>${fmtN(m.toRe)}</b></td><td><b>${fmtN(m.total)}</b></td>
+      <td class="${pctColor(m.pct)}"><b>${m.total>0?fmtP(m.pct):"—"}</b></td>
+      <td>${fmt1(m.score)}</td><td><span class="badge b-${sc}">${SEVLBL[sc]}</span></td></tr>`;
+  }
+  el.innerHTML=`<div class="card"><h2>Detalle semanal</h2>
+    <div class="row"><label class="fld">Semana
+      <select id="fechaSel" onchange="renderFecha()">${state.weekOrder.map(w=>`<option ${w===d?"selected":""}>${w}</option>`).join("")}</select></label>
+      <div class="kpis">
+        <div class="kpi"><div class="v">${fmtP(c.avgPct)}</div><div class="l">% acept. promedio (&gt;0)</div></div>
+        <div class="kpi"><div class="v">${fmtN(c.totBill)}</div><div class="l">Total intentos billetes</div></div>
+        <div class="kpi"><div class="v">${fmtN(c.totRe)}</div><div class="l">Rechazos</div></div>
+        <div class="kpi"><div class="v">${fmtN(c.avgT)}</div><div class="l">Prom. intentos/máquina</div></div>
+        <div class="kpi"><div class="v">${c.rows.filter(m=>m.score>0).length}</div><div class="l">Máquinas con alerta</div></div>
+      </div></div>
+    <div class="tblWrap"><table><thead>
+      <tr><th rowspan="2">MDA</th><th rowspan="2">Isla</th><th rowspan="2">MM</th>
+      <th colspan="3">Tarjetas</th><th colspan="6">Billete Aceptado</th><th colspan="6">Billete Rechazado</th>
+      <th rowspan="2">ToAc</th><th rowspan="2">ToRe</th><th rowspan="2">Total</th><th rowspan="2">%Acep</th>
+      <th rowspan="2">Puntaje</th><th rowspan="2">Gravedad</th></tr>
+      <tr><th>Acep</th><th>Rech</th><th>%</th>${DENOS.map(dn=>`<th>${dn}</th>`).join("")}${DENOS.map(dn=>`<th>${dn}</th>`).join("")}</tr>
+      </thead><tbody>${body}</tbody></table></div></div>`;
+}
+
+// ---------- Ranking Gravedad ----------
+function renderRanking(){
+  const el=document.getElementById("tab-ranking");
+  if(!state.weekOrder.length){el.innerHTML='<div class="card muted">Sin datos cargados.</div>';return;}
+  const p=state.params, calcs=allCalcs();
+  const sel=document.getElementById("rankSel")?.value;
+  const d=state.weekOrder.includes(sel)?sel:state.weekOrder[state.weekOrder.length-1];
+  const prevD=state.weekOrder[state.weekOrder.indexOf(d)-1];
+  const prevMap={}; if(prevD) for(const m of calcs[prevD].rows) prevMap[m.mda]=m;
+  const rows=calcs[d].rows.filter(m=>m.score>0).sort((a,b)=>b.score-a.score);
+  let body="";
+  rows.forEach((m,i)=>{
+    const ms=state.master[m.mda]||{}, sc=sevClass(m.score,p);
+    const pm=prevMap[m.mda];
+    const trend=pm&&pm.total>0 ? m.pct-pm.pct : null;
+    body+=`<tr><td>${i+1}</td><td><b>${m.mda}</b></td><td>${ms.isla||""}</td><td>${ms.fabricante||""}</td><td>${ms.juego||""}</td>
+      <td class="${pctColor(m.pct)}"><b>${fmtP(m.pct)}</b></td><td>${fmtN(m.total)}</td><td>${fmtN(m.toRe)}</td>
+      <td class="${trend==null?'':trend>=0?'up':'down'}">${trend==null?"—":(trend>=0?"+":"")+(trend*100).toFixed(1)}</td>
+      <td><b>${fmt1(m.score)}</b></td><td><span class="badge b-${sc}">${SEVLBL[sc]}</span></td></tr>`;
+  });
+  const counts={crit:0,high:0,mid:0}; rows.forEach(m=>{const s=sevClass(m.score,p); if(counts[s]!=null)counts[s]++;});
+  el.innerHTML=`<div class="card"><h2>Ranking de gravedad — máquinas a intervenir</h2>
+    <div class="row"><label class="fld">Semana
+      <select id="rankSel" onchange="renderRanking()">${state.weekOrder.map(w=>`<option ${w===d?"selected":""}>${w}</option>`).join("")}</select></label>
+      <div class="kpis">
+        <div class="kpi"><div class="v sev-crit">${counts.crit}</div><div class="l">Urgentes</div></div>
+        <div class="kpi"><div class="v sev-high">${counts.high}</div><div class="l">Altas</div></div>
+        <div class="kpi"><div class="v sev-mid">${counts.mid}</div><div class="l">Medias</div></div>
+      </div></div>
+    <div class="tblWrap"><table><thead><tr><th>#</th><th>MDA</th><th>Isla</th><th>MM</th><th>Juego</th>
+      <th>%Acep</th><th>Total</th><th>Rechazos</th><th>Δ% vs sem. ant.</th><th>Puntaje</th><th>Gravedad</th></tr></thead>
+      <tbody>${body}</tbody></table></div></div>`;
+}
+
+// ---------- Tendencias ----------
+let chTrend=null,chVol=null;
+function renderTendencias(){
+  const el=document.getElementById("tab-tendencias");
+  if(!state.weekOrder.length){el.innerHTML='<div class="card muted">Sin datos cargados.</div>';return;}
+  el.innerHTML=`<div class="grid2">
+    <div class="card"><h2>% aceptación promedio por semana</h2><canvas id="cvTrend"></canvas></div>
+    <div class="card"><h2>Volumen de billetes por semana</h2><canvas id="cvVol"></canvas></div></div>
+    <div class="card"><h2>Máquinas con alerta por semana</h2><canvas id="cvAlert" style="max-height:240px"></canvas></div>`;
+  const calcs=allCalcs(), w=state.weekOrder;
+  const avgs=w.map(d=>calcs[d].avgPct*100);
+  const tot=w.map(d=>calcs[d].totBill), rej=w.map(d=>calcs[d].totRe);
+  const al=w.map(d=>calcs[d].rows.filter(m=>m.score>0).length);
+  if(chTrend)chTrend.destroy(); if(chVol)chVol.destroy();
+  Chart.defaults.color="#8fa0c0"; Chart.defaults.borderColor="#2e3b58";
+  chTrend=new Chart(document.getElementById("cvTrend"),{type:"line",
+    data:{labels:w,datasets:[{label:"% aceptación",data:avgs,borderColor:"#4f8ff7",backgroundColor:"#4f8ff733",fill:true,tension:.3},
+      {label:"Umbral OK",data:w.map(()=>state.params.thrOk*100),borderColor:"#e74c3c",borderDash:[6,4],pointRadius:0}]},
+    options:{scales:{y:{ticks:{callback:v=>v+"%"}}}}});
+  chVol=new Chart(document.getElementById("cvVol"),{type:"bar",
+    data:{labels:w,datasets:[{label:"Aceptados",data:w.map(d=>calcs[d].totAc),backgroundColor:"#2ecc71"},
+      {label:"Rechazados",data:rej,backgroundColor:"#e74c3c"}]},
+    options:{scales:{x:{stacked:true},y:{stacked:true}}}});
+  new Chart(document.getElementById("cvAlert"),{type:"bar",
+    data:{labels:w,datasets:[{label:"Máquinas con puntaje > 0",data:al,backgroundColor:"#e67e22"}]}});
+}
+
+// ---------- Fabricantes ----------
+function renderFabricantes(){
+  const el=document.getElementById("tab-fabricantes");
+  if(!state.weekOrder.length){el.innerHTML='<div class="card muted">Sin datos cargados.</div>';return;}
+  const calcs=allCalcs();
+  const sel=document.getElementById("fabSel")?.value;
+  const d=state.weekOrder.includes(sel)?sel:state.weekOrder[state.weekOrder.length-1];
+  const groups={};
+  for(const m of calcs[d].rows){
+    const ms=state.master[m.mda]||{};
+    for(const key of [["MM",ms.fabricante||"(sin dato)"],["Modelo",ms.modelo||"(sin dato)"]]){
+      const gk=key[0]+"::"+key[1];
+      (groups[gk]=groups[gk]||{tipo:key[0],nombre:key[1],n:0,tot:0,ac:0,re:0,pcts:[],alert:0});
+      const g=groups[gk]; g.n++; g.tot+=m.total; g.ac+=m.toAc; g.re+=m.toRe;
+      if(m.pct>0)g.pcts.push(m.pct); if(m.score>0)g.alert++;
+    }
+  }
+  const mk=tipo=>Object.values(groups).filter(g=>g.tipo===tipo).sort((a,b)=>b.tot-a.tot).map(g=>
+    `<tr><td><b>${g.nombre}</b></td><td>${g.n}</td><td>${fmtN(g.tot)}</td><td>${fmtN(g.re)}</td>
+     <td class="${pctColor(avg(g.pcts))}">${fmtP(avg(g.pcts))}</td>
+     <td class="${pctColor(g.tot>0?g.ac/g.tot:null)}">${g.tot>0?fmtP(g.ac/g.tot):"—"}</td><td>${g.alert}</td></tr>`).join("");
+  const head=`<tr><th>Grupo</th><th>Máquinas</th><th>Total bill.</th><th>Rechazos</th><th>% prom.</th><th>% ponderado</th><th>Alertas</th></tr>`;
+  el.innerHTML=`<div class="card"><h2>Comparativa por fabricante y modelo de billetero</h2>
+    <div class="row"><label class="fld">Semana
+      <select id="fabSel" onchange="renderFabricantes()">${state.weekOrder.map(w=>`<option ${w===d?"selected":""}>${w}</option>`).join("")}</select></label></div>
+    <div class="grid2">
+      <div><h2>Por fabricante (MM)</h2><div class="tblWrap" style="max-height:50vh"><table><thead>${head}</thead><tbody>${mk("MM")}</tbody></table></div></div>
+      <div><h2>Por modelo (Advance / Cashflow)</h2><div class="tblWrap" style="max-height:50vh"><table><thead>${head}</thead><tbody>${mk("Modelo")}</tbody></table></div></div>
+    </div></div>`;
+}
+
+// ---------- Denominaciones ----------
+function renderDenos(){
+  const el=document.getElementById("tab-denominaciones");
+  if(!state.weekOrder.length){el.innerHTML='<div class="card muted">Sin datos cargados.</div>';return;}
+  const calcs=allCalcs(), w=state.weekOrder;
+  let body="";
+  for(const dn of DENOS){
+    let tr=`<td><b>$${dn}</b></td>`;
+    for(const d of w){
+      let ac=0,re=0;
+      for(const m of calcs[d].rows){ac+=m.acc[dn]||0;re+=m.rej[dn]||0;}
+      const t=ac+re;
+      tr+=`<td class="${t>0?pctColor(ac/t):''}">${t>0?fmtP(ac/t):"—"}</td><td>${fmtN(t)}</td>`;
+    }
+    body+=`<tr>${tr}</tr>`;
+  }
+  el.innerHTML=`<div class="card"><h2>Aceptación por denominación de billete</h2>
+    <div class="tblWrap"><table><thead>
+      <tr><th rowspan="2">Denominación</th>${w.map(d=>`<th colspan="2">${d}</th>`).join("")}</tr>
+      <tr>${w.map(()=>"<th>%Acep</th><th>Intentos</th>").join("")}</tr></thead>
+      <tbody>${body}</tbody></table></div>
+    <div class="hint">Permite detectar problemas sistémicos con una denominación específica (billete deteriorado en circulación, calibración, etc.)</div></div>`;
+}
+
+// ---------- Buscador ----------
+function renderBuscador(){
+  const el=document.getElementById("tab-buscador");
+  const q=(document.getElementById("busQ")?.value||"").trim();
+  let res="";
+  if(q){
+    const calcs=allCalcs();
+    const hits=Object.keys(state.master).filter(m=>m.includes(q)).slice(0,30);
+    const dataMdas=new Set(state.weekOrder.flatMap(d=>state.weeks[d].rows.map(r=>r.mda)));
+    for(const m of dataMdas) if(m.includes(q)&&!hits.includes(m)&&hits.length<30) hits.push(m);
+    if(!hits.length) res='<div class="muted">Sin resultados.</div>';
+    for(const mda of hits){
+      const ms=state.master[mda]||{};
+      let hist="";
+      for(const d of state.weekOrder){
+        const mm=calcs[d]?.rows.find(r=>r.mda===mda);
+        if(mm&&mm.total>0) hist+=`<td class="${pctColor(mm.pct)}">${fmtP(mm.pct)}<br><span class="muted">${fmtN(mm.total)}</span></td>`;
+        else hist+="<td>—</td>";
+      }
+      res+=`<div class="card"><h2>MDA ${mda}</h2>
+        <div class="kpis">
+          <div class="kpi"><div class="v">${ms.isla||"—"}</div><div class="l">Isla / Posición</div></div>
+          <div class="kpi"><div class="v">${ms.fabricante||"—"}</div><div class="l">Gabinete</div></div>
+          <div class="kpi"><div class="v" style="font-size:15px">${ms.juego||"—"}</div><div class="l">Juego</div></div>
+          <div class="kpi"><div class="v">${ms.modelo||"—"}</div><div class="l">Billetero</div></div>
+        </div>
+        <div class="tblWrap" style="margin-top:10px;max-height:140px"><table>
+          <thead><tr>${state.weekOrder.map(d=>`<th>${d}</th>`).join("")}</tr></thead>
+          <tbody><tr>${hist}</tr></tbody></table></div></div>`;
+    }
+  }
+  el.innerHTML=`<div class="card"><h2>Buscador de máquinas (Busca Listado)</h2>
+    <div class="row"><input id="busQ" placeholder="MDA o parte del número, ej: 100873" value="${q}" style="width:280px"
+      oninput="renderBuscador()" autofocus></div></div>${res}`;
+  const inp=document.getElementById("busQ"); inp.focus(); inp.setSelectionRange(q.length,q.length);
+}
+
+// ---------- Admin ----------
+function renderAdmin(){
+  const el=document.getElementById("tab-admin"), p=state.params;
+  el.innerHTML=`<div class="card"><h2>Ponderaciones de gravedad</h2>
+    <p class="hint" style="margin-bottom:12px">Fórmula (idéntica al Excel): si %Acep ≥ Umbral OK → puntaje 0. Si no:<br>
+    <code>Total × (1+LOG10(Total)) × ((UmbralOK − %) / UmbralOK) × (Total / PromedioTotal) × Multiplicador</code><br>
+    Multiplicador = ×Crítico si % &lt; Umbral crítico; ×Medio si % &lt; Umbral medio; ×1 en otro caso.</p>
+    <div class="grid2">
+      <div class="card"><h2>Umbrales (%)</h2>
+        <div class="row"><label class="fld">Umbral OK (sin alerta si % ≥) <input id="p_thrOk" type="number" step="0.01" min="0" max="1" value="${p.thrOk}"></label></div>
+        <div class="row"><label class="fld">Umbral medio (AH1 / Seguimiento!G2) <input id="p_thrMid" type="number" step="0.01" min="0" max="1" value="${p.thrMid}"></label></div>
+        <div class="row"><label class="fld">Umbral crítico (AL1 / Seguimiento!I2) <input id="p_thrCrit" type="number" step="0.01" min="0" max="1" value="${p.thrCrit}"></label></div>
+      </div>
+      <div class="card"><h2>Multiplicadores</h2>
+        <div class="row"><label class="fld">Multiplicador medio (AK1) <input id="p_multMid" type="number" step="1" min="1" value="${p.multMid}"></label></div>
+        <div class="row"><label class="fld">Multiplicador crítico (AM1) <input id="p_multCrit" type="number" step="1" min="1" value="${p.multCrit}"></label></div>
+      </div>
+      <div class="card"><h2>Cortes de badges (puntaje)</h2>
+        <div class="row"><label class="fld">Medio ≥ <input id="p_sevMid" type="number" step="1" value="${p.sevMid}"></label></div>
+        <div class="row"><label class="fld">Alto ≥ <input id="p_sevHigh" type="number" step="1" value="${p.sevHigh}"></label></div>
+        <div class="row"><label class="fld">Urgente ≥ <input id="p_sevCrit" type="number" step="1" value="${p.sevCrit}"></label></div>
+      </div>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <button class="btn" onclick="saveParams()">Guardar y recalcular</button>
+      <button class="btn danger" onclick="resetParams()">Restaurar valores del Excel</button>
+      <span id="adminMsg" class="hint"></span>
+    </div></div>`;
+}
+function saveParams(){
+  const g=id=>Number(document.getElementById(id).value);
+  state.params={thrOk:g("p_thrOk"),thrMid:g("p_thrMid"),thrCrit:g("p_thrCrit"),
+    multMid:g("p_multMid"),multCrit:g("p_multCrit"),
+    sevMid:g("p_sevMid"),sevHigh:g("p_sevHigh"),sevCrit:g("p_sevCrit")};
+  invalidate(); saveState(); renderParamsBar();
+  document.getElementById("adminMsg").textContent="✓ Guardado. Todos los puntajes fueron recalculados.";
+}
+function resetParams(){
+  state.params={thrOk:0.85,thrMid:0.90,thrCrit:0.40,multMid:3,multCrit:30,sevMid:10,sevHigh:50,sevCrit:150};
+  invalidate(); saveState(); renderAdmin(); renderParamsBar();
+}
+
+// ---------- Init ----------
+function renderAll(){
+  renderParamsBar(); renderLoadedInfo();
+  showTab(activeTab);
+}
+(async function(){
+  buildNav(); buildShells();
+  await loadState();
+  sortWeeks();
+  renderAll();
+  if(state.weekOrder.length) showTab("resumen"); else showTab("carga");
+})();
+</script>
+</body>
+</html>
