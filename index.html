@@ -110,7 +110,7 @@ canvas{max-height:320px}
 <body>
 <header>
   <div style="display:flex;align-items:baseline;gap:6px">
-    <h1>REACBILL <span class="ver">v1.5.1-main</span></h1>
+    <h1>REACBILL <span class="ver">v1.6.0-main</span></h1>
     <span id="dataInfo" class="ver"></span>
   </div>
   <div id="statsBar"></div>
@@ -121,14 +121,50 @@ canvas{max-height:320px}
 
 <script>
 /* ===== REACBILL v1.5.1-main ===== */
-const VERSION = "1.5.1-main";
+const VERSION = "1.6.0-main";
 const LS_KEY  = "reacbill_v1";
+const HIST_KEY = "reacbill_hist_v1";
 
 let state = {
   weeks:{}, weekOrder:[],
   master:{},
   params:{thrOk:0.85,thrMid:0.90,thrCrit:0.40,multMid:3,multCrit:30,sevMid:10,sevHigh:50,sevCrit:150}
 };
+
+// historial de intercambios — sólo persiste cuando la app corre como archivo local
+let swapHistory = [];
+
+// ---------- Local detection ----------
+function isLocal(){
+  return location.protocol==="file:"||location.hostname==="localhost"||location.hostname==="127.0.0.1";
+}
+
+// ---------- Cifrado simple XOR+base64 (ofuscación, no criptografía fuerte) ----------
+const _K = "REACBILL_SWAP_2026";
+function xorEnc(str){ return btoa(unescape(encodeURIComponent([...str].map((c,i)=>String.fromCharCode(c.charCodeAt(0)^_K.charCodeAt(i%_K.length))).join("")))); }
+function xorDec(enc){ try{ return decodeURIComponent(escape([...atob(enc)].map((c,i)=>String.fromCharCode(c.charCodeAt(0)^_K.charCodeAt(i%_K.length))).join(""))); }catch(e){return"[]";} }
+
+// ---------- Persistencia historial ----------
+async function saveHistory(){
+  if(!isLocal())return;
+  const db=await idb();
+  return new Promise((res,rej)=>{
+    const tx=db.transaction("kv","readwrite");
+    tx.objectStore("kv").put(xorEnc(JSON.stringify(swapHistory)),HIST_KEY);
+    tx.oncomplete=res; tx.onerror=rej;
+  });
+}
+async function loadHistory(){
+  if(!isLocal())return;
+  try{
+    const db=await idb();
+    return new Promise(res=>{
+      const rq=db.transaction("kv").objectStore("kv").get(HIST_KEY);
+      rq.onsuccess=()=>{ if(rq.result) swapHistory=JSON.parse(xorDec(rq.result)); res(); };
+      rq.onerror=()=>res();
+    });
+  }catch(e){}
+}
 
 const DENOS = ["20000","10000","5000","2000","1000","SIN_DENO"];
 
@@ -447,6 +483,7 @@ const TABS=[
   ["carga","📂 Carga"],["resumen","📊 Resumen"],["fecha","📅 Por Fecha"],
   ["ranking","🚨 Gravedad"],["sectores","🗺 Sectores"],["tendencias","📈 Tendencias"],
   ["modelos","🔧 Modelos"],["maquinas","🎰 Máquinas"],
+  ["intercambios","🔄 Intercambios"],
   ["denominaciones","💵 Denominaciones"],["buscador","🔎 Buscador"],["admin","⚙️ Admin"]
 ];
 let activeTab="carga";
@@ -460,6 +497,7 @@ function showTab(id){
   document.querySelectorAll(".tab").forEach(t=>t.classList.toggle("active",t.id==="tab-"+id));
   ({resumen:renderResumen,fecha:renderFecha,ranking:renderRanking,sectores:renderSectores,
     tendencias:renderTendencias,modelos:renderModelos,maquinas:renderMaquinas,
+    intercambios:renderIntercambios,
     denominaciones:renderDenos,buscador:renderBuscador,admin:renderAdmin}[id]||(() => {}))();
 }
 function buildShells(){
@@ -1182,6 +1220,191 @@ function resetParams(){
   invalidate(); saveState(); renderAdmin(); renderParamsBar();
 }
 
+// ---------- Intercambios ----------
+/*
+  Fórmula de ganancia por intercambio de billeteros:
+  Sea A = billetero bueno (pct alta) en isla de poco flujo
+      B = billetero malo (pct baja) en isla de mucho flujo
+
+  Si movemos el billetero de A a la posición de B (y viceversa):
+    Estado actual:  totA*pctA + totB*pctB  (billetes aceptados total)
+    Tras el swap:   totA*pctB + totB*pctA
+    Ganancia neta = (pctA - pctB) * (totB - totA)
+
+  Es positiva cuando pctA > pctB Y totB > totA.
+  Se maximiza cuando la diferencia de calidad Y de volumen son grandes.
+*/
+let intFiltroMod="", intFiltroMinVol=0, intPendiente=null;
+
+function calcSwaps(calcs,d){
+  const rows=calcs[d].rows.filter(m=>m.pct>0&&m.total>0);
+  const results=[];
+  for(let i=0;i<rows.length;i++){
+    const A=rows[i];
+    const msA=state.master[A.mda]||{};
+    if(A.pct<state.params.thrOk)continue; // A debe ser bueno
+    for(let j=0;j<rows.length;j++){
+      if(i===j)continue;
+      const B=rows[j];
+      const msB=state.master[B.mda]||{};
+      if(B.pct>=state.params.thrOk)continue; // B debe estar en alerta
+      if(B.total<=A.total)continue;           // B debe tener más volumen
+      // filtro modelo: sólo swaps entre mismos modelos de billetero
+      if(intFiltroMod&&(msA.modelo!==intFiltroMod||msB.modelo!==intFiltroMod))continue;
+      else if(!intFiltroMod&&msA.modelo&&msB.modelo&&msA.modelo!==msB.modelo)continue;
+      if(B.total<intFiltroMinVol)continue;
+      const gain=(A.pct-B.pct)*(B.total-A.total);
+      results.push({
+        mdaA:A.mda, locA:getLoc(A.mda), pctA:A.pct, totA:A.total, modA:msA.modelo||"—", firmA:msA.firm||"—",
+        mdaB:B.mda, locB:getLoc(B.mda), pctB:B.pct, totB:B.total, modB:msB.modelo||"—", firmB:msB.firm||"—",
+        gain: Math.round(gain)
+      });
+    }
+  }
+  results.sort((a,b)=>b.gain-a.gain);
+  return results.slice(0,50);
+}
+
+function renderIntercambios(){
+  const el=document.getElementById("tab-intercambios");
+  if(!state.weekOrder.length){el.innerHTML='<div class="card muted">Sin datos.</div>';return;}
+  const calcs=allCalcs();
+  const selD=document.getElementById("intSel")?.value;
+  const d=state.weekOrder.includes(selD)?selD:state.weekOrder[state.weekOrder.length-1];
+  const mods=[...new Set(Object.values(state.master).map(m=>m.modelo||"").filter(Boolean))];
+  intFiltroMod=document.getElementById("intMod")?.value||"";
+  intFiltroMinVol=parseInt(document.getElementById("intMinVol")?.value||"0")||0;
+
+  const swaps=calcSwaps(calcs,d);
+  let tbody="";
+  swaps.forEach((s,i)=>{
+    tbody+=`<tr>
+      <td style="color:var(--accent);font-weight:700">${i+1}</td>
+      <td class="left"><b>${s.mdaA}</b><br><span class="muted">${s.locA}</span></td>
+      <td class="left">${s.modA}<br><span class="muted" style="font-size:10px">${s.firmA}</span></td>
+      <td class="${pctClass(s.pctA)}">${fmtP(s.pctA)}</td>
+      <td class="muted">${fmtN(s.totA)}</td>
+      <td style="font-size:16px;text-align:center">→</td>
+      <td class="left"><b>${s.mdaB}</b><br><span class="muted">${s.locB}</span></td>
+      <td class="left">${s.modB}<br><span class="muted" style="font-size:10px">${s.firmB}</span></td>
+      <td class="${pctClass(s.pctB)}">${fmtP(s.pctB)}</td>
+      <td>${fmtN(s.totB)}</td>
+      <td style="color:var(--ok);font-weight:700">+${fmtN(s.gain)}</td>
+      <td><button class="btn sm" onclick="intRegistrar(${i})">Registrar</button></td>
+    </tr>`;
+  });
+
+  const isLoc=isLocal();
+  const histRows=swapHistory.length?[...swapHistory].reverse().map(h=>`<tr>
+    <td class="muted">${h.fecha}</td>
+    <td class="left"><b>${h.mdaA}</b> ${h.locA}</td>
+    <td class="left"><b>${h.mdaB}</b> ${h.locB}</td>
+    <td>${h.modA}</td>
+    <td class="${pctClass(h.pctA)}">${fmtP(h.pctA)}</td>
+    <td class="${pctClass(h.pctB)}">${fmtP(h.pctB)}</td>
+    <td style="color:var(--ok)">+${fmtN(h.gain)}</td>
+    <td class="left muted">${h.nota||""}</td>
+    <td><button class="btn sm danger" onclick="intEliminar(${h.id})">✕</button></td>
+  </tr>`).join(""):`<tr><td colspan="9" class="muted" style="text-align:center;padding:12px">Sin historial</td></tr>`;
+
+  el.innerHTML=`
+  <div class="card"><h2>Optimizador de intercambios</h2>
+    <p class="hint" style="margin-bottom:10px">
+      <b>Fórmula:</b> Ganancia = (% billetero bueno − % billetero malo) × (volumen alto − volumen bajo)<br>
+      Llevar un billetero de alto rendimiento a una posición de alto flujo maximiza los billetes aceptados globalmente.<br>
+      ${!isLoc?'<span style="color:var(--high)">⚠ App abierta en modo online — el historial no se guarda.</span>':'<span style="color:var(--ok)">✓ Modo local — historial cifrado y guardado.</span>'}
+    </p>
+    <div class="row">
+      <label class="fld">Semana <select id="intSel" onchange="renderIntercambios()">${state.weekOrder.map(w=>`<option value="${w}" ${w===d?"selected":""}>${fmtKeyFull(w)}</option>`).join("")}</select></label>
+      <label class="fld">Modelo billetero <select id="intMod" onchange="renderIntercambios()">
+        <option value="">Todos (mismo modelo)</option>
+        ${mods.map(m=>`<option value="${m}" ${m===intFiltroMod?"selected":""}>${m}</option>`).join("")}
+      </select></label>
+      <label class="fld">Volumen mínimo posición destino <input id="intMinVol" type="number" min="0" step="50" value="${intFiltroMinVol}" oninput="renderIntercambios()" style="width:100px"></label>
+    </div>
+    <div class="tblWrap" style="max-height:55vh"><table id="tblSwaps">
+      <thead><tr>
+        <th>#</th>
+        <th class="left">Billetero A (bueno)</th><th class="left">Modelo/Firm</th><th class="sortable">%A</th><th class="sortable">Flujo A</th>
+        <th></th>
+        <th class="left">Posición B (problema)</th><th class="left">Modelo/Firm</th><th class="sortable">%B</th><th class="sortable">Flujo B</th>
+        <th class="sortable">Ganancia est.</th><th></th>
+      </tr></thead><tbody>${tbody||`<tr><td colspan="12" class="muted" style="text-align:center;padding:12px">Sin sugerencias con estos filtros.</td></tr>`}</tbody>
+    </table></div>
+    <p class="hint" style="margin-top:6px">Ganancia estimada = billetes extra aceptados por semana si el billetero bueno ocupa la posición de alto flujo.</p>
+  </div>
+
+  <div id="intFormWrap"></div>
+
+  <div class="card"><h2>Historial de intercambios ${!isLoc?'<span style="color:var(--high);font-size:11px">(sólo lectura — sin persistencia online)</span>':''}</h2>
+    <div class="tblWrap" style="max-height:40vh"><table id="tblHist">
+      <thead><tr>
+        <th class="sortable">Fecha</th><th class="left sortable">Billetero A</th><th class="left sortable">Posición B</th>
+        <th class="sortable">Modelo</th><th class="sortable">%A</th><th class="sortable">%B</th>
+        <th class="sortable">Ganancia est.</th><th class="left">Nota</th><th></th>
+      </tr></thead><tbody>${histRows}</tbody>
+    </table></div>
+    ${isLoc?`<div class="row" style="margin-top:8px"><button class="btn sec sm" onclick="intExportarJSON()">⬇ Exportar historial JSON</button></div>`:''}
+  </div>`;
+  attachSort("tblSwaps"); attachSort("tblHist");
+  // guardar referencia a los swaps para poder registrarlos
+  window._lastSwaps=swaps;
+}
+
+function intRegistrar(i){
+  const s=window._lastSwaps?.[i]; if(!s)return;
+  document.getElementById("intFormWrap").innerHTML=`
+  <div class="card" style="border-color:var(--accent)"><h2>Registrar intercambio</h2>
+    <div class="grid2" style="margin-bottom:10px">
+      <div>
+        <div class="hint">Billetero que se <b>mueve</b> (bueno, bajo flujo)</div>
+        <div style="margin-top:4px"><b>${s.mdaA}</b> — ${s.locA} — ${s.modA} — Firm: ${s.firmA}</div>
+        <div style="color:var(--ok)">${fmtP(s.pctA)} · ${fmtN(s.totA)} bills/semana</div>
+      </div>
+      <div>
+        <div class="hint">Posición <b>destino</b> (mala, alto flujo)</div>
+        <div style="margin-top:4px"><b>${s.mdaB}</b> — ${s.locB} — ${s.modB} — Firm: ${s.firmB}</div>
+        <div style="color:var(--crit)">${fmtP(s.pctB)} · ${fmtN(s.totB)} bills/semana</div>
+      </div>
+    </div>
+    <div class="row">
+      <label class="fld">Fecha <input id="intFecha" type="date" value="${new Date().toISOString().slice(0,10)}" style="cursor:text"></label>
+      <label class="fld" style="flex:1">Nota / motivo <input id="intNota" placeholder="Ej: Intervención preventiva sector 3" style="cursor:text;width:100%"></label>
+    </div>
+    <div class="row">
+      <button class="btn" onclick="intConfirmar(${JSON.stringify(s).replace(/"/g,'&quot;')})">✓ Confirmar y guardar</button>
+      <button class="btn sec" onclick="document.getElementById('intFormWrap').innerHTML=''">Cancelar</button>
+    </div>
+  </div>`;
+  document.getElementById("intFormWrap").scrollIntoView({behavior:"smooth"});
+}
+
+async function intConfirmar(s){
+  const fecha=document.getElementById("intFecha")?.value||new Date().toISOString().slice(0,10);
+  const nota=document.getElementById("intNota")?.value||"";
+  swapHistory.push({id:Date.now(),fecha,nota,
+    mdaA:s.mdaA,locA:s.locA,pctA:s.pctA,totA:s.totA,modA:s.modA,firmA:s.firmA,
+    mdaB:s.mdaB,locB:s.locB,pctB:s.pctB,totB:s.totB,modB:s.modB,firmB:s.firmB,
+    gain:s.gain});
+  await saveHistory();
+  renderIntercambios();
+}
+
+async function intEliminar(id){
+  if(!confirm("¿Eliminar este registro del historial?"))return;
+  swapHistory=swapHistory.filter(h=>h.id!==id);
+  await saveHistory();
+  renderIntercambios();
+}
+
+function intExportarJSON(){
+  const blob=new Blob([JSON.stringify(swapHistory,null,2)],{type:"application/json"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download=`reacbill_intercambios_${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+}
+
 // ---------- Init ----------
 function renderAll(){
   renderParamsBar(); renderLoadedInfo();
@@ -1190,6 +1413,7 @@ function renderAll(){
 (async function(){
   buildNav(); buildShells();
   await loadState();
+  await loadHistory();
   sortWeeks();
   renderAll();
   if(state.weekOrder.length) showTab("resumen"); else showTab("carga");
