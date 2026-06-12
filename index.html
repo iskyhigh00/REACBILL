@@ -111,7 +111,7 @@ canvas{max-height:320px}
 <body>
 <header>
   <div style="display:flex;align-items:baseline;gap:6px">
-    <h1>REACBILL <span class="ver">v1.7.9-main</span></h1>
+    <h1>REACBILL <span class="ver">v1.8.0-main</span></h1>
     <span id="dataInfo" class="ver"></span>
   </div>
   <div id="statsBar"></div>
@@ -121,7 +121,7 @@ canvas{max-height:320px}
 <main id="main"></main>
 
 <script>
-/* ===== REACBILL v1.7.9-main ===== */
+/* ===== REACBILL v1.8.0-main ===== */
 const VERSION = "1.6.2-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
@@ -410,7 +410,7 @@ function parseDataSheet(ws){
     const pB=pNum(idx.pB);
     rows.push({mda,tarjAc:num(idx.tA),tarjRe:num(idx.tR),sesiones:num(idx.ses),
       acc,rej,pctTarj:pNum(idx.pT),pctBill:isNaN(pB)?null:pB});
-    if(!state.master[mda])state.master[mda]={isla:"",fabricante:"",modelmaq:"",juego:"",modelo:"",firm:"",area:"",tipo:"",serial:"",category:"",deno:""};
+    if(!state.master[mda])state.master[mda]={isla:"",fabricante:"",modelmaq:"",juego:"",modelo:"",firm:"",area:"",serial:"",category:"",deno:""};
   }
   return rows.length?{rows}:null;
 }
@@ -465,7 +465,7 @@ function parseMasterReference(wb){
     if(!hdr)continue;
     const col=k=>hdr.findIndex(c=>c.includes(k));
     const iMda=col("MACHINE ID"), iPos=col("POSITION"), iArea=col("AREA");
-    const iJue=col("TITLE GAME"), iTipo=col("TYPE"), iFab=col("MANUFACTURER");
+    const iJue=col("TITLE GAME"), iFab=col("MANUFACTURER");
     const iMmq=col("CABINET MODEL"), iSerial=col("SERIAL"), iCat=col("CATEGORY"), iDeno=col("DENO");
     if(iMda<0||iFab<0)continue;
     const get=(row,i)=>i>=0&&row[i]!=null?String(row[i]).trim():"";
@@ -475,12 +475,11 @@ function parseMasterReference(wb){
       const mda=get(row,iMda); if(!mda||!/^\d+$/.test(mda))continue;
       const locraw=get(row,iPos);
       const isla=locraw?fmtLocname(locraw):"";
-      if(!state.master[mda])state.master[mda]={isla:"",fabricante:"",modelmaq:"",juego:"",modelo:"",firm:"",area:"",tipo:"",serial:"",category:"",deno:""};
+      if(!state.master[mda])state.master[mda]={isla:"",fabricante:"",modelmaq:"",juego:"",modelo:"",firm:"",area:"",serial:"",category:"",deno:""};
       const ms=state.master[mda];
       if(isla)   { ms.isla=isla; ms.locname=locraw; }
       if(iArea>=0) ms.area=get(row,iArea)||ms.area;
       if(iJue>=0)  ms.juego=get(row,iJue)||ms.juego;
-      if(iTipo>=0) ms.tipo=get(row,iTipo)||ms.tipo;
       if(iFab>=0)  ms.fabricante=get(row,iFab)||ms.fabricante;
       if(iMmq>=0)  ms.modelmaq=get(row,iMmq)||ms.modelmaq;
       if(iSerial>=0) ms.serial=get(row,iSerial)||ms.serial;
@@ -515,7 +514,7 @@ function parseTipoBilletero(wb){
       const raw=norm(String(row[iTipo]??""));
       const modelo=raw.includes("CASHFLOW")?"Cashflow":raw.includes("ADVANCE")?"Advance":"";
       if(!modelo)continue;
-      if(!state.master[mda])state.master[mda]={isla:"",fabricante:"",modelmaq:"",juego:"",modelo:"",firm:"",area:"",tipo:"",serial:"",category:"",deno:""};
+      if(!state.master[mda])state.master[mda]={isla:"",fabricante:"",modelmaq:"",juego:"",modelo:"",firm:"",area:"",serial:"",category:"",deno:""};
       state.master[mda].modelo=modelo;
       n++;
     }
@@ -1508,7 +1507,6 @@ function importMasterJSON(payload){
       modelo:row.modelo||state.master[mda]?.modelo||"",
       firm:row.firm||state.master[mda]?.firm||"",
       area:row.area||state.master[mda]?.area||"",
-      tipo:row.tipo||state.master[mda]?.tipo||"",
       serial:row.serial||state.master[mda]?.serial||"",
       category:row.category||state.master[mda]?.category||"",
       deno:row.deno||state.master[mda]?.deno||""};
