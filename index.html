@@ -111,7 +111,7 @@ canvas{max-height:320px}
 <body>
 <header>
   <div style="display:flex;align-items:baseline;gap:6px">
-    <h1>REACBILL <span class="ver">v1.7.6-main</span></h1>
+    <h1>REACBILL <span class="ver">v1.7.7-main</span></h1>
     <span id="dataInfo" class="ver"></span>
   </div>
   <div id="statsBar"></div>
@@ -121,7 +121,7 @@ canvas{max-height:320px}
 <main id="main"></main>
 
 <script>
-/* ===== REACBILL v1.7.6-main ===== */
+/* ===== REACBILL v1.7.7-main ===== */
 const VERSION = "1.6.2-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
@@ -547,11 +547,11 @@ async function handleFiles(files){
         if(ext==="json"){
           try{
             const data=JSON.parse(text);
-            if(Array.isArray(data)){
+            if(Array.isArray(data)||(data&&Array.isArray(data.master))){
               const n=importMasterJSON(data);
               log.push(`${f.name}: ${n} máquinas importadas (maestro JSON)`);
               await saveState(); renderAll(); document.getElementById("uplog").innerHTML=log.map(l=>"• "+l).join("<br>");
-            } else { log.push(`${f.name}: JSON no reconocido (debe ser un array)`); }
+            } else { log.push(`${f.name}: JSON no reconocido`); }
           }catch(e){ log.push(`${f.name}: JSON inválido — ${e.message}`); }
           continue;
         }
