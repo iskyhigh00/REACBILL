@@ -111,7 +111,7 @@ canvas{max-height:320px}
 <body>
 <header>
   <div style="display:flex;align-items:baseline;gap:6px">
-    <h1>REACBILL <span class="ver">v1.6.4-main</span></h1>
+    <h1>REACBILL <span class="ver">v1.6.5-main</span></h1>
     <span id="dataInfo" class="ver"></span>
   </div>
   <div id="statsBar"></div>
@@ -121,7 +121,7 @@ canvas{max-height:320px}
 <main id="main"></main>
 
 <script>
-/* ===== REACBILL v1.6.4-main ===== */
+/* ===== REACBILL v1.6.5-main ===== */
 const VERSION = "1.6.2-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
@@ -487,6 +487,17 @@ async function handleFiles(files){
       const isExcel=["xlsx","xls","xlsm","xlsb"].includes(ext);
       if(!isExcel){
         let text; try{ text=await f.text(); }catch(e){ text=""; }
+        if(ext==="json"){
+          try{
+            const data=JSON.parse(text);
+            if(Array.isArray(data)){
+              const n=importMasterJSON(data);
+              log.push(`${f.name}: ${n} máquinas importadas (maestro JSON)`);
+              await saveState(); renderAll(); document.getElementById("uplog").innerHTML=log.map(l=>"• "+l).join("<br>");
+            } else { log.push(`${f.name}: JSON no reconocido (debe ser un array)`); }
+          }catch(e){ log.push(`${f.name}: JSON inválido — ${e.message}`); }
+          continue;
+        }
         if((text.includes("SMDBID")||text.includes("LOCNAME"))&&text.includes(";")){
           const n=parseCnText(text);
           if(n>0){ log.push(`${f.name}: ${n} ubicaciones cargadas (cn)`); await saveState(); renderAll(); document.getElementById("uplog").innerHTML=log.map(l=>"• "+l).join("<br>"); continue; }
@@ -552,13 +563,14 @@ function buildShells(){
   document.getElementById("main").innerHTML=TABS.map(([id])=>`<div class="tab" id="tab-${id}"></div>`).join("");
   document.getElementById("tab-carga").innerHTML=`
     <div class="card"><h2>Carga de archivos</h2>
-      <div id="dropzone">Arrastra aquí archivos Excel semanales, la planilla histórica o el archivo <b>cn</b> de ubicaciones<br>
-        <small style="color:var(--muted)">Puedes subir varios a la vez</small></div>
+      <div id="dropzone">Arrastra aquí archivos Excel semanales, la planilla histórica, el archivo <b>cn</b> de ubicaciones o el <b>reacbill_master.json</b><br>
+        <small style="color:var(--muted)">Puedes subir varios a la vez · Excel, ZIP, cn, JSON</small></div>
       <input type="file" id="fileInput" multiple style="display:none">
       <div class="hint" style="margin-top:8px">
         • <b>Planillas semanales</b>: la fecha se lee del nombre (YYYY-MM-DD o DD-MM-YYYY).<br>
         • <b>Seguimiento_Auto.xlsx</b>: importa todas las semanas + maestro de una vez.<br>
-        • <b>Archivo cn</b>: cualquier archivo con columnas <code>SMDBID;LOCNAME</code> separadas por <code>;</code>.
+        • <b>Archivo cn</b>: cualquier archivo con columnas <code>SMDBID;LOCNAME</code> separadas por <code>;</code>.<br>
+        • <b>reacbill_master.json</b>: exportado desde Admin → restaura juego, isla, modelo, firmware y fabricante de cada máquina.
       </div>
       <div id="uplog" class="hint" style="margin-top:8px"></div>
     </div>
@@ -1148,12 +1160,15 @@ function renderAdmin(){
   let levRows="";
   for(const [mda,ms] of levMachines){
     const mod=ms.modelo||"";
+    const firm=ms.firm||"";
+    const firmOpts=[["","—"],["403","403 (Advance)"],["255","255 (Cashflow)"]].map(
+      ([v,l])=>`<option value="${v}" ${firm===v?"selected":""}>${l}</option>`).join("");
     levRows+=`<tr>
       <td><input type="checkbox" class="lev-chk" data-mda="${mda}"></td>
       <td class="left"><b>${mda}</b></td>
       <td class="left">${ms.isla||""}</td>
       <td class="left">${ms.juego||"—"}</td>
-      <td class="left" style="font-size:10px">${ms.firm||"—"}</td>
+      <td class="left"><select id="firm_${mda}" style="font-size:11px;padding:2px">${firmOpts}</select></td>
       <td class="left lev-radio">
         <label><input type="radio" name="lev_${mda}" value="Advance" ${mod==="Advance"?"checked":""}> Advance</label>
         <label><input type="radio" name="lev_${mda}" value="Cashflow" ${mod==="Cashflow"?"checked":""}> Cashflow</label>
@@ -1176,6 +1191,7 @@ function renderAdmin(){
       <button class="btn sec sm" onclick="levSelAdm('Cashflow')">Seleccionadas → Cashflow</button>
       <button class="btn sec sm" onclick="levChkNone()">Marcar sin modelo</button>
       <button class="btn sm" onclick="levGuardarAdm()">💾 Guardar</button>
+      <button class="btn sec sm" onclick="exportMasterJSON()" title="Descarga un JSON con todos los datos de las máquinas (juego, isla, modelo, firmware, fabricante)">⬇ Exportar JSON</button>
       <span id="levMsgAdm" class="hint" style="margin-top:0"></span>
     </div>
     <div class="tblWrap" style="max-height:40vh"><table id="tblLevAdm">
@@ -1263,11 +1279,37 @@ function levToggleAll(masterChk){
 function levGuardarAdm(){
   document.querySelectorAll("input[type=radio][name^='lev_']:checked").forEach(inp=>{
     const mda=inp.name.replace("lev_","");
-    if(state.master[mda]) state.master[mda].modelo=inp.value;
+    if(state.master[mda]){
+      state.master[mda].modelo=inp.value;
+      const firmSel=document.getElementById("firm_"+mda);
+      if(firmSel) state.master[mda].firm=firmSel.value;
+    }
   });
   invalidate(); saveState();
   const msg=document.getElementById("levMsgAdm");
   if(msg){ msg.textContent="✓ Guardado."; setTimeout(()=>{ if(msg)msg.textContent=""; },2000); }
+}
+function exportMasterJSON(){
+  const data=Object.entries(state.master).map(([mda,ms])=>({mda,...ms}));
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
+  a.download="reacbill_master.json"; a.click();
+}
+function importMasterJSON(data){
+  let n=0;
+  for(const row of data){
+    if(!row.mda)continue;
+    const mda=String(row.mda).trim();
+    state.master[mda]={...(state.master[mda]||{}),
+      isla:row.isla||state.master[mda]?.isla||"",
+      locname:row.locname||state.master[mda]?.locname||"",
+      fabricante:row.fabricante||state.master[mda]?.fabricante||"",
+      juego:row.juego||state.master[mda]?.juego||"",
+      modelo:row.modelo||state.master[mda]?.modelo||"",
+      firm:row.firm||state.master[mda]?.firm||""};
+    n++;
+  }
+  return n;
 }
 function saveParams(){
   const g=id=>Number(document.getElementById(id).value);
