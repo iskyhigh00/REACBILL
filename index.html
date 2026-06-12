@@ -111,7 +111,7 @@ canvas{max-height:320px}
 <body>
 <header>
   <div style="display:flex;align-items:baseline;gap:6px">
-    <h1>REACBILL <span class="ver">v1.6.3-main</span></h1>
+    <h1>REACBILL <span class="ver">v1.6.4-main</span></h1>
     <span id="dataInfo" class="ver"></span>
   </div>
   <div id="statsBar"></div>
@@ -121,7 +121,7 @@ canvas{max-height:320px}
 <main id="main"></main>
 
 <script>
-/* ===== REACBILL v1.6.3-main ===== */
+/* ===== REACBILL v1.6.4-main ===== */
 const VERSION = "1.6.2-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
@@ -1296,7 +1296,7 @@ function resetParams(){
   Es positiva cuando pctA > pctB Y totB > totA.
   Se maximiza cuando la diferencia de calidad Y de volumen son grandes.
 */
-let intFiltroMod="", intFiltroMinVol=0, intFiltroFab="", intPendiente=null;
+let intFiltroMod="", intFiltroMinVol=0, intFabLeft=new Set(), intFabRight=new Set(), intPendiente=null;
 
 // Marcas que sólo pueden intercambiar entre sí (incompatibilidad física)
 const RESTRICTED_BRANDS=new Set(["IGT"]);
@@ -1322,11 +1322,12 @@ function calcSwaps(calcs,d){
       if(B.total<=A.total)continue;
       // filtro fabricante: IGT↔IGT, resto libre
       if(!swapFabOk(msA.fabricante||"",msB.fabricante||""))continue;
-      // filtro fabricante manual (chips)
-      if(intFiltroFab){
-        const pair=[msA.fabricante||"(sin dato)",msB.fabricante||"(sin dato)"].sort().join("↔");
-        const pairAlt=[msA.fabricante||"(sin dato)"].join("");
-        if(pair!==intFiltroFab&&pairAlt!==intFiltroFab)continue;
+      // filtro fabricante manual (dos paneles)
+      if(intFabLeft.size>0||intFabRight.size>0){
+        const fA=msA.fabricante||"", fB=msB.fabricante||"";
+        const dir1=(intFabLeft.size===0||intFabLeft.has(fA))&&(intFabRight.size===0||intFabRight.has(fB));
+        const dir2=(intFabLeft.size===0||intFabLeft.has(fB))&&(intFabRight.size===0||intFabRight.has(fA));
+        if(!dir1&&!dir2)continue;
       }
       // filtro modelo billetero: no mezclar Advance con Cashflow
       if(intFiltroMod&&(msA.modelo!==intFiltroMod||msB.modelo!==intFiltroMod))continue;
@@ -1367,17 +1368,24 @@ function renderIntercambios(){
     }
   }
   const pairs=[...pairsSet].sort();
-  // chips: "Todos" + cada par único + cada fab individual (para ver "ATRONIC con cualquiera")
-  const chipData=[{key:"",label:"Todos"}];
-  // agrega IGT↔IGT si existe
-  for(const p of pairs){
-    const [fa,fb]=p.split("↔");
-    chipData.push({key:p, label:fa===fb?`${fa} ↔ ${fa}`:`${fa} ↔ ${fb}`});
+  // paneles izquierdo y derecho
+  function fabPanelHtml(allFabs, selectedSet, otherSet, side){
+    // compatibles con la selección del otro panel
+    const compat=fab=>{
+      if(otherSet.size===0) return true;
+      return [...otherSet].every(o=>swapFabOk(fab,o));
+    };
+    const reset=`<button class="btn sm sec" style="margin:2px;opacity:.6" onclick="intResetFab('${side}')">✕ Limpiar</button>`;
+    const chips=allFabs.map(f=>{
+      const sel=selectedSet.has(f);
+      const ok=compat(f);
+      const dim=!ok&&!sel?"opacity:.3;cursor:not-allowed":"";
+      return `<button class="btn sm ${sel?'':'sec'}" style="margin:2px;${dim}" onclick="${ok||sel?`intToggleFab('${side}','${f}')`:''}"\ntitle="${!ok?'Incompatible con la selección actual':''}">${f}</button>`;
+    }).join("");
+    return chips+(selectedSet.size>0?reset:"");
   }
-  const fabChips=chipData.map(c=>{
-    const active=c.key===intFiltroFab;
-    return `<button class="btn sm ${active?'':'sec'}" style="margin:2px" onclick="intSetFab('${c.key}')">${c.label}</button>`;
-  }).join("");
+  const leftPanel=fabPanelHtml(allFabs,intFabLeft,intFabRight,"left");
+  const rightPanel=fabPanelHtml(allFabs,intFabRight,intFabLeft,"right");
 
   const swaps=calcSwaps(calcs,d);
   let tbody="";
@@ -1426,11 +1434,17 @@ function renderIntercambios(){
         ${mods.map(m=>`<option value="${m}" ${m===intFiltroMod?"selected":""}>${m}</option>`).join("")}
       </select></label>
       <label class="fld">Flujo mín. destino <input id="intMinVol" type="number" min="0" step="50" value="${intFiltroMinVol}" oninput="renderIntercambios()" style="width:90px"></label>
-      <input type="hidden" id="intFab" value="${intFiltroFab}">
     </div>
-    <div style="margin-bottom:10px">
-      <div class="hint" style="margin-bottom:5px">Combinaciones posibles de fabricante — <span style="color:var(--high)">IGT solo intercambia con IGT</span>, el resto puede cruzarse libremente:</div>
-      ${fabChips}
+    <div style="display:flex;gap:16px;margin-bottom:12px">
+      <div style="flex:1;background:var(--panel2);border-radius:8px;padding:10px">
+        <div class="hint" style="margin-bottom:6px"><b>Origen</b> — fabricante(s) del billetero bueno</div>
+        ${leftPanel}
+      </div>
+      <div style="display:flex;align-items:center;font-size:20px;color:var(--accent)">⇄</div>
+      <div style="flex:1;background:var(--panel2);border-radius:8px;padding:10px">
+        <div class="hint" style="margin-bottom:6px"><b>Destino</b> — fabricante(s) del billetero malo <span style="color:var(--high);font-size:10px">(IGT solo con IGT)</span></div>
+        ${rightPanel}
+      </div>
     </div>
     <div class="tblWrap" style="max-height:55vh"><table id="tblSwaps">
       <thead><tr>
@@ -1500,7 +1514,15 @@ async function intConfirmar(s){
   renderIntercambios();
 }
 
-function intSetFab(key){ intFiltroFab=key; renderIntercambios(); }
+function intToggleFab(side,fab){
+  const s=side==="left"?intFabLeft:intFabRight;
+  s.has(fab)?s.delete(fab):s.add(fab);
+  renderIntercambios();
+}
+function intResetFab(side){
+  (side==="left"?intFabLeft:intFabRight).clear();
+  renderIntercambios();
+}
 
 async function intEliminar(id){
   if(!confirm("¿Eliminar este registro del historial?"))return;
