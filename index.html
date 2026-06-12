@@ -111,7 +111,7 @@ canvas{max-height:320px}
 <body>
 <header>
   <div style="display:flex;align-items:baseline;gap:6px">
-    <h1>REACBILL <span class="ver">v1.7.5-main</span></h1>
+    <h1>REACBILL <span class="ver">v1.7.6-main</span></h1>
     <span id="dataInfo" class="ver"></span>
   </div>
   <div id="statsBar"></div>
@@ -121,7 +121,7 @@ canvas{max-height:320px}
 <main id="main"></main>
 
 <script>
-/* ===== REACBILL v1.7.5-main ===== */
+/* ===== REACBILL v1.7.6-main ===== */
 const VERSION = "1.6.2-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
@@ -395,6 +395,8 @@ function parseDataSheet(ws){
     else if(/billete rechazado/i.test(h)){const d=h.replace(/billete rechazado/i,"").trim()||"SIN_DENO";idx.rej[d]=i;}
   });
   if(idx.maq<0)return null;
+  // debe tener al menos una columna de datos de aceptación para ser una planilla semanal
+  if(idx.tA<0&&idx.tR<0&&Object.keys(idx.acc).length===0&&idx.pB<0)return null;
   const rows=[];
   for(let r=1;r<arr.length;r++){
     const row=arr[r]; if(!row)continue;
@@ -892,7 +894,7 @@ function renderSectores(){
     const cls=pctClass(st.pct);
     const active=sec===selSector?"border:2px solid var(--accent)":"";
     sectorCards+=`<div class="sector-card" onclick="secSelSector('${sec}')" style="${active}">
-      <div class="sc-num" style="${cls?`color:${cls==='c-ok'?'var(--ok)':cls==='c-mid'?'var(--mid)':cls==='c-hi'?'var(--high)':'var(--crit)'}`:''}">${sec}xx</div>
+      <div class="sc-num" style="${cls?`color:${cls==='c-ok'?'var(--ok)':cls==='c-mid'?'var(--mid)':cls==='c-hi'?'var(--high)':'var(--crit)'}`:''}">${sec}</div>
       <div style="font-size:14px;font-weight:600;margin:2px 0">${fmtP(st.pct)}</div>
       <div class="sc-lbl">${Object.keys(sectorMap[sec]).length} islas · ${allMdas.length} máq · ${st.alerts} alertas</div>
     </div>`;
@@ -961,7 +963,7 @@ function renderSectores(){
     }
   }
   el.innerHTML=`<div class="card"><h2>Vista por sectores</h2>
-    <div class="hint" style="margin-bottom:10px">Sector = primer dígito de la ISLA (ej: sector 5 = islas 5xx). Semana analizada: <b>${fmtKeyFull(lastD)}</b></div>
+    <div class="hint" style="margin-bottom:10px">Sector = primer dígito de la ISLA (ej: sector 6 = islas 6xx). Semana analizada: <b>${fmtKeyFull(lastD)}</b></div>
     ${sectorCards}
     <input type="hidden" id="secSel" value="${selSector}">
     <input type="hidden" id="secIslaSel" value="${selIsla}">
