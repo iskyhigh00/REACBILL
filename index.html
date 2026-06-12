@@ -6,6 +6,7 @@
 <title>REACBILL — Seguimiento Billeteros</title>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3/dist/jszip.min.js"></script>
 <style>
 :root{
   --bg:#0f1420; --panel:#1a2233; --panel2:#222d44; --border:#2e3b58;
@@ -436,6 +437,53 @@ async function handleFiles(files){
   for(const f of files){
     try{
       const ext=(f.name.match(/\.([^.]+)$/)||["",""])[1].toLowerCase();
+      // ---- ZIP: extraer archivos y procesarlos recursivamente ----
+      if(ext==="zip"){
+        const zip=await JSZip.loadAsync(await f.arrayBuffer());
+        const innerFiles=[];
+        for(const [path,entry] of Object.entries(zip.files)){
+          if(entry.dir)continue;
+          const name=path.split("/").pop();
+          const innerExt=(name.match(/\.([^.]+)$/)||["",""])[1].toLowerCase();
+          if(!["xlsx","xls","xlsm","xlsb"].includes(innerExt))continue;
+          const blob=await entry.async("blob");
+          innerFiles.push(new File([blob],name,{type:blob.type}));
+        }
+        if(!innerFiles.length){ log.push(`${f.name}: ZIP sin archivos Excel dentro`); continue; }
+        log.push(`${f.name}: ${innerFiles.length} Excel encontrados en el ZIP`);
+        // procesar igual que si se hubieran subido directo
+        for(const inner of innerFiles){
+          try{
+            const wb=XLSX.read(await inner.arrayBuffer(),{type:"array"});
+            const masterSheets=wb.SheetNames.filter(n=>/^\d{2}-\d{2}$/.test(n));
+            if(masterSheets.length){
+              let imp=0;
+              for(const sn of masterSheets){
+                const wk=parseDataSheet(wb.Sheets[sn]);
+                if(wk){
+                  const [dd,mm]=sn.split("-").map(Number);
+                  const now=new Date(); let yr=now.getFullYear();
+                  if(mm>now.getMonth()+1)yr--;
+                  const key=`${yr}-${String(mm).padStart(2,"0")}-${String(dd).padStart(2,"0")}`;
+                  state.weeks[key]=wk; imp++;
+                }
+              }
+              if(wb.Sheets["Contadores"])parseContadores(wb.Sheets["Contadores"]);
+              if(wb.Sheets["Seguimiento"])parseSeguimientoModelos(wb.Sheets["Seguimiento"]);
+              log.push(`  └ ${inner.name}: ${imp} semanas importadas`);
+            } else {
+              let sn=wb.SheetNames.find(n=>/ultima/i.test(n));
+              if(!sn){ for(const c of wb.SheetNames){ if(parseDataSheet(wb.Sheets[c])){sn=c;break;} } }
+              const wk=sn?parseDataSheet(wb.Sheets[sn]):null;
+              if(wk){ const key=dateKeyFromName(inner.name); state.weeks[key]=wk; log.push(`  └ ${inner.name} → ${fmtKeyFull(key)}`); }
+              else log.push(`  └ ${inner.name}: formato no reconocido`);
+              if(wb.Sheets["Contadores"])parseContadores(wb.Sheets["Contadores"]);
+              if(wb.Sheets["Seguimiento"])parseSeguimientoModelos(wb.Sheets["Seguimiento"]);
+            }
+          }catch(e){ log.push(`  └ ${inner.name}: ERROR — ${e.message}`); }
+        }
+        continue;
+      }
       const isExcel=["xlsx","xls","xlsm","xlsb"].includes(ext);
       if(!isExcel){
         let text; try{ text=await f.text(); }catch(e){ text=""; }
