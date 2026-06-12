@@ -111,7 +111,7 @@ canvas{max-height:320px}
 <body>
 <header>
   <div style="display:flex;align-items:baseline;gap:6px">
-    <h1>REACBILL <span class="ver">v1.7.7-main</span></h1>
+    <h1>REACBILL <span class="ver">v1.7.8-main</span></h1>
     <span id="dataInfo" class="ver"></span>
   </div>
   <div id="statsBar"></div>
@@ -121,7 +121,7 @@ canvas{max-height:320px}
 <main id="main"></main>
 
 <script>
-/* ===== REACBILL v1.7.7-main ===== */
+/* ===== REACBILL v1.7.8-main ===== */
 const VERSION = "1.6.2-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
@@ -639,7 +639,7 @@ function buildShells(){
     </div>
     <div class="card"><h2>Datos cargados</h2><div id="loadedInfo"></div>
       <div class="row" style="margin-top:8px">
-        <button class="btn danger" onclick="if(confirm('¿Borrar todos los datos?')){state.weeks={};state.weekOrder=[];state.master={};invalidate();saveState();renderAll();}">Borrar todo</button>
+        <button class="btn danger" onclick="borrarTodo()">Borrar todo</button>
       </div>
     </div>`;
   const dz=document.getElementById("dropzone"),fi=document.getElementById("fileInput");
@@ -1480,6 +1480,15 @@ function saveParams(){
     sevMid:g("p_sevMid"),sevHigh:g("p_sevHigh"),sevCrit:g("p_sevCrit")};
   invalidate(); saveState(); renderParamsBar();
   document.getElementById("adminMsg").textContent="✓ Guardado.";
+}
+function borrarTodo(){
+  const now=new Date();
+  const clave=String(now.getMonth()+1).padStart(2,"0")+String(now.getDate()).padStart(2,"0");
+  const inp=prompt("Ingresa la clave para borrar todos los datos:");
+  if(inp===null)return;
+  if(inp!==clave){alert("Clave incorrecta.");return;}
+  if(!confirm("¿Confirmas que quieres borrar TODOS los datos?"))return;
+  state.weeks={};state.weekOrder=[];state.master={};invalidate();saveState();renderAll();
 }
 function resetParams(){
   state.params={thrOk:0.85,thrMid:0.90,thrCrit:0.40,multMid:3,multCrit:30,sevMid:10,sevHigh:50,sevCrit:150};
