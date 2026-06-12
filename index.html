@@ -111,7 +111,7 @@ canvas{max-height:320px}
 <body>
 <header>
   <div style="display:flex;align-items:baseline;gap:6px">
-    <h1>REACBILL <span class="ver">v1.6.2-main</span></h1>
+    <h1>REACBILL <span class="ver">v1.6.3-main</span></h1>
     <span id="dataInfo" class="ver"></span>
   </div>
   <div id="statsBar"></div>
@@ -121,7 +121,7 @@ canvas{max-height:320px}
 <main id="main"></main>
 
 <script>
-/* ===== REACBILL v1.6.2-main ===== */
+/* ===== REACBILL v1.6.3-main ===== */
 const VERSION = "1.6.2-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
@@ -850,11 +850,14 @@ function renderSectores(){
     sectorDetail=`<div class="card"><h2>Sector ${selSector} — islas</h2>
       <div class="tblWrap" style="max-height:35vh"><table id="tblSecIslas">
         <thead><tr>
-          <th class="left sortable">ISLA</th><th class="sortable">Máq.</th>
-          <th class="sortable">% prom.</th><th>Barra</th>
-          <th class="sortable">Total bill.</th><th class="sortable">Δ%</th><th class="sortable">Alertas</th>
+          <th class="left sortable" title="Código de isla (3 dígitos)">ISLA</th>
+          <th class="sortable" title="Número de máquinas en la isla">Máq.</th>
+          <th class="sortable" title="Promedio de % de aceptación de billetes en la última semana">% prom.</th>
+          <th title="Barra visual del % de aceptación (verde=bueno, rojo=malo)">Barra</th>
+          <th class="sortable" title="Total de billetes procesados en la última semana">Total bill.</th>
+          <th class="sortable" title="Variación del % de aceptación respecto a la semana anterior (positivo = mejoró)">Δ%</th>
+          <th class="sortable" title="Número de máquinas con alertas (% bajo el umbral crítico)">Alertas</th>
         </tr></thead><tbody>${islaRows}</tbody></table></div></div>`;
-    attachSort("tblSecIslas");
     // detalle de isla seleccionada
     if(selIsla&&sectorMap[selSector][selIsla]){
       const mdas=sectorMap[selSector][selIsla];
@@ -873,11 +876,15 @@ function renderSectores(){
       const islaS=islaStats(mdas,lastC);
       sectorDetail+=`<div class="card"><h2>Isla ${selIsla} — ${mdas.length} máquinas · ${fmtP(islaS.pct)} prom. · ${islaS.alerts} alertas</h2>
         <div class="tblWrap" style="max-height:40vh"><table id="tblSecMach">
-          <thead><tr><th class="left sortable">MDA</th><th class="left sortable">ISLA</th>
-            <th class="left sortable">Modelo</th><th class="left sortable">Firm</th><th class="left sortable">Juego</th>
-            ${state.weekOrder.map(d=>`<th class="sortable">${fmtKey(d)}</th>`).join("")}</tr></thead>
+          <thead><tr>
+            <th class="left sortable" title="Número de máquina (MDA)">MDA</th>
+            <th class="left sortable" title="Isla donde está ubicada la máquina">ISLA</th>
+            <th class="left sortable" title="Modelo del billetero (Advance / Cashflow)">Modelo</th>
+            <th class="left sortable" title="Versión de firmware del billetero">Firm</th>
+            <th class="left sortable" title="Juego/título de la máquina">Juego</th>
+            ${state.weekOrder.map(d=>`<th class="sortable" title="% de aceptación semana ${fmtKey(d)}">${fmtKey(d)}</th>`).join("")}
+          </tr></thead>
           <tbody>${machRows}</tbody></table></div></div>`;
-      attachSort("tblSecMach");
     }
   }
   el.innerHTML=`<div class="card"><h2>Vista por sectores</h2>
@@ -886,6 +893,8 @@ function renderSectores(){
     <input type="hidden" id="secSel" value="${selSector}">
     <input type="hidden" id="secIslaSel" value="${selIsla}">
   </div>${sectorDetail}`;
+  attachSort("tblSecIslas");
+  attachSort("tblSecMach");
 }
 function secSelSector(s){ document.getElementById("secSel").value=s; document.getElementById("secIslaSel").value=""; renderSectores(); }
 function secSelIsla(p){ document.getElementById("secIslaSel").value=p; renderSectores(); }
