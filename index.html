@@ -551,8 +551,13 @@ function renderLoadedInfo(){
   const withData=lastC.rows.filter(m=>m.pct>0&&m.total>0);
   const above=withData.filter(m=>m.pct>=lastC.avgPct).length;
   const below=withData.filter(m=>m.pct<lastC.avgPct).length;
+  // totales globales semana actual
+  const pctGlobal=lastC.totBill>0?lastC.totAc/lastC.totBill:0;
   if(sb) sb.innerHTML=
     `<span><span class="sv">${fmtP(lastC.avgPct)}</span> <span class="sl">% prom. ${fmtKey(lastD)}</span></span>
+     <span title="Aceptados / Total = % real ponderado por volumen"><span class="sv" style="color:var(--ok)">${fmtN(lastC.totAc)}</span> <span class="sl">aceptados</span></span>
+     <span title="Rechazados"><span class="sv" style="color:var(--crit)">${fmtN(lastC.totRe)}</span> <span class="sl">rechazados</span></span>
+     <span title="% real = aceptados/total ponderado por volumen"><span class="sv" class="${pctClass(pctGlobal)}">${fmtP(pctGlobal)}</span> <span class="sl">% global</span></span>
      <span><span class="sv" style="color:var(--ok)">↑${above}</span> <span class="sl">sobre prom.</span></span>
      <span><span class="sv" style="color:var(--crit)">↓${below}</span> <span class="sl">bajo prom.</span></span>
      <span><span class="sv" style="color:var(--high)">${lastC.rows.filter(m=>m.score>0).length}</span> <span class="sl">con alerta</span></span>
