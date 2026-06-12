@@ -111,7 +111,7 @@ canvas{max-height:320px}
 <body>
 <header>
   <div style="display:flex;align-items:baseline;gap:6px">
-    <h1>REACBILL <span class="ver">v1.6.5-main</span></h1>
+    <h1>REACBILL <span class="ver">v1.6.6-main</span></h1>
     <span id="dataInfo" class="ver"></span>
   </div>
   <div id="statsBar"></div>
@@ -121,7 +121,7 @@ canvas{max-height:320px}
 <main id="main"></main>
 
 <script>
-/* ===== REACBILL v1.6.5-main ===== */
+/* ===== REACBILL v1.6.6-main ===== */
 const VERSION = "1.6.2-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
@@ -1161,7 +1161,7 @@ function renderAdmin(){
   for(const [mda,ms] of levMachines){
     const mod=ms.modelo||"";
     const firm=ms.firm||"";
-    const firmOpts=[["","—"],["403","403 (Advance)"],["255","255 (Cashflow)"]].map(
+    const firmOpts=[["","—"],["403","403"],["255","255"]].map(
       ([v,l])=>`<option value="${v}" ${firm===v?"selected":""}>${l}</option>`).join("");
     levRows+=`<tr>
       <td><input type="checkbox" class="lev-chk" data-mda="${mda}"></td>
