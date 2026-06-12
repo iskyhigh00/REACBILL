@@ -111,7 +111,7 @@ canvas{max-height:320px}
 <body>
 <header>
   <div style="display:flex;align-items:baseline;gap:6px">
-    <h1>REACBILL <span class="ver">v1.6.9-main</span></h1>
+    <h1>REACBILL <span class="ver">v1.7.0-main</span></h1>
     <span id="dataInfo" class="ver"></span>
   </div>
   <div id="statsBar"></div>
@@ -121,7 +121,7 @@ canvas{max-height:320px}
 <main id="main"></main>
 
 <script>
-/* ===== REACBILL v1.6.9-main ===== */
+/* ===== REACBILL v1.7.0-main ===== */
 const VERSION = "1.6.2-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
@@ -312,8 +312,14 @@ function attachSort(tableId){
       const tbody=tbl.tBodies[0]; if(!tbody)return;
       const rows=[...tbody.querySelectorAll("tr:not(.no-sort)")];
       rows.sort((a,b)=>{
-        const av=a.cells[col]?.textContent.trim()||"";
-        const bv=b.cells[col]?.textContent.trim()||"";
+        // use only direct text nodes, ignoring nested elements (e.g. muted spans with volume)
+        const cellText=cell=>{
+          if(!cell)return"";
+          const direct=[...cell.childNodes].filter(n=>n.nodeType===3).map(n=>n.textContent.trim()).join("").trim();
+          return direct||cell.textContent.trim();
+        };
+        const av=cellText(a.cells[col]);
+        const bv=cellText(b.cells[col]);
         const an=sortVal(av), bn=sortVal(bv);
         if(an!=null&&bn!=null) return(an-bn)*dir;
         if(an!=null)return -1; if(bn!=null)return 1;
@@ -860,7 +866,7 @@ function renderSectores(){
       </tr>`;
     }
     sectorDetail=`<div class="card"><h2>Sector ${selSector} — islas</h2>
-      <div class="tblWrap" style="max-height:35vh"><table id="tblSecIslas">
+      <div class="tblWrap" style="overflow-y:visible"><table id="tblSecIslas">
         <thead><tr>
           <th class="left sortable" title="Código de isla (3 dígitos)">ISLA</th>
           <th class="sortable" title="Número de máquinas en la isla">Máq.</th>
@@ -887,7 +893,7 @@ function renderSectores(){
       }
       const islaS=islaStats(mdas,lastC);
       sectorDetail+=`<div class="card"><h2>Isla ${selIsla} — ${mdas.length} máquinas · ${fmtP(islaS.pct)} prom. · ${islaS.alerts} alertas</h2>
-        <div class="tblWrap" style="max-height:40vh"><table id="tblSecMach">
+        <div class="tblWrap" style="overflow-y:visible"><table id="tblSecMach">
           <thead><tr>
             <th class="left sortable" title="Número de máquina (MDA)">MDA</th>
             <th class="left sortable" title="Isla donde está ubicada la máquina">ISLA</th>
