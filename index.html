@@ -111,7 +111,7 @@ canvas{max-height:320px}
 <body>
 <header>
   <div style="display:flex;align-items:baseline;gap:6px">
-    <h1>REACBILL <span class="ver">v1.7.1-main</span></h1>
+    <h1>REACBILL <span class="ver">v1.7.2-main</span></h1>
     <span id="dataInfo" class="ver"></span>
   </div>
   <div id="statsBar"></div>
@@ -121,7 +121,7 @@ canvas{max-height:320px}
 <main id="main"></main>
 
 <script>
-/* ===== REACBILL v1.7.1-main ===== */
+/* ===== REACBILL v1.7.2-main ===== */
 const VERSION = "1.6.2-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
@@ -865,7 +865,7 @@ function renderSectores(){
       const st=islaStats(mdas,lastC);
       const prev=state.weekOrder.length>=2?islaStats(mdas,calcs[state.weekOrder[state.weekOrder.length-2]]):null;
       const trend=prev&&prev.pct>0?st.pct-prev.pct:null;
-      const active=prefix===selIsla?"background:var(--panel)":"";
+      const active=prefix===selIsla?"background:var(--accent);color:#fff;font-weight:700":"";
       islaRows+=`<tr style="cursor:pointer;${active}" onclick="secSelIsla('${prefix}')">
         <td class="left"><b>${prefix}</b></td>
         <td>${mdas.length}</td>
