@@ -111,7 +111,7 @@ canvas{max-height:320px}
 <body>
 <header>
   <div style="display:flex;align-items:baseline;gap:6px">
-    <h1>REACBILL <span class="ver">v1.6.8-main</span></h1>
+    <h1>REACBILL <span class="ver">v1.6.9-main</span></h1>
     <span id="dataInfo" class="ver"></span>
   </div>
   <div id="statsBar"></div>
@@ -121,7 +121,7 @@ canvas{max-height:320px}
 <main id="main"></main>
 
 <script>
-/* ===== REACBILL v1.6.8-main ===== */
+/* ===== REACBILL v1.6.9-main ===== */
 const VERSION = "1.6.2-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
@@ -570,7 +570,7 @@ function buildShells(){
         • <b>Planillas semanales</b>: la fecha se lee del nombre (YYYY-MM-DD o DD-MM-YYYY).<br>
         • <b>Seguimiento_Auto.xlsx</b>: importa todas las semanas + maestro de una vez.<br>
         • <b>Archivo cn</b>: cualquier archivo con columnas <code>SMDBID;LOCNAME</code> separadas por <code>;</code>.<br>
-        • <b>reacbill_master.json</b>: exportado desde Admin → restaura juego, isla, modelo, firmware y fabricante de cada máquina.
+        • <b>reacbill_master.json</b>: exportado desde Admin → restaura datos de máquinas (juego, isla, modelo, firmware, fabricante) y el historial de intercambios (cifrado).
       </div>
       <div id="uplog" class="hint" style="margin-top:8px"></div>
     </div>
@@ -1343,14 +1343,17 @@ function levGuardarAdm(){
   if(msg){ msg.textContent="✓ Guardado."; setTimeout(()=>{ if(msg)msg.textContent=""; },2000); }
 }
 function exportMasterJSON(){
-  const data=Object.entries(state.master).map(([mda,ms])=>({mda,...ms}));
-  const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
+  const master=Object.entries(state.master).map(([mda,ms])=>({mda,...ms}));
+  const payload={master, hist:xorEnc(JSON.stringify(swapHistory))};
+  const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
   const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
   a.download="reacbill_master.json"; a.click();
 }
-function importMasterJSON(data){
+function importMasterJSON(payload){
+  // soporta tanto el formato antiguo (array) como el nuevo (objeto con master+hist)
+  const rows=Array.isArray(payload)?payload:(payload.master||[]);
   let n=0;
-  for(const row of data){
+  for(const row of rows){
     if(!row.mda)continue;
     const mda=String(row.mda).trim();
     state.master[mda]={...(state.master[mda]||{}),
@@ -1361,6 +1364,18 @@ function importMasterJSON(data){
       modelo:row.modelo||state.master[mda]?.modelo||"",
       firm:row.firm||state.master[mda]?.firm||""};
     n++;
+  }
+  if(!Array.isArray(payload)&&payload.hist){
+    try{
+      const h=JSON.parse(xorDec(payload.hist));
+      if(Array.isArray(h)&&h.length){
+        // merge: añade entradas que no existan por id
+        const existIds=new Set(swapHistory.map(e=>e.id));
+        let added=0;
+        for(const e of h){ if(!existIds.has(e.id)){swapHistory.push(e);added++;} }
+        if(added) saveHistory();
+      }
+    }catch(e){}
   }
   return n;
 }
