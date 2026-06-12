@@ -111,7 +111,7 @@ canvas{max-height:320px}
 <body>
 <header>
   <div style="display:flex;align-items:baseline;gap:6px">
-    <h1>REACBILL <span class="ver">v1.6.7-main</span></h1>
+    <h1>REACBILL <span class="ver">v1.6.8-main</span></h1>
     <span id="dataInfo" class="ver"></span>
   </div>
   <div id="statsBar"></div>
@@ -121,7 +121,7 @@ canvas{max-height:320px}
 <main id="main"></main>
 
 <script>
-/* ===== REACBILL v1.6.7-main ===== */
+/* ===== REACBILL v1.6.8-main ===== */
 const VERSION = "1.6.2-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
@@ -981,58 +981,111 @@ function renderModelos(){
   new Chart(document.getElementById("cvModTrend"),{type:"line",data:{labels:lbl,datasets},options:{scales:{y:{ticks:{callback:v=>v+"%"}}}}});
 }
 
-// ---------- Máquinas (por fabricante de gabinete) ----------
+// ---------- Máquinas (por fabricante → modelo → isla → máquinas) ----------
+let maqSelFab="", maqSelJuego="";
 function renderMaquinas(){
   const el=document.getElementById("tab-maquinas");
   if(!state.weekOrder.length){el.innerHTML='<div class="card muted">Sin datos.</div>';return;}
   const calcs=allCalcs();
-  const sel=document.getElementById("maqSel")?.value;
-  const d=state.weekOrder.includes(sel)?sel:state.weekOrder[state.weekOrder.length-1];
+  const selD=document.getElementById("maqSel")?.value;
+  const d=state.weekOrder.includes(selD)?selD:state.weekOrder[state.weekOrder.length-1];
   const c=calcs[d];
-  // agrupar por fabricante → juego
+  // mapa rápido pct/total por mda
+  const pm={};
+  for(const m of c.rows) pm[m.mda]={pct:m.pct,total:m.total,toAc:m.toAc,score:m.score};
+  // agrupar: fabricante → juego → prefijo isla → [mda]
   const fabMap={};
-  for(const m of c.rows){
-    const ms=state.master[m.mda]||{};
+  for(const [mda,ms] of Object.entries(state.master)){
+    if(!pm[mda]||!pm[mda].total)continue;
     const fab=ms.fabricante||"(sin dato)";
     const jue=ms.juego||"(sin dato)";
-    if(!fabMap[fab])fabMap[fab]={total:0,ac:0,pcts:[],alerts:0,juegos:{}};
-    const f=fabMap[fab];
-    f.total+=m.total; f.ac+=m.toAc; if(m.pct>0)f.pcts.push(m.pct); if(m.score>0)f.alerts++;
-    if(!f.juegos[jue])f.juegos[jue]={n:0,total:0,ac:0,pcts:[],alerts:0};
-    const j=f.juegos[jue];
-    j.n++; j.total+=m.total; j.ac+=m.toAc; if(m.pct>0)j.pcts.push(m.pct); if(m.score>0)j.alerts++;
+    const pre=islaPrefix(ms.isla||"")||ms.isla||"—";
+    if(!fabMap[fab])fabMap[fab]={};
+    if(!fabMap[fab][jue])fabMap[fab][jue]={};
+    if(!fabMap[fab][jue][pre])fabMap[fab][jue][pre]=[];
+    fabMap[fab][jue][pre].push(mda);
   }
-  const fabs=Object.entries(fabMap).sort((a,b)=>b[1].total-a[1].total);
-  let cards="";
-  for(const [fab,f] of fabs){
-    const pctPond=f.total>0?f.ac/f.total:0;
-    const juegosRows=Object.entries(f.juegos).sort((a,b)=>b[1].total-a[1].total).map(([jue,j])=>{
-      const jp=avg(j.pcts);
-      return `<tr>
-        <td class="left">${jue}</td>
-        <td>${j.n}</td>
-        <td class="${pctClass(jp)}">${fmtP(jp)}</td>
-        <td>${pctBar(jp,50)}</td>
-        <td>${fmtN(j.total)}</td>
-        <td>${j.alerts>0?`<span style="color:var(--high)">${j.alerts}</span>`:"0"}</td>
-      </tr>`;
-    }).join("");
-    cards+=`<div class="fab-card">
-      <h3>${fab}</h3>
-      <div class="kpis" style="margin-bottom:8px">
-        <div class="kpi"><div class="v" style="font-size:15px" class="${pctClass(pctPond)}">${fmtP(pctPond)}</div><div class="l">% ponderado</div></div>
-        <div class="kpi"><div class="v" style="font-size:15px">${fmtP(avg(f.pcts))}</div><div class="l">% promedio</div></div>
-        <div class="kpi"><div class="v" style="font-size:15px;color:var(--high)">${f.alerts}</div><div class="l">Con alerta</div></div>
-      </div>
-      <div class="tblWrap"><table>
-        <thead><tr><th class="left">Juego / Modelo</th><th>Máq.</th><th>% prom.</th><th>Barra</th><th>Total bill.</th><th>Alertas</th></tr></thead>
-        <tbody>${juegosRows}</tbody></table></div>
-    </div>`;
+  if(maqSelFab&&!fabMap[maqSelFab]){maqSelFab="";maqSelJuego="";}
+  if(maqSelJuego&&!fabMap[maqSelFab]?.[maqSelJuego])maqSelJuego="";
+  let html="";
+  for(const fab of Object.keys(fabMap).sort()){
+    const isOpen=fab===maqSelFab;
+    const allM=Object.values(fabMap[fab]).flatMap(j=>Object.values(j).flat());
+    const fabAc=allM.reduce((s,m)=>s+(pm[m]?.toAc||0),0);
+    const fabTot=allM.reduce((s,m)=>s+(pm[m]?.total||0),0);
+    const fabAlerts=allM.filter(m=>(pm[m]?.score||0)>0).length;
+    const fabPct=fabTot>0?fabAc/fabTot:0;
+    html+=`<div class="fab-card" style="margin-bottom:8px">
+      <div style="display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none;padding:4px 0" onclick="maqToggleFab('${fab.replace(/'/g,"\\'")}')">
+        <span style="font-size:13px;color:var(--accent)">${isOpen?"▼":"▶"}</span>
+        <span style="font-weight:700;font-size:15px;flex:1">${fab}</span>
+        <span class="${pctClass(fabPct)}" style="font-weight:700">${fmtP(fabPct)}</span>
+        <span class="muted" style="font-size:11px">${allM.length} máq.</span>
+        ${fabAlerts?`<span style="color:var(--high);font-size:11px">⚠ ${fabAlerts}</span>`:""}
+      </div>`;
+    if(isOpen){
+      // chips de modelo de máquina (juego)
+      const juegos=Object.keys(fabMap[fab]).sort();
+      html+=`<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:5px;padding-left:18px">`;
+      for(const jue of juegos){
+        const jMdas=Object.values(fabMap[fab][jue]).flat();
+        const jAc=jMdas.reduce((s,m)=>s+(pm[m]?.toAc||0),0);
+        const jTot=jMdas.reduce((s,m)=>s+(pm[m]?.total||0),0);
+        const jP=jTot>0?jAc/jTot:0;
+        const sel=jue===maqSelJuego;
+        html+=`<button class="btn sm ${sel?'':'sec'}" onclick="maqToggleJuego('${jue.replace(/'/g,"\\'")}','${fab.replace(/'/g,"\\'")}')">
+          ${jue}&nbsp;<span class="${pctClass(jP)}">${fmtP(jP)}</span>
+          <span class="muted" style="font-size:10px">&nbsp;${jMdas.length}</span>
+        </button>`;
+      }
+      html+=`</div>`;
+      // detalle por isla si hay juego seleccionado
+      if(maqSelJuego&&fabMap[fab][maqSelJuego]){
+        const islaMap=fabMap[fab][maqSelJuego];
+        html+=`<div style="margin-top:10px;padding-left:18px">`;
+        for(const pre of Object.keys(islaMap).sort()){
+          const mdas=islaMap[pre].sort((a,b)=>a.localeCompare(b,"es",{numeric:true}));
+          const iAc=mdas.reduce((s,m)=>s+(pm[m]?.toAc||0),0);
+          const iTot=mdas.reduce((s,m)=>s+(pm[m]?.total||0),0);
+          const iP=iTot>0?iAc/iTot:0;
+          html+=`<div style="margin-bottom:10px">
+            <div style="font-weight:700;margin-bottom:3px;font-size:13px">
+              Isla ${pre} <span class="${pctClass(iP)}">${fmtP(iP)}</span>
+              <span class="muted" style="font-weight:normal"> · ${mdas.length} máq.</span>
+            </div>
+            <table style="width:100%;font-size:12px;border-collapse:collapse"><tbody>`;
+          for(const mda of mdas){
+            const ms=state.master[mda]||{};
+            const p=pm[mda]||{};
+            html+=`<tr style="border-bottom:1px solid var(--border)">
+              <td style="padding:3px 8px;font-weight:700">${mda}</td>
+              <td style="padding:3px 8px;color:var(--muted)">${ms.isla||"—"}</td>
+              <td style="padding:3px 8px">${ms.juego||"—"}</td>
+              <td style="padding:3px 8px" class="${pctClass(p.pct||0)}">${(p.pct||0)>0?fmtP(p.pct):"—"}</td>
+              <td style="padding:3px 8px;color:var(--muted)">${fmtN(p.total||0)}</td>
+              ${(p.score||0)>0?`<td style="color:var(--high);padding:3px 8px">⚠</td>`:`<td></td>`}
+            </tr>`;
+          }
+          html+=`</tbody></table></div>`;
+        }
+        html+=`</div>`;
+      }
+    }
+    html+=`</div>`;
   }
   el.innerHTML=`<div class="card"><h2>Aceptación por fabricante de máquina</h2>
-    <div class="row"><label class="fld">Semana <select id="maqSel" onchange="renderMaquinas()">${state.weekOrder.map(w=>`<option value="${w}" ${w===d?"selected":""}>${fmtKeyFull(w)}</option>`).join("")}</select></label>
-    <span class="hint">Agrupado por fabricante del gabinete (ATRONIC, IGT, etc.) y modelo de juego</span></div>
-    <div class="grid2">${cards}</div></div>`;
+    <div class="row"><label class="fld">Semana <select id="maqSel" onchange="renderMaquinas()">${state.weekOrder.map(w=>`<option value="${w}" ${w===d?"selected":""}>${fmtKeyFull(w)}</option>`).join("")}</select></label></div>
+    ${html}</div>`;
+}
+function maqToggleFab(fab){
+  if(maqSelFab===fab){maqSelFab="";maqSelJuego="";}
+  else{maqSelFab=fab;maqSelJuego="";}
+  renderMaquinas();
+}
+function maqToggleJuego(jue,fab){
+  maqSelFab=fab;
+  maqSelJuego=maqSelJuego===jue?"":jue;
+  renderMaquinas();
 }
 
 // ---------- Denominaciones ----------
