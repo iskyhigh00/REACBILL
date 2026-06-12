@@ -111,7 +111,7 @@ canvas{max-height:320px}
 <body>
 <header>
   <div style="display:flex;align-items:baseline;gap:6px">
-    <h1>REACBILL <span class="ver">v1.7.3-main</span></h1>
+    <h1>REACBILL <span class="ver">v1.7.4-main</span></h1>
     <span id="dataInfo" class="ver"></span>
   </div>
   <div id="statsBar"></div>
@@ -121,7 +121,7 @@ canvas{max-height:320px}
 <main id="main"></main>
 
 <script>
-/* ===== REACBILL v1.7.3-main ===== */
+/* ===== REACBILL v1.7.4-main ===== */
 const VERSION = "1.6.2-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
@@ -521,8 +521,10 @@ function parseTipoBilletero(wb){
               if(wb.Sheets["Seguimiento"])parseSeguimientoModelos(wb.Sheets["Seguimiento"]);
               log.push(`  └ ${inner.name}: ${imp} semanas importadas`);
             } else {
-              let sn=wb.SheetNames.find(n=>/ultima/i.test(n));
-              if(!sn){ for(const c of wb.SheetNames){ if(parseDataSheet(wb.Sheets[c])){sn=c;break;} } }
+              let sn=wb.SheetNames.find(n=>/ultima/i.test(n))
+                    ||wb.SheetNames.find(n=>/semana/i.test(n));
+              // fallback: omite la hoja 0 (reporte mensual con misma estructura)
+              if(!sn){ for(const c of wb.SheetNames.slice(1)){ if(parseDataSheet(wb.Sheets[c])){sn=c;break;} } }
               const wk=sn?parseDataSheet(wb.Sheets[sn]):null;
               if(wk){ const key=dateKeyFromName(inner.name); state.weeks[key]=wk; log.push(`  └ ${inner.name} → ${fmtKeyFull(key)}`); }
               else{
@@ -575,8 +577,10 @@ function parseTipoBilletero(wb){
         if(wb.Sheets["Seguimiento"])parseSeguimientoModelos(wb.Sheets["Seguimiento"]);
         log.push(`${f.name}: ${imp} semanas históricas importadas`);
       } else {
-        let sn=wb.SheetNames.find(n=>/ultima/i.test(n));
-        if(!sn){ for(const c of wb.SheetNames){ if(parseDataSheet(wb.Sheets[c])){sn=c;break;} } }
+        let sn=wb.SheetNames.find(n=>/ultima/i.test(n))
+              ||wb.SheetNames.find(n=>/semana/i.test(n));
+        // fallback: omite la hoja 0 (reporte mensual con misma estructura)
+        if(!sn){ for(const c of wb.SheetNames.slice(1)){ if(parseDataSheet(wb.Sheets[c])){sn=c;break;} } }
         const wk=sn?parseDataSheet(wb.Sheets[sn]):null;
         if(wk){ const key=dateKeyFromName(f.name); state.weeks[key]=wk; log.push(`${f.name} → ${fmtKeyFull(key)} (${wk.rows.length} máq., hoja: ${sn})`); }
         else{
