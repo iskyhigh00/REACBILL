@@ -1234,7 +1234,16 @@ function resetParams(){
   Es positiva cuando pctA > pctB Y totB > totA.
   Se maximiza cuando la diferencia de calidad Y de volumen son grandes.
 */
-let intFiltroMod="", intFiltroMinVol=0, intPendiente=null;
+let intFiltroMod="", intFiltroMinVol=0, intFiltroFab="", intPendiente=null;
+
+// Marcas que sólo pueden intercambiar entre sí (incompatibilidad física)
+const RESTRICTED_BRANDS=new Set(["IGT"]);
+
+function swapFabOk(fabA, fabB){
+  // si alguna de las dos marcas está restringida, deben ser iguales entre sí
+  if(RESTRICTED_BRANDS.has(fabA)||RESTRICTED_BRANDS.has(fabB)) return fabA===fabB;
+  return true; // el resto puede intercambiarse libremente
+}
 
 function calcSwaps(calcs,d){
   const rows=calcs[d].rows.filter(m=>m.pct>0&&m.total>0);
@@ -1242,21 +1251,29 @@ function calcSwaps(calcs,d){
   for(let i=0;i<rows.length;i++){
     const A=rows[i];
     const msA=state.master[A.mda]||{};
-    if(A.pct<state.params.thrOk)continue; // A debe ser bueno
+    if(A.pct<state.params.thrOk)continue;
     for(let j=0;j<rows.length;j++){
       if(i===j)continue;
       const B=rows[j];
       const msB=state.master[B.mda]||{};
-      if(B.pct>=state.params.thrOk)continue; // B debe estar en alerta
-      if(B.total<=A.total)continue;           // B debe tener más volumen
-      // filtro modelo: sólo swaps entre mismos modelos de billetero
+      if(B.pct>=state.params.thrOk)continue;
+      if(B.total<=A.total)continue;
+      // filtro fabricante: IGT↔IGT, resto libre
+      if(!swapFabOk(msA.fabricante||"",msB.fabricante||""))continue;
+      // filtro fabricante manual (chips)
+      if(intFiltroFab){
+        const pair=[msA.fabricante||"(sin dato)",msB.fabricante||"(sin dato)"].sort().join("↔");
+        const pairAlt=[msA.fabricante||"(sin dato)"].join("");
+        if(pair!==intFiltroFab&&pairAlt!==intFiltroFab)continue;
+      }
+      // filtro modelo billetero: no mezclar Advance con Cashflow
       if(intFiltroMod&&(msA.modelo!==intFiltroMod||msB.modelo!==intFiltroMod))continue;
       else if(!intFiltroMod&&msA.modelo&&msB.modelo&&msA.modelo!==msB.modelo)continue;
       if(B.total<intFiltroMinVol)continue;
       const gain=(A.pct-B.pct)*(B.total-A.total);
       results.push({
-        mdaA:A.mda, locA:getLoc(A.mda), pctA:A.pct, totA:A.total, modA:msA.modelo||"—", firmA:msA.firm||"—",
-        mdaB:B.mda, locB:getLoc(B.mda), pctB:B.pct, totB:B.total, modB:msB.modelo||"—", firmB:msB.firm||"—",
+        mdaA:A.mda, locA:getLoc(A.mda), pctA:A.pct, totA:A.total, modA:msA.modelo||"—", firmA:msA.firm||"—", fabA:msA.fabricante||"—",
+        mdaB:B.mda, locB:getLoc(B.mda), pctB:B.pct, totB:B.total, modB:msB.modelo||"—", firmB:msB.firm||"—", fabB:msB.fabricante||"—",
         gain: Math.round(gain)
       });
     }
@@ -1274,19 +1291,45 @@ function renderIntercambios(){
   const mods=[...new Set(Object.values(state.master).map(m=>m.modelo||"").filter(Boolean))];
   intFiltroMod=document.getElementById("intMod")?.value||"";
   intFiltroMinVol=parseInt(document.getElementById("intMinVol")?.value||"0")||0;
+  intFiltroFab=document.getElementById("intFab")?.value||"";
+
+  // Calcular todas las combinaciones de fabricante posibles (sin filtro fab) para mostrar chips
+  const allFabs=[...new Set(Object.values(state.master).map(m=>m.fabricante||"").filter(Boolean))].sort();
+  // Pares posibles respetando la regla: IGT solo con IGT, resto libre
+  const pairsSet=new Set();
+  for(const fa of allFabs){
+    for(const fb of allFabs){
+      if(!swapFabOk(fa,fb))continue;
+      const key=[fa,fb].sort().join("↔");
+      pairsSet.add(key);
+    }
+  }
+  const pairs=[...pairsSet].sort();
+  // chips: "Todos" + cada par único + cada fab individual (para ver "ATRONIC con cualquiera")
+  const chipData=[{key:"",label:"Todos"}];
+  // agrega IGT↔IGT si existe
+  for(const p of pairs){
+    const [fa,fb]=p.split("↔");
+    chipData.push({key:p, label:fa===fb?`${fa} ↔ ${fa}`:`${fa} ↔ ${fb}`});
+  }
+  const fabChips=chipData.map(c=>{
+    const active=c.key===intFiltroFab;
+    return `<button class="btn sm ${active?'':'sec'}" style="margin:2px" onclick="intSetFab('${c.key}')">${c.label}</button>`;
+  }).join("");
 
   const swaps=calcSwaps(calcs,d);
   let tbody="";
   swaps.forEach((s,i)=>{
+    const sameF=s.fabA===s.fabB;
     tbody+=`<tr>
       <td style="color:var(--accent);font-weight:700">${i+1}</td>
       <td class="left"><b>${s.mdaA}</b><br><span class="muted">${s.locA}</span></td>
-      <td class="left">${s.modA}<br><span class="muted" style="font-size:10px">${s.firmA}</span></td>
+      <td class="left" style="font-size:10px">${s.fabA}<br>${s.modA} ${s.firmA}</td>
       <td class="${pctClass(s.pctA)}">${fmtP(s.pctA)}</td>
       <td class="muted">${fmtN(s.totA)}</td>
-      <td style="font-size:16px;text-align:center">→</td>
+      <td style="font-size:16px;text-align:center">⇄</td>
       <td class="left"><b>${s.mdaB}</b><br><span class="muted">${s.locB}</span></td>
-      <td class="left">${s.modB}<br><span class="muted" style="font-size:10px">${s.firmB}</span></td>
+      <td class="left" style="font-size:10px">${s.fabB}<br>${s.modB} ${s.firmB}</td>
       <td class="${pctClass(s.pctB)}">${fmtP(s.pctB)}</td>
       <td>${fmtN(s.totB)}</td>
       <td style="color:var(--ok);font-weight:700">+${fmtN(s.gain)}</td>
@@ -1320,7 +1363,12 @@ function renderIntercambios(){
         <option value="">Todos (mismo modelo)</option>
         ${mods.map(m=>`<option value="${m}" ${m===intFiltroMod?"selected":""}>${m}</option>`).join("")}
       </select></label>
-      <label class="fld">Volumen mínimo posición destino <input id="intMinVol" type="number" min="0" step="50" value="${intFiltroMinVol}" oninput="renderIntercambios()" style="width:100px"></label>
+      <label class="fld">Flujo mín. destino <input id="intMinVol" type="number" min="0" step="50" value="${intFiltroMinVol}" oninput="renderIntercambios()" style="width:90px"></label>
+      <input type="hidden" id="intFab" value="${intFiltroFab}">
+    </div>
+    <div style="margin-bottom:10px">
+      <div class="hint" style="margin-bottom:5px">Combinaciones posibles de fabricante — <span style="color:var(--high)">IGT solo intercambia con IGT</span>, el resto puede cruzarse libremente:</div>
+      ${fabChips}
     </div>
     <div class="tblWrap" style="max-height:55vh"><table id="tblSwaps">
       <thead><tr>
@@ -1389,6 +1437,8 @@ async function intConfirmar(s){
   await saveHistory();
   renderIntercambios();
 }
+
+function intSetFab(key){ intFiltroFab=key; renderIntercambios(); }
 
 async function intEliminar(id){
   if(!confirm("¿Eliminar este registro del historial?"))return;
