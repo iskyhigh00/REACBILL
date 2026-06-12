@@ -111,7 +111,7 @@ canvas{max-height:320px}
 <body>
 <header>
   <div style="display:flex;align-items:baseline;gap:6px">
-    <h1>REACBILL <span class="ver">v1.7.0-main</span></h1>
+    <h1>REACBILL <span class="ver">v1.7.1-main</span></h1>
     <span id="dataInfo" class="ver"></span>
   </div>
   <div id="statsBar"></div>
@@ -121,7 +121,7 @@ canvas{max-height:320px}
 <main id="main"></main>
 
 <script>
-/* ===== REACBILL v1.7.0-main ===== */
+/* ===== REACBILL v1.7.1-main ===== */
 const VERSION = "1.6.2-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
@@ -294,6 +294,9 @@ function thColIndex(th){
 function sortVal(s){
   if(!s||s==="—")return null;
   if(s.includes("%"))return parseFloat(s.replace(/[+%]/g,""));
+  // isla codes like "202-08" → numeric 202008 for correct suffix ordering
+  const dashNum=s.match(/^(\d+)-0*(\d+)$/);
+  if(dashNum)return parseInt(dashNum[1])*1000+parseInt(dashNum[2]);
   if(/^-?\d{1,3}(\.\d{3})+$/.test(s))return parseFloat(s.replace(/\./g,""));
   const n=parseFloat(s.replace(",","."));
   return isNaN(n)?null:n;
@@ -321,13 +324,21 @@ function attachSort(tableId){
         const av=cellText(a.cells[col]);
         const bv=cellText(b.cells[col]);
         const an=sortVal(av), bn=sortVal(bv);
-        if(an!=null&&bn!=null) return(an-bn)*dir;
-        if(an!=null)return -1; if(bn!=null)return 1;
+        if(an!=null&&bn!=null){const d=(an-bn)*dir;if(d!==0)return d;}
+        if(an!=null&&bn==null)return -1; if(an==null&&bn!=null)return 1;
         return av.localeCompare(bv,"es",{numeric:true})*dir;
       });
       rows.forEach(r=>tbody.appendChild(r));
     });
   });
+}
+function reapplySort(tableId){
+  const st=sortStates[tableId]; if(!st||st.col<0)return;
+  const tbl=document.getElementById(tableId); if(!tbl)return;
+  const th=[...tbl.querySelectorAll("th.sortable")].find(h=>thColIndex(h)===st.col);
+  if(!th)return;
+  sortStates[tableId]={col:st.col,dir:-st.dir}; // flip so click restores correct dir
+  th.click();
 }
 
 // ---------- Parseo ----------
@@ -397,7 +408,7 @@ function parseDataSheet(ws){
     const pB=pNum(idx.pB);
     rows.push({mda,tarjAc:num(idx.tA),tarjRe:num(idx.tR),sesiones:num(idx.ses),
       acc,rej,pctTarj:pNum(idx.pT),pctBill:isNaN(pB)?null:pB});
-    if(!state.master[mda])state.master[mda]={isla:"",fabricante:"",juego:"",modelo:"",firm:""};
+    if(!state.master[mda])state.master[mda]={isla:"",fabricante:"",modelmaq:"",juego:"",modelo:"",firm:""};
   }
   return rows.length?{rows}:null;
 }
@@ -911,8 +922,8 @@ function renderSectores(){
     <input type="hidden" id="secSel" value="${selSector}">
     <input type="hidden" id="secIslaSel" value="${selIsla}">
   </div>${sectorDetail}`;
-  attachSort("tblSecIslas");
-  attachSort("tblSecMach");
+  attachSort("tblSecIslas"); reapplySort("tblSecIslas");
+  attachSort("tblSecMach");  reapplySort("tblSecMach");
 }
 function secSelSector(s){ document.getElementById("secSel").value=s; document.getElementById("secIslaSel").value=""; renderSectores(); }
 function secSelIsla(p){ document.getElementById("secIslaSel").value=p; renderSectores(); }
@@ -988,7 +999,7 @@ function renderModelos(){
 }
 
 // ---------- Máquinas (por fabricante → modelo → isla → máquinas) ----------
-let maqSelFab="", maqSelJuego="";
+let maqSelFab="", maqSelJuego="", maqSelGameTitle="";
 function renderMaquinas(){
   const el=document.getElementById("tab-maquinas");
   if(!state.weekOrder.length){el.innerHTML='<div class="card muted">Sin datos.</div>';return;}
@@ -999,30 +1010,35 @@ function renderMaquinas(){
   // mapa rápido pct/total por mda
   const pm={};
   for(const m of c.rows) pm[m.mda]={pct:m.pct,total:m.total,toAc:m.toAc,score:m.score};
-  // agrupar: fabricante → juego → prefijo isla → [mda]
+  // agrupar: fabricante → modelmaq → juego → prefijo isla → [mda]
   const fabMap={};
   for(const [mda,ms] of Object.entries(state.master)){
     if(!pm[mda]||!pm[mda].total)continue;
     const fab=ms.fabricante||"(sin dato)";
+    const mmq=ms.modelmaq||"(sin modelo)";
     const jue=ms.juego||"(sin dato)";
     const pre=islaPrefix(ms.isla||"")||ms.isla||"—";
     if(!fabMap[fab])fabMap[fab]={};
-    if(!fabMap[fab][jue])fabMap[fab][jue]={};
-    if(!fabMap[fab][jue][pre])fabMap[fab][jue][pre]=[];
-    fabMap[fab][jue][pre].push(mda);
+    if(!fabMap[fab][mmq])fabMap[fab][mmq]={};
+    if(!fabMap[fab][mmq][jue])fabMap[fab][mmq][jue]={};
+    if(!fabMap[fab][mmq][jue][pre])fabMap[fab][mmq][jue][pre]=[];
+    fabMap[fab][mmq][jue][pre].push(mda);
   }
+  // maqSelJuego ahora es "modelmaq" (nivel 2); maqSelMmq sería nivel 3 (juego)
   if(maqSelFab&&!fabMap[maqSelFab]){maqSelFab="";maqSelJuego="";}
   if(maqSelJuego&&!fabMap[maqSelFab]?.[maqSelJuego])maqSelJuego="";
+  if(maqSelGameTitle&&!fabMap[maqSelFab]?.[maqSelJuego]?.[maqSelGameTitle])maqSelGameTitle="";
+  const escape=s=>s.replace(/\\/g,"\\\\").replace(/'/g,"\\'");
   let html="";
   for(const fab of Object.keys(fabMap).sort()){
     const isOpen=fab===maqSelFab;
-    const allM=Object.values(fabMap[fab]).flatMap(j=>Object.values(j).flat());
+    const allM=Object.values(fabMap[fab]).flatMap(mmq=>Object.values(mmq).flatMap(j=>Object.values(j).flat()));
     const fabAc=allM.reduce((s,m)=>s+(pm[m]?.toAc||0),0);
     const fabTot=allM.reduce((s,m)=>s+(pm[m]?.total||0),0);
     const fabAlerts=allM.filter(m=>(pm[m]?.score||0)>0).length;
     const fabPct=fabTot>0?fabAc/fabTot:0;
     html+=`<div class="fab-card" style="margin-bottom:8px">
-      <div style="display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none;padding:4px 0" onclick="maqToggleFab('${fab.replace(/'/g,"\\'")}')">
+      <div style="display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none;padding:4px 0" onclick="maqToggleFab('${escape(fab)}')">
         <span style="font-size:13px;color:var(--accent)">${isOpen?"▼":"▶"}</span>
         <span style="font-weight:700;font-size:15px;flex:1">${fab}</span>
         <span class="${pctClass(fabPct)}" style="font-weight:700">${fmtP(fabPct)}</span>
@@ -1030,51 +1046,67 @@ function renderMaquinas(){
         ${fabAlerts?`<span style="color:var(--high);font-size:11px">⚠ ${fabAlerts}</span>`:""}
       </div>`;
     if(isOpen){
-      // chips de modelo de máquina (juego)
-      const juegos=Object.keys(fabMap[fab]).sort();
+      // nivel 2: modelo de máquina
+      const mmqs=Object.keys(fabMap[fab]).sort();
       html+=`<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:5px;padding-left:18px">`;
-      for(const jue of juegos){
-        const jMdas=Object.values(fabMap[fab][jue]).flat();
-        const jAc=jMdas.reduce((s,m)=>s+(pm[m]?.toAc||0),0);
-        const jTot=jMdas.reduce((s,m)=>s+(pm[m]?.total||0),0);
-        const jP=jTot>0?jAc/jTot:0;
-        const sel=jue===maqSelJuego;
-        html+=`<button class="btn sm ${sel?'':'sec'}" onclick="maqToggleJuego('${jue.replace(/'/g,"\\'")}','${fab.replace(/'/g,"\\'")}')">
-          ${jue}&nbsp;<span class="${pctClass(jP)}">${fmtP(jP)}</span>
-          <span class="muted" style="font-size:10px">&nbsp;${jMdas.length}</span>
+      for(const mmq of mmqs){
+        const mMdas=Object.values(fabMap[fab][mmq]).flatMap(j=>Object.values(j).flat());
+        const mAc=mMdas.reduce((s,m)=>s+(pm[m]?.toAc||0),0);
+        const mTot=mMdas.reduce((s,m)=>s+(pm[m]?.total||0),0);
+        const mP=mTot>0?mAc/mTot:0;
+        const sel=mmq===maqSelJuego;
+        html+=`<button class="btn sm ${sel?'':'sec'}" onclick="maqToggleJuego('${escape(mmq)}','${escape(fab)}')">
+          ${mmq}&nbsp;<span class="${pctClass(mP)}">${fmtP(mP)}</span>
+          <span class="muted" style="font-size:10px">&nbsp;${mMdas.length}</span>
         </button>`;
       }
       html+=`</div>`;
-      // detalle por isla si hay juego seleccionado
+      // nivel 3: juego (dentro del modelo seleccionado)
       if(maqSelJuego&&fabMap[fab][maqSelJuego]){
-        const islaMap=fabMap[fab][maqSelJuego];
-        html+=`<div style="margin-top:10px;padding-left:18px">`;
-        for(const pre of Object.keys(islaMap).sort()){
-          const mdas=islaMap[pre].sort((a,b)=>a.localeCompare(b,"es",{numeric:true}));
-          const iAc=mdas.reduce((s,m)=>s+(pm[m]?.toAc||0),0);
-          const iTot=mdas.reduce((s,m)=>s+(pm[m]?.total||0),0);
-          const iP=iTot>0?iAc/iTot:0;
-          html+=`<div style="margin-bottom:10px">
-            <div style="font-weight:700;margin-bottom:3px;font-size:13px">
-              Isla ${pre} <span class="${pctClass(iP)}">${fmtP(iP)}</span>
-              <span class="muted" style="font-weight:normal"> · ${mdas.length} máq.</span>
-            </div>
-            <table style="width:100%;font-size:12px;border-collapse:collapse"><tbody>`;
-          for(const mda of mdas){
-            const ms=state.master[mda]||{};
-            const p=pm[mda]||{};
-            html+=`<tr style="border-bottom:1px solid var(--border)">
-              <td style="padding:3px 8px;font-weight:700">${mda}</td>
-              <td style="padding:3px 8px;color:var(--muted)">${ms.isla||"—"}</td>
-              <td style="padding:3px 8px">${ms.juego||"—"}</td>
-              <td style="padding:3px 8px" class="${pctClass(p.pct||0)}">${(p.pct||0)>0?fmtP(p.pct):"—"}</td>
-              <td style="padding:3px 8px;color:var(--muted)">${fmtN(p.total||0)}</td>
-              ${(p.score||0)>0?`<td style="color:var(--high);padding:3px 8px">⚠</td>`:`<td></td>`}
-            </tr>`;
-          }
-          html+=`</tbody></table></div>`;
+        const juegos=Object.keys(fabMap[fab][maqSelJuego]).sort();
+        html+=`<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:5px;padding-left:36px">`;
+        for(const jue of juegos){
+          const jMdas=Object.values(fabMap[fab][maqSelJuego][jue]).flat();
+          const jAc=jMdas.reduce((s,m)=>s+(pm[m]?.toAc||0),0);
+          const jTot=jMdas.reduce((s,m)=>s+(pm[m]?.total||0),0);
+          const jP=jTot>0?jAc/jTot:0;
+          const sel=jue===maqSelGameTitle;
+          html+=`<button class="btn sm ${sel?'':'sec'}" style="font-size:11px" onclick="maqToggleGame('${escape(jue)}','${escape(maqSelJuego)}','${escape(fab)}')">
+            ${jue}&nbsp;<span class="${pctClass(jP)}">${fmtP(jP)}</span>
+            <span class="muted" style="font-size:10px">&nbsp;${jMdas.length}</span>
+          </button>`;
         }
         html+=`</div>`;
+        // nivel 4: islas y máquinas
+        if(maqSelGameTitle&&fabMap[fab][maqSelJuego][maqSelGameTitle]){
+          const islaMap=fabMap[fab][maqSelJuego][maqSelGameTitle];
+          html+=`<div style="margin-top:10px;padding-left:36px">`;
+          for(const pre of Object.keys(islaMap).sort()){
+            const mdas=islaMap[pre].sort((a,b)=>a.localeCompare(b,"es",{numeric:true}));
+            const iAc=mdas.reduce((s,m)=>s+(pm[m]?.toAc||0),0);
+            const iTot=mdas.reduce((s,m)=>s+(pm[m]?.total||0),0);
+            const iP=iTot>0?iAc/iTot:0;
+            html+=`<div style="margin-bottom:10px">
+              <div style="font-weight:700;margin-bottom:3px;font-size:13px">
+                Isla ${pre} <span class="${pctClass(iP)}">${fmtP(iP)}</span>
+                <span class="muted" style="font-weight:normal"> · ${mdas.length} máq.</span>
+              </div>
+              <table style="width:100%;font-size:12px;border-collapse:collapse"><tbody>`;
+            for(const mda of mdas){
+              const ms=state.master[mda]||{};
+              const p=pm[mda]||{};
+              html+=`<tr style="border-bottom:1px solid var(--border)">
+                <td style="padding:3px 8px;font-weight:700">${mda}</td>
+                <td style="padding:3px 8px;color:var(--muted)">${ms.isla||"—"}</td>
+                <td style="padding:3px 8px" class="${pctClass(p.pct||0)}">${(p.pct||0)>0?fmtP(p.pct):"—"}</td>
+                <td style="padding:3px 8px;color:var(--muted)">${fmtN(p.total||0)}</td>
+                ${(p.score||0)>0?`<td style="color:var(--high);padding:3px 8px">⚠</td>`:`<td></td>`}
+              </tr>`;
+            }
+            html+=`</tbody></table></div>`;
+          }
+          html+=`</div>`;
+        }
       }
     }
     html+=`</div>`;
@@ -1084,13 +1116,19 @@ function renderMaquinas(){
     ${html}</div>`;
 }
 function maqToggleFab(fab){
-  if(maqSelFab===fab){maqSelFab="";maqSelJuego="";}
-  else{maqSelFab=fab;maqSelJuego="";}
+  if(maqSelFab===fab){maqSelFab="";maqSelJuego="";maqSelGameTitle="";}
+  else{maqSelFab=fab;maqSelJuego="";maqSelGameTitle="";}
   renderMaquinas();
 }
-function maqToggleJuego(jue,fab){
+function maqToggleJuego(mmq,fab){
   maqSelFab=fab;
-  maqSelJuego=maqSelJuego===jue?"":jue;
+  if(maqSelJuego===mmq){maqSelJuego="";maqSelGameTitle="";}
+  else{maqSelJuego=mmq;maqSelGameTitle="";}
+  renderMaquinas();
+}
+function maqToggleGame(jue,mmq,fab){
+  maqSelFab=fab; maqSelJuego=mmq;
+  maqSelGameTitle=maqSelGameTitle===jue?"":jue;
   renderMaquinas();
 }
 
@@ -1226,6 +1264,7 @@ function renderAdmin(){
       <td><input type="checkbox" class="lev-chk" data-mda="${mda}"></td>
       <td class="left"><b>${mda}</b></td>
       <td class="left">${ms.isla||""}</td>
+      <td class="left"><input id="modelmaq_${mda}" type="text" value="${ms.modelmaq||""}" placeholder="Modelo" style="width:90px;font-size:11px;padding:2px;background:var(--panel);border:1px solid var(--border);color:var(--fg);border-radius:4px"></td>
       <td class="left">${ms.juego||"—"}</td>
       <td class="left"><select id="firm_${mda}" style="font-size:11px;padding:2px">${firmOpts}</select></td>
       <td class="left lev-radio">
@@ -1256,8 +1295,8 @@ function renderAdmin(){
     <div class="tblWrap" style="max-height:40vh"><table id="tblLevAdm">
       <thead><tr><th><input type="checkbox" onchange="levToggleAll(this)"></th>
         <th class="left sortable">MDA</th><th class="left sortable">ISLA</th>
-        <th class="left sortable">Juego</th><th class="left sortable">Firmware</th>
-        <th class="left">Modelo</th></tr></thead>
+        <th class="left">Modelo máq.</th><th class="left sortable">Juego</th>
+        <th class="left sortable">Firmware</th><th class="left">Modelo bill.</th></tr></thead>
       <tbody>${levRows}</tbody></table></div>
   </div>
 
@@ -1342,6 +1381,8 @@ function levGuardarAdm(){
       state.master[mda].modelo=inp.value;
       const firmSel=document.getElementById("firm_"+mda);
       if(firmSel) state.master[mda].firm=firmSel.value;
+      const mqInp=document.getElementById("modelmaq_"+mda);
+      if(mqInp) state.master[mda].modelmaq=mqInp.value.trim();
     }
   });
   invalidate(); saveState();
@@ -1366,6 +1407,7 @@ function importMasterJSON(payload){
       isla:row.isla||state.master[mda]?.isla||"",
       locname:row.locname||state.master[mda]?.locname||"",
       fabricante:row.fabricante||state.master[mda]?.fabricante||"",
+      modelmaq:row.modelmaq||state.master[mda]?.modelmaq||"",
       juego:row.juego||state.master[mda]?.juego||"",
       modelo:row.modelo||state.master[mda]?.modelo||"",
       firm:row.firm||state.master[mda]?.firm||""};
