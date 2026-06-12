@@ -111,7 +111,7 @@ canvas{max-height:320px}
 <body>
 <header>
   <div style="display:flex;align-items:baseline;gap:6px">
-    <h1>REACBILL <span class="ver">v1.7.2-main</span></h1>
+    <h1>REACBILL <span class="ver">v1.7.3-main</span></h1>
     <span id="dataInfo" class="ver"></span>
   </div>
   <div id="statsBar"></div>
@@ -121,7 +121,7 @@ canvas{max-height:320px}
 <main id="main"></main>
 
 <script>
-/* ===== REACBILL v1.7.2-main ===== */
+/* ===== REACBILL v1.7.3-main ===== */
 const VERSION = "1.6.2-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
@@ -449,7 +449,39 @@ function parseSeguimientoModelos(ws){
   return n;
 }
 
-async function handleFiles(files){
+function parseTipoBilletero(wb){
+  // Busca hoja con columnas ISLA, MÁQUINA/MAQUINA, TIPO BILLETERO
+  const norm=s=>String(s??"").trim().toUpperCase().normalize("NFD").replace(/[̀-ͯ]/g,"");
+  for(const sn of wb.SheetNames){
+    const arr=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:null});
+    if(!arr.length)continue;
+    // buscar fila de encabezado (primeras 5 filas)
+    let hdr=null, hi=0;
+    for(let i=0;i<Math.min(5,arr.length);i++){
+      const row=(arr[i]||[]).map(norm);
+      if(row.some(c=>c.includes("MAQUINA"))&&row.some(c=>c.includes("BILLETERO"))){hdr=row;hi=i;break;}
+    }
+    if(!hdr)continue;
+    const iMaq=hdr.findIndex(c=>c.includes("MAQUINA"));
+    const iTipo=hdr.findIndex(c=>c.includes("BILLETERO"));
+    if(iMaq<0||iTipo<0)continue;
+    let n=0;
+    for(let r=hi+1;r<arr.length;r++){
+      const row=arr[r]; if(!row)continue;
+      const mda=String(row[iMaq]??"").trim(); if(!mda||!/^\d+$/.test(mda))continue;
+      const raw=norm(String(row[iTipo]??""));
+      const modelo=raw.includes("CASHFLOW")?"Cashflow":raw.includes("ADVANCE")?"Advance":"";
+      if(!modelo)continue;
+      if(!state.master[mda])state.master[mda]={isla:"",fabricante:"",modelmaq:"",juego:"",modelo:"",firm:""};
+      state.master[mda].modelo=modelo;
+      n++;
+    }
+    if(n>0)return n;
+  }
+  return 0;
+}
+
+
   const log=[];
   for(const f of files){
     try{
@@ -493,7 +525,11 @@ async function handleFiles(files){
               if(!sn){ for(const c of wb.SheetNames){ if(parseDataSheet(wb.Sheets[c])){sn=c;break;} } }
               const wk=sn?parseDataSheet(wb.Sheets[sn]):null;
               if(wk){ const key=dateKeyFromName(inner.name); state.weeks[key]=wk; log.push(`  └ ${inner.name} → ${fmtKeyFull(key)}`); }
-              else log.push(`  └ ${inner.name}: formato no reconocido`);
+              else{
+                const nT=parseTipoBilletero(wb);
+                if(nT>0)log.push(`  └ ${inner.name}: ${nT} modelos de billetero actualizados`);
+                else log.push(`  └ ${inner.name}: formato no reconocido`);
+              }
               if(wb.Sheets["Contadores"])parseContadores(wb.Sheets["Contadores"]);
               if(wb.Sheets["Seguimiento"])parseSeguimientoModelos(wb.Sheets["Seguimiento"]);
             }
@@ -543,7 +579,11 @@ async function handleFiles(files){
         if(!sn){ for(const c of wb.SheetNames){ if(parseDataSheet(wb.Sheets[c])){sn=c;break;} } }
         const wk=sn?parseDataSheet(wb.Sheets[sn]):null;
         if(wk){ const key=dateKeyFromName(f.name); state.weeks[key]=wk; log.push(`${f.name} → ${fmtKeyFull(key)} (${wk.rows.length} máq., hoja: ${sn})`); }
-        else log.push(`${f.name}: formato de datos no reconocido`);
+        else{
+          const nTipo=parseTipoBilletero(wb);
+          if(nTipo>0)log.push(`${f.name}: ${nTipo} modelos de billetero actualizados (ISLA/MÁQUINA/TIPO BILLETERO)`);
+          else log.push(`${f.name}: formato de datos no reconocido`);
+        }
         if(wb.Sheets["Contadores"])log.push("Contadores: "+parseContadores(wb.Sheets["Contadores"])+" máquinas");
         if(wb.Sheets["Seguimiento"])parseSeguimientoModelos(wb.Sheets["Seguimiento"]);
       }
