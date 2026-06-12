@@ -111,7 +111,7 @@ canvas{max-height:320px}
 <body>
 <header>
   <div style="display:flex;align-items:baseline;gap:6px">
-    <h1>REACBILL <span class="ver">v1.7.8-main</span></h1>
+    <h1>REACBILL <span class="ver">v1.7.9-main</span></h1>
     <span id="dataInfo" class="ver"></span>
   </div>
   <div id="statsBar"></div>
@@ -121,7 +121,7 @@ canvas{max-height:320px}
 <main id="main"></main>
 
 <script>
-/* ===== REACBILL v1.7.8-main ===== */
+/* ===== REACBILL v1.7.9-main ===== */
 const VERSION = "1.6.2-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
@@ -410,7 +410,7 @@ function parseDataSheet(ws){
     const pB=pNum(idx.pB);
     rows.push({mda,tarjAc:num(idx.tA),tarjRe:num(idx.tR),sesiones:num(idx.ses),
       acc,rej,pctTarj:pNum(idx.pT),pctBill:isNaN(pB)?null:pB});
-    if(!state.master[mda])state.master[mda]={isla:"",fabricante:"",modelmaq:"",juego:"",modelo:"",firm:""};
+    if(!state.master[mda])state.master[mda]={isla:"",fabricante:"",modelmaq:"",juego:"",modelo:"",firm:"",area:"",tipo:"",serial:"",category:"",deno:""};
   }
   return rows.length?{rows}:null;
 }
@@ -451,6 +451,47 @@ function parseSeguimientoModelos(ws){
   return n;
 }
 
+function parseMasterReference(wb){
+  // Detecta hoja con "Machine ID" y "Manufacturer" — planilla maestra de referencia
+  const norm=s=>String(s??"").trim().toUpperCase().normalize("NFD").replace(/[̀-ͯ]/g,"");
+  for(const sn of wb.SheetNames){
+    const arr=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:null});
+    // buscar fila de encabezado en las primeras 5 filas
+    let hdr=null, hi=0;
+    for(let i=0;i<Math.min(5,arr.length);i++){
+      const row=(arr[i]||[]).map(norm);
+      if(row.some(c=>c.includes("MACHINE ID")||c==="MACHINE ID")&&row.some(c=>c.includes("MANUFACTURER"))){hdr=row;hi=i;break;}
+    }
+    if(!hdr)continue;
+    const col=k=>hdr.findIndex(c=>c.includes(k));
+    const iMda=col("MACHINE ID"), iPos=col("POSITION"), iArea=col("AREA");
+    const iJue=col("TITLE GAME"), iTipo=col("TYPE"), iFab=col("MANUFACTURER");
+    const iMmq=col("CABINET MODEL"), iSerial=col("SERIAL"), iCat=col("CATEGORY"), iDeno=col("DENO");
+    if(iMda<0||iFab<0)continue;
+    const get=(row,i)=>i>=0&&row[i]!=null?String(row[i]).trim():"";
+    let n=0;
+    for(let r=hi+1;r<arr.length;r++){
+      const row=arr[r]; if(!row)continue;
+      const mda=get(row,iMda); if(!mda||!/^\d+$/.test(mda))continue;
+      const locraw=get(row,iPos);
+      const isla=locraw?fmtLocname(locraw):"";
+      if(!state.master[mda])state.master[mda]={isla:"",fabricante:"",modelmaq:"",juego:"",modelo:"",firm:"",area:"",tipo:"",serial:"",category:"",deno:""};
+      const ms=state.master[mda];
+      if(isla)   { ms.isla=isla; ms.locname=locraw; }
+      if(iArea>=0) ms.area=get(row,iArea)||ms.area;
+      if(iJue>=0)  ms.juego=get(row,iJue)||ms.juego;
+      if(iTipo>=0) ms.tipo=get(row,iTipo)||ms.tipo;
+      if(iFab>=0)  ms.fabricante=get(row,iFab)||ms.fabricante;
+      if(iMmq>=0)  ms.modelmaq=get(row,iMmq)||ms.modelmaq;
+      if(iSerial>=0) ms.serial=get(row,iSerial)||ms.serial;
+      if(iCat>=0)  ms.category=get(row,iCat)||ms.category;
+      if(iDeno>=0) ms.deno=get(row,iDeno)||ms.deno;
+      n++;
+    }
+    if(n>0)return n;
+  }
+  return 0;
+}
 function parseTipoBilletero(wb){
   // Busca hoja con columnas ISLA, MÁQUINA/MAQUINA, TIPO BILLETERO
   const norm=s=>String(s??"").trim().toUpperCase().normalize("NFD").replace(/[̀-ͯ]/g,"");
@@ -474,7 +515,7 @@ function parseTipoBilletero(wb){
       const raw=norm(String(row[iTipo]??""));
       const modelo=raw.includes("CASHFLOW")?"Cashflow":raw.includes("ADVANCE")?"Advance":"";
       if(!modelo)continue;
-      if(!state.master[mda])state.master[mda]={isla:"",fabricante:"",modelmaq:"",juego:"",modelo:"",firm:""};
+      if(!state.master[mda])state.master[mda]={isla:"",fabricante:"",modelmaq:"",juego:"",modelo:"",firm:"",area:"",tipo:"",serial:"",category:"",deno:""};
       state.master[mda].modelo=modelo;
       n++;
     }
@@ -530,9 +571,13 @@ async function handleFiles(files){
               const wk=sn?parseDataSheet(wb.Sheets[sn]):null;
               if(wk){ const key=dateKeyFromName(inner.name); state.weeks[key]=wk; log.push(`  └ ${inner.name} → ${fmtKeyFull(key)}`); }
               else{
-                const nT=parseTipoBilletero(wb);
-                if(nT>0)log.push(`  └ ${inner.name}: ${nT} modelos de billetero actualizados`);
-                else log.push(`  └ ${inner.name}: formato no reconocido`);
+                const nRef=parseMasterReference(wb);
+                if(nRef>0)log.push(`  └ ${inner.name}: ${nRef} máquinas actualizadas (referencia maestra)`);
+                else{
+                  const nT=parseTipoBilletero(wb);
+                  if(nT>0)log.push(`  └ ${inner.name}: ${nT} modelos de billetero actualizados`);
+                  else log.push(`  └ ${inner.name}: formato no reconocido`);
+                }
               }
               if(wb.Sheets["Contadores"])parseContadores(wb.Sheets["Contadores"]);
               if(wb.Sheets["Seguimiento"])parseSeguimientoModelos(wb.Sheets["Seguimiento"]);
@@ -586,9 +631,13 @@ async function handleFiles(files){
         const wk=sn?parseDataSheet(wb.Sheets[sn]):null;
         if(wk){ const key=dateKeyFromName(f.name); state.weeks[key]=wk; log.push(`${f.name} → ${fmtKeyFull(key)} (${wk.rows.length} máq., hoja: ${sn})`); }
         else{
-          const nTipo=parseTipoBilletero(wb);
-          if(nTipo>0)log.push(`${f.name}: ${nTipo} modelos de billetero actualizados (ISLA/MÁQUINA/TIPO BILLETERO)`);
-          else log.push(`${f.name}: formato de datos no reconocido`);
+          const nRef=parseMasterReference(wb);
+          if(nRef>0){log.push(`${f.name}: ${nRef} máquinas actualizadas (referencia maestra)`); }
+          else{
+            const nTipo=parseTipoBilletero(wb);
+            if(nTipo>0)log.push(`${f.name}: ${nTipo} modelos de billetero actualizados`);
+            else log.push(`${f.name}: formato de datos no reconocido`);
+          }
         }
         if(wb.Sheets["Contadores"])log.push("Contadores: "+parseContadores(wb.Sheets["Contadores"])+" máquinas");
         if(wb.Sheets["Seguimiento"])parseSeguimientoModelos(wb.Sheets["Seguimiento"]);
@@ -633,7 +682,8 @@ function buildShells(){
         • <b>Planillas semanales</b>: la fecha se lee del nombre (YYYY-MM-DD o DD-MM-YYYY).<br>
         • <b>Seguimiento_Auto.xlsx</b>: importa todas las semanas + maestro de una vez.<br>
         • <b>Archivo cn</b>: cualquier archivo con columnas <code>SMDBID;LOCNAME</code> separadas por <code>;</code>.<br>
-        • <b>reacbill_master.json</b>: exportado desde Admin → restaura datos de máquinas (juego, isla, modelo, firmware, fabricante) y el historial de intercambios (cifrado).
+        • <b>Planilla de referencia</b>: Excel con columnas Machine ID, Position, Title Game, Manufacturer, Cabinet Model, Deno, etc. → actualiza todos los datos maestros.<br>
+        • <b>reacbill_master.json</b>: exportado desde Admin → restaura datos de máquinas y el historial de intercambios (cifrado).
       </div>
       <div id="uplog" class="hint" style="margin-top:8px"></div>
     </div>
@@ -1456,7 +1506,12 @@ function importMasterJSON(payload){
       modelmaq:row.modelmaq||state.master[mda]?.modelmaq||"",
       juego:row.juego||state.master[mda]?.juego||"",
       modelo:row.modelo||state.master[mda]?.modelo||"",
-      firm:row.firm||state.master[mda]?.firm||""};
+      firm:row.firm||state.master[mda]?.firm||"",
+      area:row.area||state.master[mda]?.area||"",
+      tipo:row.tipo||state.master[mda]?.tipo||"",
+      serial:row.serial||state.master[mda]?.serial||"",
+      category:row.category||state.master[mda]?.category||"",
+      deno:row.deno||state.master[mda]?.deno||""};
     n++;
   }
   if(!Array.isArray(payload)&&payload.hist){
