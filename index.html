@@ -111,7 +111,7 @@ canvas{max-height:320px}
 <body>
 <header>
   <div style="display:flex;align-items:baseline;gap:6px">
-    <h1>REACBILL <span class="ver">v1.6.6-main</span></h1>
+    <h1>REACBILL <span class="ver">v1.6.7-main</span></h1>
     <span id="dataInfo" class="ver"></span>
   </div>
   <div id="statsBar"></div>
@@ -121,7 +121,7 @@ canvas{max-height:320px}
 <main id="main"></main>
 
 <script>
-/* ===== REACBILL v1.6.6-main ===== */
+/* ===== REACBILL v1.6.7-main ===== */
 const VERSION = "1.6.2-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
@@ -1338,7 +1338,7 @@ function resetParams(){
   Es positiva cuando pctA > pctB Y totB > totA.
   Se maximiza cuando la diferencia de calidad Y de volumen son grandes.
 */
-let intFiltroMod="", intFiltroMinVol=0, intFabLeft=new Set(), intFabRight=new Set(), intPendiente=null;
+let intFiltroMod="", intFiltroMinVol=0, intFabLeft=new Set(), intFabRight=new Set(), intUsarPromedio=false, intPendiente=null;
 
 // Marcas que sólo pueden intercambiar entre sí (incompatibilidad física)
 const RESTRICTED_BRANDS=new Set(["IGT"]);
@@ -1349,8 +1349,27 @@ function swapFabOk(fabA, fabB){
   return true; // el resto puede intercambiarse libremente
 }
 
-function calcSwaps(calcs,d){
-  const rows=calcs[d].rows.filter(m=>m.pct>0&&m.total>0);
+function buildAvgRows(calcs,d){
+  const idx=state.weekOrder.indexOf(d);
+  const window4=state.weekOrder.slice(Math.max(0,idx-3),idx+1);
+  const map={};
+  for(const w of window4){
+    for(const r of (calcs[w]?.rows||[])){
+      if(!r.pct||!r.total)continue;
+      if(!map[r.mda])map[r.mda]={pcts:[],totals:[]};
+      map[r.mda].pcts.push(r.pct);
+      map[r.mda].totals.push(r.total);
+    }
+  }
+  return Object.entries(map).map(([mda,v])=>({
+    mda,
+    pct:v.pcts.reduce((a,b)=>a+b,0)/v.pcts.length,
+    total:Math.round(v.totals.reduce((a,b)=>a+b,0)/v.totals.length),
+    nWeeks:v.pcts.length
+  }));
+}
+function calcSwaps(rows){
+  rows=rows.filter(m=>m.pct>0&&m.total>0);
   const results=[];
   for(let i=0;i<rows.length;i++){
     const A=rows[i];
@@ -1396,7 +1415,7 @@ function renderIntercambios(){
   const mods=[...new Set(Object.values(state.master).map(m=>m.modelo||"").filter(Boolean))];
   intFiltroMod=document.getElementById("intMod")?.value||"";
   intFiltroMinVol=parseInt(document.getElementById("intMinVol")?.value||"0")||0;
-  intFiltroFab=document.getElementById("intFab")?.value||"";
+  intUsarPromedio=document.getElementById("intPromedio")?.checked??intUsarPromedio;
 
   // Calcular todas las combinaciones de fabricante posibles (sin filtro fab) para mostrar chips
   const allFabs=[...new Set(Object.values(state.master).map(m=>m.fabricante||"").filter(Boolean))].sort();
@@ -1429,7 +1448,10 @@ function renderIntercambios(){
   const leftPanel=fabPanelHtml(allFabs,intFabLeft,intFabRight,"left");
   const rightPanel=fabPanelHtml(allFabs,intFabRight,intFabLeft,"right");
 
-  const swaps=calcSwaps(calcs,d);
+  const useAvg=intUsarPromedio&&state.weekOrder.length>1;
+  const swapRows=useAvg?buildAvgRows(calcs,d):calcs[d].rows;
+  const nAvgWeeks=useAvg?Math.min(4,state.weekOrder.indexOf(d)+1):1;
+  const swaps=calcSwaps(swapRows);
   let tbody="";
   swaps.forEach((s,i)=>{
     const sameF=s.fabA===s.fabB;
@@ -1476,6 +1498,10 @@ function renderIntercambios(){
         ${mods.map(m=>`<option value="${m}" ${m===intFiltroMod?"selected":""}>${m}</option>`).join("")}
       </select></label>
       <label class="fld">Flujo mín. destino <input id="intMinVol" type="number" min="0" step="50" value="${intFiltroMinVol}" oninput="renderIntercambios()" style="width:90px"></label>
+      <label class="fld" style="align-items:center;gap:6px" title="Promedia % y volumen de las últimas 4 semanas disponibles para mayor robustez. Si solo hay una semana, usa ese dato igual.">
+        <input type="checkbox" id="intPromedio" onchange="renderIntercambios()" ${intUsarPromedio?"checked":""}> Promedio 4 semanas
+        ${useAvg?`<span class="muted">(usando ${nAvgWeeks} sem.)</span>`:""}
+      </label>
     </div>
     <div style="display:flex;gap:16px;margin-bottom:12px">
       <div style="flex:1;background:var(--panel2);border-radius:8px;padding:10px">
