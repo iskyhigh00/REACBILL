@@ -98,6 +98,9 @@ canvas{max-height:320px}
 .param-block .param-desc{font-size:11px;color:var(--muted);line-height:1.5;margin-bottom:6px}
 .param-block .param-input{display:flex;align-items:center;gap:10px}
 .param-block input{width:90px}
+/* machine editor inline inputs */
+.med-inp{background:var(--panel);border:1px solid var(--border);color:var(--fg);border-radius:3px;padding:2px 4px;font-size:11px}
+.med-inp:focus{border-color:var(--accent);outline:none}
 /* sector cards */
 .sector-card{background:var(--panel2);border:1px solid var(--border);border-radius:7px;padding:10px;cursor:pointer;transition:border-color .15s}
 .sector-card:hover{border-color:var(--accent)}
@@ -111,7 +114,7 @@ canvas{max-height:320px}
 <body>
 <header>
   <div style="display:flex;align-items:baseline;gap:6px">
-    <h1>REACBILL <span class="ver">v1.8.0-main</span></h1>
+    <h1>REACBILL <span class="ver">v1.8.1-main</span></h1>
     <span id="dataInfo" class="ver"></span>
   </div>
   <div id="statsBar"></div>
@@ -121,7 +124,7 @@ canvas{max-height:320px}
 <main id="main"></main>
 
 <script>
-/* ===== REACBILL v1.8.0-main ===== */
+/* ===== REACBILL v1.8.1-main ===== */
 const VERSION = "1.6.2-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
@@ -1340,7 +1343,34 @@ function renderBuscador(focusField){
 function renderAdmin(){
   const p=state.params;
   const el=document.getElementById("tab-admin");
-  // ---------- Levantamiento de modelos (embebido en Admin) ----------
+  // ---------- Editor completo de máquinas ----------
+  const allMdas=Object.entries(state.master).sort(([a],[b])=>a.localeCompare(b,"es",{numeric:true}));
+  const q=machEditFilter.toLowerCase();
+  const filtered=q?allMdas.filter(([mda,ms])=>
+    mda.includes(q)||(ms.isla||"").toLowerCase().includes(q)||
+    (ms.juego||"").toLowerCase().includes(q)||(ms.fabricante||"").toLowerCase().includes(q)||
+    (ms.modelmaq||"").toLowerCase().includes(q)
+  ):allMdas;
+  const modOpts=mod=>[["","—"],["Advance","Advance"],["Cashflow","Cashflow"]].map(([v,l])=>`<option value="${v}" ${mod===v?"selected":""}>${l}</option>`).join("");
+  const firmOpts2=f=>[["","—"],["403","403"],["255","255"]].map(([v,l])=>`<option value="${v}" ${f===v?"selected":""}>${l}</option>`).join("");
+  let edRows="";
+  for(const [mda,ms] of filtered){
+    const e=(v,f,w=80)=>`<input class="med-inp" data-mda="${mda}" data-f="${f}" value="${(v||"").replace(/"/g,"&quot;")}" style="width:${w}px">`;
+    edRows+=`<tr>
+      <td class="left" style="font-weight:700">${mda}</td>
+      <td>${e(ms.isla,"isla",62)}</td>
+      <td>${e(ms.fabricante,"fabricante",80)}</td>
+      <td>${e(ms.modelmaq,"modelmaq",90)}</td>
+      <td>${e(ms.juego,"juego",130)}</td>
+      <td><select class="med-inp" data-mda="${mda}" data-f="modelo" style="width:80px">${modOpts(ms.modelo||"")}</select></td>
+      <td><select class="med-inp" data-mda="${mda}" data-f="firm" style="width:52px">${firmOpts2(ms.firm||"")}</select></td>
+      <td>${e(ms.area,"area",40)}</td>
+      <td>${e(ms.serial,"serial",70)}</td>
+      <td>${e(ms.deno,"deno",50)}</td>
+      <td>${e(ms.category,"category",90)}</td>
+    </tr>`;
+  }
+
   const allIslasPrefixes=[...new Set(Object.values(state.master).map(m=>islaPrefix(m.isla||"")).filter(Boolean))].sort();
   const storedLevIsla=document.getElementById("levIslaAdm")?.value||"";
   const levIsla=allIslasPrefixes.includes(storedLevIsla)?storedLevIsla:(allIslasPrefixes[0]||"");
@@ -1446,8 +1476,47 @@ function renderAdmin(){
       <button class="btn danger" onclick="resetParams()">Restaurar valores Excel</button>
       <span id="adminMsg" class="hint"></span>
     </div>
+  </div>
+
+  <div class="card"><h2>Editor de máquinas</h2>
+    <div class="row" style="margin-bottom:8px">
+      <input id="machFiltInp" type="text" placeholder="Filtrar por MDA, isla, juego, fabricante…"
+        value="${machEditFilter}" oninput="machEditFilter=this.value;renderAdmin()"
+        style="flex:1;max-width:320px">
+      <button class="btn sm" onclick="machSave()">💾 Guardar cambios</button>
+      <span id="machMsg" class="hint" style="margin-top:0">${filtered.length} / ${allMdas.length} máquinas</span>
+    </div>
+    <div class="tblWrap"><table id="tblMachEd">
+      <thead><tr>
+        <th class="left sortable">MDA</th>
+        <th class="sortable">ISLA</th>
+        <th class="sortable">Fabricante</th>
+        <th class="sortable">Modelo máq.</th>
+        <th class="left sortable">Juego</th>
+        <th class="sortable">Modelo bill.</th>
+        <th class="sortable">Firm</th>
+        <th class="sortable">Área</th>
+        <th class="sortable">Serial</th>
+        <th class="sortable">Deno</th>
+        <th class="sortable">Categoría</th>
+      </tr></thead>
+      <tbody>${edRows}</tbody>
+    </table></div>
   </div>`;
   attachSort("tblLevAdm");
+  attachSort("tblMachEd");
+  document.getElementById("machFiltInp")?.focus();
+}
+function machSave(){
+  document.querySelectorAll(".med-inp").forEach(inp=>{
+    const mda=inp.getAttribute("data-mda");
+    const f=inp.getAttribute("data-f");
+    if(!mda||!f||!state.master[mda])return;
+    state.master[mda][f]=inp.value.trim();
+  });
+  invalidate(); saveState();
+  const msg=document.getElementById("machMsg");
+  if(msg){const prev=msg.textContent; msg.textContent="✓ Guardado."; setTimeout(()=>{if(msg)msg.textContent=prev;},2000);}
 }
 function levAllAdm(mod){
   document.querySelectorAll("input[type=radio][name^='lev_']").forEach(inp=>{ inp.checked=(inp.value===mod); });
@@ -1562,6 +1631,7 @@ function resetParams(){
   Es positiva cuando pctA > pctB Y totB > totA.
   Se maximiza cuando la diferencia de calidad Y de volumen son grandes.
 */
+let machEditFilter="";
 let intFiltroMod="", intFiltroMinVol=0, intFabLeft=new Set(), intFabRight=new Set(), intUsarPromedio=false, intPendiente=null;
 
 // Marcas que sólo pueden intercambiar entre sí (incompatibilidad física)
