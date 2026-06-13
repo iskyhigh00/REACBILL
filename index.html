@@ -114,7 +114,7 @@ canvas{max-height:320px}
 <body>
 <header>
   <div style="display:flex;align-items:baseline;gap:6px">
-    <h1>REACBILL <span class="ver">v1.8.1-main</span></h1>
+    <h1>REACBILL <span class="ver">v1.8.2-main</span></h1>
     <span id="dataInfo" class="ver"></span>
   </div>
   <div id="statsBar"></div>
@@ -124,7 +124,7 @@ canvas{max-height:320px}
 <main id="main"></main>
 
 <script>
-/* ===== REACBILL v1.8.1-main ===== */
+/* ===== REACBILL v1.8.2-main ===== */
 const VERSION = "1.6.2-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
@@ -321,6 +321,9 @@ function attachSort(tableId){
         // use only direct text nodes, ignoring nested elements (e.g. muted spans with volume)
         const cellText=cell=>{
           if(!cell)return"";
+          if(cell.hasAttribute("data-sort"))return cell.getAttribute("data-sort");
+          const inp=cell.querySelector("input,select");
+          if(inp)return inp.value;
           const direct=[...cell.childNodes].filter(n=>n.nodeType===3).map(n=>n.textContent.trim()).join("").trim();
           return direct||cell.textContent.trim();
         };
@@ -1355,19 +1358,24 @@ function renderAdmin(){
   const firmOpts2=f=>[["","—"],["403","403"],["255","255"]].map(([v,l])=>`<option value="${v}" ${f===v?"selected":""}>${l}</option>`).join("");
   let edRows="";
   for(const [mda,ms] of filtered){
-    const e=(v,f,w=80)=>`<input class="med-inp" data-mda="${mda}" data-f="${f}" value="${(v||"").replace(/"/g,"&quot;")}" style="width:${w}px">`;
+    const val=(v,f,w=80)=>{
+      const v2=(v||"").replace(/"/g,"&quot;");
+      const empty=!v?"background:var(--crit-bg,#3a1a1a);border-color:var(--high)":"";
+      return `<td data-sort="${v||""}"><input class="med-inp" data-mda="${mda}" data-f="${f}" value="${v2}" style="width:${w}px;${empty}"></td>`;
+    };
+    const selMod=ms.modelo||"", selFirm=ms.firm||"";
+    const modEmpty=!selMod?"background:var(--crit-bg,#3a1a1a);border-color:var(--high)":"";
+    const firmEmpty=!selFirm?"background:var(--crit-bg,#3a1a1a);border-color:var(--high)":"";
     edRows+=`<tr>
-      <td class="left" style="font-weight:700">${mda}</td>
-      <td>${e(ms.isla,"isla",62)}</td>
-      <td>${e(ms.fabricante,"fabricante",80)}</td>
-      <td>${e(ms.modelmaq,"modelmaq",90)}</td>
-      <td>${e(ms.juego,"juego",130)}</td>
-      <td><select class="med-inp" data-mda="${mda}" data-f="modelo" style="width:80px">${modOpts(ms.modelo||"")}</select></td>
-      <td><select class="med-inp" data-mda="${mda}" data-f="firm" style="width:52px">${firmOpts2(ms.firm||"")}</select></td>
-      <td>${e(ms.area,"area",40)}</td>
-      <td>${e(ms.serial,"serial",70)}</td>
-      <td>${e(ms.deno,"deno",50)}</td>
-      <td>${e(ms.category,"category",90)}</td>
+      <td data-sort="${mda}" class="left" style="font-weight:700">${mda}</td>
+      ${val(ms.isla,"isla",62)}
+      ${val(ms.fabricante,"fabricante",80)}
+      ${val(ms.modelmaq,"modelmaq",90)}
+      ${val(ms.juego,"juego",140)}
+      <td data-sort="${selMod}"><select class="med-inp" data-mda="${mda}" data-f="modelo" style="width:80px;${modEmpty}">${modOpts(selMod)}</select></td>
+      <td data-sort="${selFirm}"><select class="med-inp" data-mda="${mda}" data-f="firm" style="width:52px;${firmEmpty}">${firmOpts2(selFirm)}</select></td>
+      ${val(ms.area,"area",40)}
+      ${val(ms.deno,"deno",50)}
     </tr>`;
   }
 
@@ -1496,9 +1504,7 @@ function renderAdmin(){
         <th class="sortable">Modelo bill.</th>
         <th class="sortable">Firm</th>
         <th class="sortable">Área</th>
-        <th class="sortable">Serial</th>
         <th class="sortable">Deno</th>
-        <th class="sortable">Categoría</th>
       </tr></thead>
       <tbody>${edRows}</tbody>
     </table></div>
