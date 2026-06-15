@@ -114,7 +114,7 @@ canvas{max-height:320px}
 <body>
 <header>
   <div style="display:flex;align-items:baseline;gap:6px">
-    <h1>REACBILL <span class="ver">v1.8.2-main</span></h1>
+    <h1>REACBILL <span class="ver">v1.8.3-main</span></h1>
     <span id="dataInfo" class="ver"></span>
   </div>
   <div id="statsBar"></div>
@@ -124,7 +124,7 @@ canvas{max-height:320px}
 <main id="main"></main>
 
 <script>
-/* ===== REACBILL v1.8.2-main ===== */
+/* ===== REACBILL v1.8.3-main ===== */
 const VERSION = "1.6.2-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
@@ -938,8 +938,10 @@ function renderSectores(){
   const sectors=Object.keys(sectorMap).sort();
   // Resumen de sectores
   function islaStats(mdas,c){
-    const rows=c.rows.filter(m=>mdas.includes(m.mda)&&m.pct>0&&m.total>0);
-    return { pct:avg(rows.map(m=>m.pct)), tot:rows.reduce((s,m)=>s+m.total,0), alerts:rows.filter(m=>m.score>0).length, n:rows.length };
+    const rows=c.rows.filter(m=>mdas.includes(m.mda)&&m.total>0);
+    const totAc=rows.reduce((s,m)=>s+m.toAc,0);
+    const totAll=rows.reduce((s,m)=>s+m.total,0);
+    return { pct:totAll>0?totAc/totAll:0, tot:totAll, alerts:rows.filter(m=>m.score>0).length, n:rows.length };
   }
   // cards de sectores
   let sectorCards=`<div class="grid3" style="margin-bottom:12px">`;
@@ -1066,14 +1068,13 @@ function renderModelos(){
   const groups={};
   for(const m of c.rows){
     const mod=(state.master[m.mda]?.modelo||"(sin dato)").trim()||"(sin dato)";
-    const g=groups[mod]=groups[mod]||{n:0,tot:0,ac:0,re:0,pcts:[],alert:0};
+    const g=groups[mod]=groups[mod]||{n:0,tot:0,ac:0,re:0,alert:0};
     g.n++; g.tot+=m.total; g.ac+=m.toAc; g.re+=m.toRe;
-    if(m.pct>0)g.pcts.push(m.pct); if(m.score>0)g.alert++;
+    if(m.score>0)g.alert++;
   }
   const rows=Object.entries(groups).sort((a,b)=>b[1].tot-a[1].tot);
   let body=rows.map(([mod,g])=>`<tr>
     <td class="left"><b>${mod}</b></td><td>${g.n}</td><td>${fmtN(g.tot)}</td><td>${fmtN(g.re)}</td>
-    <td class="${pctClass(avg(g.pcts))}">${fmtP(avg(g.pcts))}</td>
     <td class="${pctClass(g.tot>0?g.ac/g.tot:0)}">${g.tot>0?fmtP(g.ac/g.tot):"—"}</td>
     <td>${g.alert}</td></tr>`).join("");
   const allMods=[...new Set(state.weekOrder.flatMap(d2=>
@@ -1083,15 +1084,16 @@ function renderModelos(){
   const datasets=allMods.map((mod,i)=>({
     label:mod,
     data:state.weekOrder.map(d2=>{
-      const r2=calcs[d2].rows.filter(m=>(state.master[m.mda]?.modelo||"(sin dato)").trim()===mod&&m.pct>0);
-      return r2.length?+(avg(r2.map(m=>m.pct))*100).toFixed(2):null;
+      const r2=calcs[d2].rows.filter(m=>(state.master[m.mda]?.modelo||"(sin dato)").trim()===mod&&m.total>0);
+      const ac2=r2.reduce((s,m)=>s+m.toAc,0),tot2=r2.reduce((s,m)=>s+m.total,0);
+      return tot2>0?+(ac2/tot2*100).toFixed(2):null;
     }),
     borderColor:colors[i%colors.length],tension:.3,spanGaps:true
   }));
   el.innerHTML=`<div class="card"><h2>Comparativa por modelo de billetero</h2>
     <div class="row"><label class="fld">Semana <select id="modSel" onchange="renderModelos()">${state.weekOrder.map(w=>`<option value="${w}" ${w===d?"selected":""}>${fmtKeyFull(w)}</option>`).join("")}</select></label></div>
     <div class="tblWrap" style="max-height:40vh"><table id="tblMod">
-      <thead><tr><th class="left sortable">Modelo</th><th class="sortable">Máq.</th><th class="sortable">Total</th><th class="sortable">Rechazos</th><th class="sortable">% prom.</th><th class="sortable">% ponder.</th><th class="sortable">Alertas</th></tr></thead>
+      <thead><tr><th class="left sortable">Modelo</th><th class="sortable">Máq.</th><th class="sortable">Total</th><th class="sortable">Rechazos</th><th class="sortable">% acep.</th><th class="sortable">Alertas</th></tr></thead>
       <tbody>${body}</tbody></table></div></div>
     <div class="card" style="margin-top:12px"><h2>Tendencia % por modelo</h2><canvas id="cvModTrend" style="max-height:280px"></canvas></div>`;
   attachSort("tblMod");
@@ -1655,18 +1657,18 @@ function buildAvgRows(calcs,d){
   const map={};
   for(const w of window4){
     for(const r of (calcs[w]?.rows||[])){
-      if(!r.pct||!r.total)continue;
-      if(!map[r.mda])map[r.mda]={pcts:[],totals:[]};
-      map[r.mda].pcts.push(r.pct);
+      if(!r.total)continue;
+      if(!map[r.mda])map[r.mda]={toAc:0,totals:[],n:0};
+      map[r.mda].toAc+=r.toAc;
       map[r.mda].totals.push(r.total);
+      map[r.mda].n++;
     }
   }
-  return Object.entries(map).map(([mda,v])=>({
-    mda,
-    pct:v.pcts.reduce((a,b)=>a+b,0)/v.pcts.length,
-    total:Math.round(v.totals.reduce((a,b)=>a+b,0)/v.totals.length),
-    nWeeks:v.pcts.length
-  }));
+  return Object.entries(map).map(([mda,v])=>{
+    const avgTot=Math.round(v.totals.reduce((a,b)=>a+b,0)/v.totals.length);
+    const avgAc=Math.round(v.toAc/v.n);
+    return {mda, pct:avgTot>0?avgAc/avgTot:0, total:avgTot, nWeeks:v.n};
+  });
 }
 function calcSwaps(rows){
   rows=rows.filter(m=>m.pct>0&&m.total>0);
