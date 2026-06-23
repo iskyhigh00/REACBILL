@@ -423,7 +423,7 @@ canvas{max-height:320px}
 <body>
 <header>
   <div style="display:flex;align-items:center;gap:10px">
-    <h1>REACBILL <span class="ver">v1.8.4-main</span></h1>
+    <h1>REACBILL <span class="ver">v1.8.5-main</span></h1>
     <span id="dataInfo" class="ver" style="color:var(--muted2);font-size:10px"></span>
   </div>
   <div id="statsBar"></div>
@@ -433,8 +433,8 @@ canvas{max-height:320px}
 <main id="main"></main>
 
 <script>
-/* ===== REACBILL v1.8.4-main ===== */
-const VERSION = "1.8.4-main";
+/* ===== REACBILL v1.8.5-main ===== */
+const VERSION = "1.8.5-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
 
@@ -725,7 +725,7 @@ function parseDataSheet(ws){
     const pB=pNum(idx.pB);
     rows.push({mda,tarjAc:num(idx.tA),tarjRe:num(idx.tR),sesiones:num(idx.ses),
       acc,rej,pctTarj:pNum(idx.pT),pctBill:isNaN(pB)?null:pB});
-    if(!state.master[mda])state.master[mda]={isla:"",fabricante:"",modelmaq:"",juego:"",modelo:"",firm:"",area:"",serial:"",category:"",deno:""};
+    if(!state.master[mda])state.master[mda]={isla:"",fabricante:"",modelmaq:"",juego:"",modelo:"",modeloFuente:"",firm:"",area:"",serial:"",category:"",deno:""};
   }
   return rows.length?{rows}:null;
 }
@@ -759,6 +759,7 @@ function parseSeguimientoModelos(ws){
     state.master[mda]={...(state.master[mda]||{}),
       fabricante:fab||state.master[mda]?.fabricante||"",
       modelo:mod||state.master[mda]?.modelo||"",
+      modeloFuente:mod?"import":(state.master[mda]?.modeloFuente||""),
       firm:firm||state.master[mda]?.firm||"",
       isla:isla||state.master[mda]?.isla||""};
     if(mod)n++;
@@ -790,7 +791,7 @@ function parseMasterReference(wb){
       const mda=get(row,iMda); if(!mda||!/^\d+$/.test(mda))continue;
       const locraw=get(row,iPos);
       const isla=locraw?fmtLocname(locraw):"";
-      if(!state.master[mda])state.master[mda]={isla:"",fabricante:"",modelmaq:"",juego:"",modelo:"",firm:"",area:"",serial:"",category:"",deno:""};
+      if(!state.master[mda])state.master[mda]={isla:"",fabricante:"",modelmaq:"",juego:"",modelo:"",modeloFuente:"",firm:"",area:"",serial:"",category:"",deno:""};
       const ms=state.master[mda];
       if(isla)   { ms.isla=isla; ms.locname=locraw; }
       if(iArea>=0) ms.area=get(row,iArea)||ms.area;
@@ -829,8 +830,9 @@ function parseTipoBilletero(wb){
       const raw=norm(String(row[iTipo]??""));
       const modelo=raw.includes("CASHFLOW")?"Cashflow":raw.includes("ADVANCE")?"Advance":"";
       if(!modelo)continue;
-      if(!state.master[mda])state.master[mda]={isla:"",fabricante:"",modelmaq:"",juego:"",modelo:"",firm:"",area:"",serial:"",category:"",deno:""};
+      if(!state.master[mda])state.master[mda]={isla:"",fabricante:"",modelmaq:"",juego:"",modelo:"",modeloFuente:"",firm:"",area:"",serial:"",category:"",deno:""};
       state.master[mda].modelo=modelo;
+      state.master[mda].modeloFuente="import";
       n++;
     }
     if(n>0)return n;
@@ -1675,6 +1677,8 @@ function renderAdmin(){
     const selMod=ms.modelo||"", selFirm=ms.firm||"";
     const modEmpty=!selMod?"background:var(--crit-bg,#3a1a1a);border-color:var(--high)":"";
     const firmEmpty=!selFirm?"background:var(--crit-bg,#3a1a1a);border-color:var(--high)":"";
+    const noVerif=selMod&&ms.modeloFuente==="import";
+    const modTag=noVerif?` <span class="badge b-mid" title="Modelo cargado automáticamente desde un Excel importado, nunca confirmado manualmente. Revisa que sea correcto y vuelve a guardar para marcarlo como verificado.">imp</span>`:"";
     const searchKey=[mda,ms.isla,ms.juego,ms.fabricante,ms.modelmaq].filter(Boolean).join(" ").toLowerCase();
     edRows+=`<tr data-search="${searchKey.replace(/"/g,"&quot;")}">
       <td data-sort="${mda}" class="left" style="font-weight:700">${mda}</td>
@@ -1682,7 +1686,7 @@ function renderAdmin(){
       ${val(ms.fabricante,"fabricante",80)}
       ${val(ms.modelmaq,"modelmaq",90)}
       ${val(ms.juego,"juego",140)}
-      <td data-sort="${selMod}"><select class="med-inp" data-mda="${mda}" data-f="modelo" style="width:80px;${modEmpty}">${modOpts(selMod)}</select></td>
+      <td data-sort="${selMod}"><select class="med-inp" data-mda="${mda}" data-f="modelo" style="width:80px;${modEmpty}">${modOpts(selMod)}</select>${modTag}</td>
       <td data-sort="${selFirm}"><select class="med-inp" data-mda="${mda}" data-f="firm" style="width:52px;${firmEmpty}">${firmOpts2(selFirm)}</select></td>
       ${val(ms.area,"area",40)}
       ${val(ms.deno,"deno",50)}
@@ -1797,12 +1801,14 @@ function renderAdmin(){
   </div>
 
   <div class="card"><h2>Editor de máquinas</h2>
+    <p class="hint" style="margin-bottom:8px">El badge <span class="badge b-mid">imp</span> indica un modelo de billetero cargado automáticamente desde un Excel importado que nunca fue revisado/confirmado a mano. Verifica esos casos y presiona "Guardar cambios" para marcarlos como confirmados.</p>
     <div class="row" style="margin-bottom:8px">
       <input id="machFiltInp" type="text" placeholder="Filtrar por MDA, isla, juego, fabricante…"
         value="${machEditFilter}" oninput="machEditFilter=this.value;machApplyFilter()"
         style="flex:1;max-width:320px">
       <button class="btn sm" onclick="machSave()">💾 Guardar cambios</button>
       <span id="machMsg" class="hint" style="margin-top:0">${allMdas.length} máquinas</span>
+      <span class="hint" style="margin-top:0">· <b style="color:var(--mid)">${allMdas.filter(([,ms])=>ms.modelo&&ms.modeloFuente==="import").length}</b> sin verificar</span>
     </div>
     <div class="tblWrap"><table id="tblMachEd">
       <thead><tr>
@@ -1844,6 +1850,7 @@ function machSave(){
     const f=inp.getAttribute("data-f");
     if(!mda||!f||!state.master[mda])return;
     state.master[mda][f]=inp.value.trim();
+    if(f==="modelo")state.master[mda].modeloFuente="manual";
   });
   invalidate(); saveState();
   const msg=document.getElementById("machMsg");
@@ -1874,6 +1881,7 @@ function levGuardarAdm(){
     const mda=inp.name.replace("lev_","");
     if(state.master[mda]){
       state.master[mda].modelo=inp.value;
+      state.master[mda].modeloFuente="manual";
       const firmSel=document.getElementById("firm_"+mda);
       if(firmSel) state.master[mda].firm=firmSel.value;
       const mqInp=document.getElementById("modelmaq_"+mda);
