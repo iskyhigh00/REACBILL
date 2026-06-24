@@ -7,115 +7,424 @@
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3/dist/jszip.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#0f1420; --panel:#1a2233; --panel2:#222d44; --border:#2e3b58;
-  --text:#e8edf7; --muted:#8fa0c0; --accent:#4f8ff7; --ok:#2ecc71;
-  --mid:#f1c40f; --high:#e67e22; --crit:#e74c3c;
-  --bg-ok:#1a4d2e; --bg-mid:#4d3d00; --bg-high:#4d1e00; --bg-crit:#4d0000;
+  /* Base */
+  --bg:#080c14; --panel:#0d1524; --panel2:#121e33; --panel3:#182440;
+  --border:#1e2d47; --border2:#263652;
+  /* Text */
+  --text:#e2e8f4; --muted:#6b7fa3; --muted2:#4a5a7a; --fg:#e2e8f4;
+  /* Accent */
+  --accent:#3b82f6; --accent2:#6366f1; --accent-glow:rgba(59,130,246,.25);
+  --accent-hover:#60a5fa;
+  /* Status */
+  --ok:#10b981; --mid:#f59e0b; --high:#f97316; --crit:#ef4444;
+  --bg-ok:rgba(16,185,129,.12); --bg-mid:rgba(245,158,11,.12);
+  --bg-high:rgba(249,115,22,.12); --bg-crit:rgba(239,68,68,.12);
+  /* Shadows */
+  --shadow-sm:0 1px 3px rgba(0,0,0,.4);
+  --shadow:0 4px 16px rgba(0,0,0,.5);
+  --shadow-lg:0 8px 32px rgba(0,0,0,.6);
+  /* Radius */
+  --r:8px; --r-sm:5px; --r-lg:12px;
 }
 *{box-sizing:border-box;margin:0;padding:0}
-::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar{width:4px;height:4px}
 ::-webkit-scrollbar-track{background:transparent}
-::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px}
 ::-webkit-scrollbar-thumb:hover{background:var(--accent)}
-*{scrollbar-width:thin;scrollbar-color:var(--border) transparent}
-body{background:var(--bg);color:var(--text);font:13px/1.45 'Segoe UI',system-ui,sans-serif;cursor:default}
-header{position:sticky;top:0;z-index:50;background:var(--panel);border-bottom:1px solid var(--border);padding:8px 16px}
-header h1{font-size:17px;display:inline-block;margin-right:6px}
-.ver{color:var(--muted);font-size:11px}
-#statsBar{font-size:12px;margin-top:3px;display:flex;flex-wrap:wrap;gap:14px;align-items:center}
-#statsBar .sv{font-weight:700;color:var(--accent)}
-#statsBar .sl{color:var(--muted);font-size:11px}
-#paramsBar{display:flex;flex-wrap:wrap;gap:8px;margin-top:5px;font-size:11px}
-#paramsBar span{background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:2px 9px}
-#paramsBar b{color:var(--accent)}
-nav{display:flex;flex-wrap:wrap;gap:3px;margin-top:8px}
-nav button{background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:5px 5px 0 0;padding:5px 11px;cursor:pointer;font-size:12px}
-nav button.active{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
-main{padding:14px}
+*{scrollbar-width:thin;scrollbar-color:var(--border2) transparent}
+
+body{
+  background:var(--bg);
+  color:var(--text);
+  font:13px/1.5 'Inter',system-ui,sans-serif;
+  cursor:default;
+  -webkit-font-smoothing:antialiased;
+  background-image:
+    radial-gradient(ellipse 80% 60% at 50% -20%,rgba(59,130,246,.08),transparent),
+    radial-gradient(ellipse 60% 40% at 80% 110%,rgba(99,102,241,.06),transparent);
+  background-attachment:fixed;
+}
+
+/* ── Header ── */
+header{
+  position:sticky;top:0;z-index:50;
+  background:rgba(8,12,20,.85);
+  backdrop-filter:blur(20px) saturate(180%);
+  -webkit-backdrop-filter:blur(20px) saturate(180%);
+  border-bottom:1px solid var(--border);
+  padding:10px 20px 0;
+  box-shadow:0 1px 0 rgba(59,130,246,.1), var(--shadow);
+}
+header h1{
+  font-size:15px;font-weight:700;letter-spacing:.5px;
+  background:linear-gradient(135deg,#e2e8f4 0%,var(--accent-hover) 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  display:inline-block;margin-right:8px;
+}
+.ver{color:var(--muted2);font-size:10px;font-weight:400;-webkit-text-fill-color:var(--muted2)}
+
+#statsBar{
+  font-size:11.5px;margin-top:4px;
+  display:flex;flex-wrap:wrap;gap:16px;align-items:center;
+}
+#statsBar .sv{font-weight:600;color:var(--accent-hover)}
+#statsBar .sl{color:var(--muted);font-size:10.5px}
+
+#paramsBar{
+  display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;font-size:10.5px;
+}
+#paramsBar span{
+  background:rgba(59,130,246,.08);
+  border:1px solid rgba(59,130,246,.2);
+  border-radius:20px;padding:2px 10px;
+  color:var(--muted);
+  transition:all .2s;
+}
+#paramsBar span:hover{border-color:var(--accent);color:var(--text)}
+#paramsBar b{color:var(--accent-hover);font-weight:600}
+
+/* ── Nav tabs ── */
+nav{
+  display:flex;flex-wrap:nowrap;gap:0;margin-top:10px;
+  overflow-x:auto;overflow-y:hidden;
+  scrollbar-width:none;-ms-overflow-style:none;
+  border-bottom:none;
+  padding-bottom:0;
+}
+nav::-webkit-scrollbar{display:none}
+nav button{
+  background:transparent;
+  color:var(--muted);
+  border:none;
+  border-bottom:2px solid transparent;
+  border-radius:0;
+  padding:7px 14px;
+  cursor:pointer;
+  font:11.5px/1 'Inter',sans-serif;
+  font-weight:500;
+  white-space:nowrap;
+  transition:color .2s, border-color .2s;
+  letter-spacing:.2px;
+}
+nav button:hover{color:var(--text);border-bottom-color:var(--border2)}
+nav button.active{
+  color:var(--accent-hover);
+  border-bottom-color:var(--accent);
+  font-weight:600;
+}
+
+/* ── Main ── */
+main{padding:18px 20px}
 .tab{display:none}.tab.active{display:block}
-.card{background:var(--panel);border:1px solid var(--border);border-radius:7px;padding:12px;margin-bottom:12px}
-.card h2{font-size:13px;margin-bottom:8px;color:var(--accent)}
-.kpis{display:flex;flex-wrap:wrap;gap:10px}
-.kpi{background:var(--panel2);border:1px solid var(--border);border-radius:7px;padding:8px 14px;min-width:110px}
-.kpi .v{font-size:20px;font-weight:700}
-.kpi .l{font-size:11px;color:var(--muted)}
-table{border-collapse:collapse;font-size:11px}
-th,td{border:1px solid var(--border);padding:3px 6px;text-align:right;white-space:nowrap}
-th{background:var(--panel2);top:0;position:sticky;z-index:3;user-select:none}
+
+/* ── Cards ── */
+.card{
+  background:var(--panel);
+  border:1px solid var(--border);
+  border-radius:var(--r-lg);
+  padding:16px 18px;
+  margin-bottom:14px;
+  box-shadow:var(--shadow-sm);
+  transition:border-color .2s;
+}
+.card:hover{border-color:var(--border2)}
+.card h2{
+  font-size:12px;font-weight:600;
+  margin-bottom:12px;
+  color:var(--muted);
+  text-transform:uppercase;letter-spacing:.8px;
+  display:flex;align-items:center;gap:7px;
+}
+.card h2::before{
+  content:'';display:inline-block;
+  width:3px;height:13px;
+  background:linear-gradient(180deg,var(--accent),var(--accent2));
+  border-radius:2px;
+}
+
+/* ── KPI cards ── */
+.kpis{display:flex;flex-wrap:wrap;gap:12px}
+.kpi{
+  background:var(--panel2);
+  border:1px solid var(--border);
+  border-radius:var(--r-lg);
+  padding:14px 18px;min-width:120px;
+  position:relative;overflow:hidden;
+  transition:all .2s;
+  box-shadow:var(--shadow-sm);
+}
+.kpi::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,var(--accent),var(--accent2));
+  opacity:.6;
+}
+.kpi:hover{border-color:var(--border2);transform:translateY(-1px);box-shadow:var(--shadow)}
+.kpi .v{font-size:22px;font-weight:700;letter-spacing:-.5px;color:var(--text)}
+.kpi .l{font-size:10px;color:var(--muted);margin-top:2px;font-weight:500;text-transform:uppercase;letter-spacing:.5px}
+
+/* ── Tables ── */
+table{border-collapse:collapse;font-size:11px;width:100%}
+th,td{
+  border:none;
+  border-bottom:1px solid var(--border);
+  padding:6px 8px;
+  text-align:right;
+  white-space:nowrap;
+}
+th{
+  background:var(--panel3);
+  top:0;position:sticky;z-index:3;
+  user-select:none;
+  font-size:10px;font-weight:600;
+  text-transform:uppercase;letter-spacing:.5px;
+  color:var(--muted);
+  padding:8px 8px;
+}
+th:first-child{border-radius:var(--r-sm) 0 0 0}
+th:last-child{border-radius:0 var(--r-sm) 0 0}
 td.left,th.left{text-align:left}
-.tblWrap{overflow:auto;border:1px solid var(--border);border-radius:4px}
-tr:hover td{filter:brightness(1.15)}
-.c-ok {background:var(--bg-ok) !important;color:#7fffb0;font-weight:600}
-.c-mid{background:var(--bg-mid)!important;color:#ffe066;font-weight:600}
-.c-hi {background:var(--bg-high)!important;color:#ffb04f;font-weight:600}
-.c-cr {background:var(--bg-crit)!important;color:#ff6b6b;font-weight:600}
-.badge{display:inline-block;border-radius:9px;padding:1px 7px;font-size:10px;font-weight:700}
-.b-ok{background:#1d4d31;color:var(--ok)}.b-mid{background:#4d431d;color:var(--mid)}
-.b-hi{background:#4d331d;color:var(--high)}.b-cr{background:#4d1d1d;color:var(--crit)}
+.tblWrap{
+  overflow:auto;
+  border:1px solid var(--border);
+  border-radius:var(--r);
+  background:var(--panel);
+}
+tbody tr{transition:background .1s}
+tbody tr:hover td{background:rgba(59,130,246,.06)}
+tbody tr:last-child td{border-bottom:none}
+
+/* ── Status colors ── */
+.c-ok {background:var(--bg-ok)!important;color:#34d399;font-weight:600}
+.c-mid{background:var(--bg-mid)!important;color:#fbbf24;font-weight:600}
+.c-hi {background:var(--bg-high)!important;color:#fb923c;font-weight:600}
+.c-cr {background:var(--bg-crit)!important;color:#f87171;font-weight:600}
+
+/* ── Badges ── */
+.badge{
+  display:inline-flex;align-items:center;
+  border-radius:20px;padding:2px 8px;
+  font-size:10px;font-weight:600;
+  letter-spacing:.3px;
+}
+.b-ok{background:rgba(16,185,129,.15);color:var(--ok);border:1px solid rgba(16,185,129,.3)}
+.b-mid{background:rgba(245,158,11,.15);color:var(--mid);border:1px solid rgba(245,158,11,.3)}
+.b-hi{background:rgba(249,115,22,.15);color:var(--high);border:1px solid rgba(249,115,22,.3)}
+.b-cr{background:rgba(239,68,68,.15);color:var(--crit);border:1px solid rgba(239,68,68,.3)}
+
+/* ── Sort ── */
 th.sortable{cursor:pointer}
-th.sortable:hover{background:#2e3d60}
-th.s-asc::after{content:" ▲";font-size:9px;color:var(--accent)}
-th.s-desc::after{content:" ▼";font-size:9px;color:var(--accent)}
-/* sticky cols — widths fijas para coherencia */
-.s1{position:sticky;left:0px;  z-index:4;background:var(--panel2);min-width:76px;width:76px}
-.s2{position:sticky;left:76px; z-index:4;background:var(--panel2);min-width:70px;width:70px}
-.s3{position:sticky;left:146px;z-index:4;background:var(--panel2);min-width:82px;width:82px}
-.s4{position:sticky;left:228px;z-index:4;background:var(--panel2);min-width:58px;width:58px}
-thead .s1,thead .s2,thead .s3,thead .s4{z-index:6}
-tr:hover .s1,tr:hover .s2,tr:hover .s3,tr:hover .s4{background:#26314c}
-/* top scrollbar mirror */
-.tbl-scroll-top{overflow-x:auto;overflow-y:hidden;border:1px solid var(--border);border-bottom:none;border-radius:4px 4px 0 0}
-.tbl-scroll-top>div{height:8px}
-.tbl-scroll-top+.tblWrap{border-radius:0 0 4px 4px}
-input,select{background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:5px;padding:5px 8px;font-size:12px;cursor:text}
+th.sortable:hover{color:var(--text);background:rgba(59,130,246,.1)}
+th.s-asc::after{content:" ↑";font-size:9px;color:var(--accent)}
+th.s-desc::after{content:" ↓";font-size:9px;color:var(--accent)}
+
+/* ── Sticky cols ── */
+.s1{position:sticky;left:0px;  z-index:4;background:var(--panel);min-width:76px;width:76px}
+.s2{position:sticky;left:76px; z-index:4;background:var(--panel);min-width:70px;width:70px}
+.s3{position:sticky;left:146px;z-index:4;background:var(--panel);min-width:82px;width:82px}
+.s4{position:sticky;left:228px;z-index:4;background:var(--panel);min-width:58px;width:58px}
+thead .s1,thead .s2,thead .s3,thead .s4{z-index:6;background:var(--panel3)}
+tbody tr:hover .s1,tbody tr:hover .s2,tbody tr:hover .s3,tbody tr:hover .s4{background:rgba(59,130,246,.06)}
+
+/* ── Top scroll mirror ── */
+.tbl-scroll-top{overflow-x:auto;overflow-y:hidden;border:1px solid var(--border);border-bottom:none;border-radius:var(--r) var(--r) 0 0}
+.tbl-scroll-top>div{height:6px}
+.tbl-scroll-top+.tblWrap{border-radius:0 0 var(--r) var(--r)}
+
+/* ── Inputs & selects ── */
+input,select{
+  background:var(--panel2);
+  color:var(--text);
+  border:1px solid var(--border);
+  border-radius:var(--r-sm);
+  padding:6px 10px;
+  font:13px 'Inter',sans-serif;
+  transition:border-color .15s, box-shadow .15s;
+  outline:none;
+}
+input:focus,select:focus{
+  border-color:var(--accent);
+  box-shadow:0 0 0 3px var(--accent-glow);
+}
 select{cursor:pointer}
-input[type=file]{cursor:pointer}
-input[type=radio],input[type=checkbox]{cursor:pointer;width:auto}
-button.btn{background:var(--accent);color:#fff;border:none;border-radius:5px;padding:6px 13px;cursor:pointer;font-size:12px}
-button.btn.danger{background:var(--crit)}
-button.btn.sec{background:var(--panel2);border:1px solid var(--border);color:var(--text)}
-button.btn.sm{padding:3px 9px;font-size:11px}
-.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px}
+input[type=file]{cursor:pointer;padding:5px 8px}
+input[type=radio],input[type=checkbox]{cursor:pointer;width:auto;accent-color:var(--accent)}
+
+/* ── Buttons ── */
+button.btn{
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  color:#fff;border:none;
+  border-radius:var(--r-sm);
+  padding:7px 15px;cursor:pointer;
+  font:12px/1 'Inter',sans-serif;font-weight:600;
+  letter-spacing:.2px;
+  transition:all .15s;
+  box-shadow:0 2px 8px rgba(59,130,246,.3);
+}
+button.btn:hover{
+  transform:translateY(-1px);
+  box-shadow:0 4px 14px rgba(59,130,246,.45);
+  filter:brightness(1.1);
+}
+button.btn:active{transform:translateY(0);filter:brightness(.95)}
+button.btn.danger{
+  background:linear-gradient(135deg,var(--crit),#be123c);
+  box-shadow:0 2px 8px rgba(239,68,68,.3);
+}
+button.btn.danger:hover{box-shadow:0 4px 14px rgba(239,68,68,.45)}
+button.btn.sec{
+  background:var(--panel2);
+  border:1px solid var(--border);
+  color:var(--text);
+  box-shadow:none;
+}
+button.btn.sec:hover{border-color:var(--border2);background:var(--panel3);box-shadow:none}
+button.btn.sm{padding:4px 10px;font-size:11px}
+
+/* ── Layout ── */
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px}
 .muted{color:var(--muted)}
-.hint{font-size:11px;color:var(--muted);margin-top:5px}
-.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.hint{font-size:11px;color:var(--muted);margin-top:4px;font-style:italic}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
 @media(max-width:900px){.grid2,.grid3{grid-template-columns:1fr}}
-label.fld{display:flex;flex-direction:column;gap:2px;font-size:11px;color:var(--muted)}
-#dropzone{border:2px dashed var(--border);border-radius:7px;padding:20px;text-align:center;color:var(--muted);cursor:pointer}
-#dropzone.over{border-color:var(--accent);color:var(--accent)}
+label.fld{display:flex;flex-direction:column;gap:3px;font-size:11px;color:var(--muted);font-weight:500}
+
+/* ── Dropzone ── */
+#dropzone{
+  border:2px dashed var(--border);
+  border-radius:var(--r-lg);
+  padding:32px 20px;
+  text-align:center;
+  color:var(--muted);
+  cursor:pointer;
+  transition:all .2s;
+  background:rgba(59,130,246,.02);
+}
+#dropzone:hover,#dropzone.over{
+  border-color:var(--accent);
+  color:var(--accent-hover);
+  background:rgba(59,130,246,.06);
+  box-shadow:0 0 0 4px var(--accent-glow);
+}
+
+/* ── Charts ── */
 canvas{max-height:320px}
 .up{color:var(--ok)}.down{color:var(--crit)}
-/* pctbar */
-.pctbar{display:inline-block;height:8px;border-radius:4px;vertical-align:middle;margin-left:6px}
-/* levantamiento */
-.lev-radio label{margin-right:8px;cursor:pointer;display:inline-flex;align-items:center;gap:3px;font-size:11px}
-/* admin param description */
-.param-block{background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:10px 14px;margin-bottom:8px}
-.param-block .param-title{font-weight:700;font-size:12px;color:var(--accent);margin-bottom:4px}
-.param-block .param-desc{font-size:11px;color:var(--muted);line-height:1.5;margin-bottom:6px}
+
+/* ── Pct bar ── */
+.pctbar{
+  display:inline-block;height:6px;
+  border-radius:3px;
+  vertical-align:middle;margin-left:8px;
+  opacity:.85;
+}
+
+/* ── Levantamiento ── */
+.lev-radio label{margin-right:8px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;font-size:11px}
+
+/* ── Param blocks ── */
+.param-block{
+  background:var(--panel2);
+  border:1px solid var(--border);
+  border-radius:var(--r);
+  padding:14px 16px;margin-bottom:10px;
+  transition:border-color .2s;
+}
+.param-block:hover{border-color:var(--border2)}
+.param-block .param-title{font-weight:600;font-size:12px;color:var(--accent-hover);margin-bottom:5px}
+.param-block .param-desc{font-size:11px;color:var(--muted);line-height:1.6;margin-bottom:8px}
 .param-block .param-input{display:flex;align-items:center;gap:10px}
 .param-block input{width:90px}
-/* machine editor inline inputs */
-.med-inp{background:var(--panel);border:1px solid var(--border);color:var(--fg);border-radius:3px;padding:2px 4px;font-size:11px}
-.med-inp:focus{border-color:var(--accent);outline:none}
-/* sector cards */
-.sector-card{background:var(--panel2);border:1px solid var(--border);border-radius:7px;padding:10px;cursor:pointer;transition:border-color .15s}
-.sector-card:hover{border-color:var(--accent)}
-.sector-card .sc-num{font-size:28px;font-weight:700}
-.sector-card .sc-lbl{font-size:11px;color:var(--muted)}
-/* maquinas fab cards */
-.fab-card{background:var(--panel2);border:1px solid var(--border);border-radius:7px;padding:12px}
-.fab-card h3{font-size:12px;color:var(--accent);margin-bottom:6px}
+
+/* ── Machine editor ── */
+.med-inp{
+  background:var(--panel);
+  border:1px solid var(--border);
+  color:var(--text);
+  border-radius:4px;padding:3px 6px;font-size:11px;
+  transition:border-color .15s;
+}
+.med-inp:focus{border-color:var(--accent);outline:none;box-shadow:0 0 0 2px var(--accent-glow)}
+
+/* ── Sector cards ── */
+.sector-card{
+  background:var(--panel2);
+  border:1px solid var(--border);
+  border-radius:var(--r-lg);
+  padding:14px;cursor:pointer;
+  transition:all .2s;
+  position:relative;overflow:hidden;
+}
+.sector-card::after{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(135deg,rgba(59,130,246,.05),transparent);
+  opacity:0;transition:opacity .2s;
+}
+.sector-card:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:var(--shadow)}
+.sector-card:hover::after{opacity:1}
+.sector-card .sc-num{font-size:32px;font-weight:700;letter-spacing:-1px;color:var(--text)}
+.sector-card .sc-lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
+
+/* ── Máquinas fab cards ── */
+.fab-card{
+  background:var(--panel2);
+  border:1px solid var(--border);
+  border-radius:var(--r-lg);
+  padding:14px;
+  transition:border-color .2s;
+}
+.fab-card:hover{border-color:var(--border2)}
+.fab-card h3{font-size:11px;color:var(--accent-hover);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+
+/* ── Section dividers ── */
+.section-title{
+  font-size:10px;font-weight:600;
+  color:var(--muted2);
+  text-transform:uppercase;letter-spacing:1px;
+  margin:16px 0 8px;
+  display:flex;align-items:center;gap:8px;
+}
+.section-title::after{content:'';flex:1;height:1px;background:var(--border)}
+
+/* ── Chip / filter pills ── */
+.chip{
+  display:inline-flex;align-items:center;
+  background:var(--panel2);
+  border:1px solid var(--border);
+  border-radius:20px;
+  padding:3px 11px;
+  font-size:11px;font-weight:500;
+  cursor:pointer;
+  transition:all .15s;
+  color:var(--muted);
+}
+.chip:hover{border-color:var(--border2);color:var(--text)}
+.chip.active{
+  background:rgba(59,130,246,.15);
+  border-color:var(--accent);
+  color:var(--accent-hover);
+}
+
+/* ── Empty state ── */
+.empty{
+  padding:48px 20px;
+  text-align:center;
+  color:var(--muted);
+  font-size:13px;
+}
+.empty svg,.empty .empty-icon{font-size:32px;opacity:.4;margin-bottom:10px}
 </style>
 </head>
 <body>
 <header>
-  <div style="display:flex;align-items:baseline;gap:6px">
-    <h1>REACBILL <span class="ver">v1.8.3-main</span></h1>
-    <span id="dataInfo" class="ver"></span>
+  <div style="display:flex;align-items:center;gap:10px">
+    <h1>REACBILL <span class="ver">v1.8.5-main</span></h1>
+    <span id="dataInfo" class="ver" style="color:var(--muted2);font-size:10px"></span>
   </div>
   <div id="statsBar"></div>
   <div id="paramsBar"></div>
@@ -124,8 +433,8 @@ canvas{max-height:320px}
 <main id="main"></main>
 
 <script>
-/* ===== REACBILL v1.8.3-main ===== */
-const VERSION = "1.6.2-main";
+/* ===== REACBILL v1.8.5-main ===== */
+const VERSION = "1.8.5-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
 
@@ -321,9 +630,9 @@ function attachSort(tableId){
         // use only direct text nodes, ignoring nested elements (e.g. muted spans with volume)
         const cellText=cell=>{
           if(!cell)return"";
-          if(cell.hasAttribute("data-sort"))return cell.getAttribute("data-sort");
           const inp=cell.querySelector("input,select");
           if(inp)return inp.value;
+          if(cell.hasAttribute("data-sort"))return cell.getAttribute("data-sort");
           const direct=[...cell.childNodes].filter(n=>n.nodeType===3).map(n=>n.textContent.trim()).join("").trim();
           return direct||cell.textContent.trim();
         };
@@ -416,7 +725,7 @@ function parseDataSheet(ws){
     const pB=pNum(idx.pB);
     rows.push({mda,tarjAc:num(idx.tA),tarjRe:num(idx.tR),sesiones:num(idx.ses),
       acc,rej,pctTarj:pNum(idx.pT),pctBill:isNaN(pB)?null:pB});
-    if(!state.master[mda])state.master[mda]={isla:"",fabricante:"",modelmaq:"",juego:"",modelo:"",firm:"",area:"",serial:"",category:"",deno:""};
+    if(!state.master[mda])state.master[mda]={isla:"",fabricante:"",modelmaq:"",juego:"",modelo:"",modeloFuente:"",firm:"",area:"",serial:"",category:"",deno:""};
   }
   return rows.length?{rows}:null;
 }
@@ -450,6 +759,7 @@ function parseSeguimientoModelos(ws){
     state.master[mda]={...(state.master[mda]||{}),
       fabricante:fab||state.master[mda]?.fabricante||"",
       modelo:mod||state.master[mda]?.modelo||"",
+      modeloFuente:mod?"import":(state.master[mda]?.modeloFuente||""),
       firm:firm||state.master[mda]?.firm||"",
       isla:isla||state.master[mda]?.isla||""};
     if(mod)n++;
@@ -481,7 +791,7 @@ function parseMasterReference(wb){
       const mda=get(row,iMda); if(!mda||!/^\d+$/.test(mda))continue;
       const locraw=get(row,iPos);
       const isla=locraw?fmtLocname(locraw):"";
-      if(!state.master[mda])state.master[mda]={isla:"",fabricante:"",modelmaq:"",juego:"",modelo:"",firm:"",area:"",serial:"",category:"",deno:""};
+      if(!state.master[mda])state.master[mda]={isla:"",fabricante:"",modelmaq:"",juego:"",modelo:"",modeloFuente:"",firm:"",area:"",serial:"",category:"",deno:""};
       const ms=state.master[mda];
       if(isla)   { ms.isla=isla; ms.locname=locraw; }
       if(iArea>=0) ms.area=get(row,iArea)||ms.area;
@@ -520,8 +830,9 @@ function parseTipoBilletero(wb){
       const raw=norm(String(row[iTipo]??""));
       const modelo=raw.includes("CASHFLOW")?"Cashflow":raw.includes("ADVANCE")?"Advance":"";
       if(!modelo)continue;
-      if(!state.master[mda])state.master[mda]={isla:"",fabricante:"",modelmaq:"",juego:"",modelo:"",firm:"",area:"",serial:"",category:"",deno:""};
+      if(!state.master[mda])state.master[mda]={isla:"",fabricante:"",modelmaq:"",juego:"",modelo:"",modeloFuente:"",firm:"",area:"",serial:"",category:"",deno:""};
       state.master[mda].modelo=modelo;
+      state.master[mda].modeloFuente="import";
       n++;
     }
     if(n>0)return n;
@@ -1349,13 +1660,11 @@ function renderAdmin(){
   const p=state.params;
   const el=document.getElementById("tab-admin");
   // ---------- Editor completo de máquinas ----------
+  // Nota: el editor SIEMPRE renderiza todas las filas; el filtro de búsqueda
+  // sólo oculta/muestra filas vía machApplyFilter() sin reconstruir el DOM,
+  // para no perder ediciones sin guardar ni congelar la UI con cada tecla.
   const allMdas=Object.entries(state.master).sort(([a],[b])=>a.localeCompare(b,"es",{numeric:true}));
-  const q=machEditFilter.toLowerCase();
-  const filtered=q?allMdas.filter(([mda,ms])=>
-    mda.includes(q)||(ms.isla||"").toLowerCase().includes(q)||
-    (ms.juego||"").toLowerCase().includes(q)||(ms.fabricante||"").toLowerCase().includes(q)||
-    (ms.modelmaq||"").toLowerCase().includes(q)
-  ):allMdas;
+  const filtered=allMdas;
   const modOpts=mod=>[["","—"],["Advance","Advance"],["Cashflow","Cashflow"]].map(([v,l])=>`<option value="${v}" ${mod===v?"selected":""}>${l}</option>`).join("");
   const firmOpts2=f=>[["","—"],["403","403"],["255","255"]].map(([v,l])=>`<option value="${v}" ${f===v?"selected":""}>${l}</option>`).join("");
   let edRows="";
@@ -1368,13 +1677,16 @@ function renderAdmin(){
     const selMod=ms.modelo||"", selFirm=ms.firm||"";
     const modEmpty=!selMod?"background:var(--crit-bg,#3a1a1a);border-color:var(--high)":"";
     const firmEmpty=!selFirm?"background:var(--crit-bg,#3a1a1a);border-color:var(--high)":"";
-    edRows+=`<tr>
+    const noVerif=selMod&&ms.modeloFuente==="import";
+    const modTag=noVerif?` <span class="badge b-mid" title="Modelo cargado automáticamente desde un Excel importado, nunca confirmado manualmente. Revisa que sea correcto y vuelve a guardar para marcarlo como verificado.">imp</span>`:"";
+    const searchKey=[mda,ms.isla,ms.juego,ms.fabricante,ms.modelmaq].filter(Boolean).join(" ").toLowerCase();
+    edRows+=`<tr data-search="${searchKey.replace(/"/g,"&quot;")}">
       <td data-sort="${mda}" class="left" style="font-weight:700">${mda}</td>
       ${val(ms.isla,"isla",62)}
       ${val(ms.fabricante,"fabricante",80)}
       ${val(ms.modelmaq,"modelmaq",90)}
       ${val(ms.juego,"juego",140)}
-      <td data-sort="${selMod}"><select class="med-inp" data-mda="${mda}" data-f="modelo" style="width:80px;${modEmpty}">${modOpts(selMod)}</select></td>
+      <td data-sort="${selMod}"><select class="med-inp" data-mda="${mda}" data-f="modelo" style="width:80px;${modEmpty}">${modOpts(selMod)}</select>${modTag}</td>
       <td data-sort="${selFirm}"><select class="med-inp" data-mda="${mda}" data-f="firm" style="width:52px;${firmEmpty}">${firmOpts2(selFirm)}</select></td>
       ${val(ms.area,"area",40)}
       ${val(ms.deno,"deno",50)}
@@ -1489,12 +1801,14 @@ function renderAdmin(){
   </div>
 
   <div class="card"><h2>Editor de máquinas</h2>
+    <p class="hint" style="margin-bottom:8px">El badge <span class="badge b-mid">imp</span> indica un modelo de billetero cargado automáticamente desde un Excel importado que nunca fue revisado/confirmado a mano. Verifica esos casos y presiona "Guardar cambios" para marcarlos como confirmados.</p>
     <div class="row" style="margin-bottom:8px">
       <input id="machFiltInp" type="text" placeholder="Filtrar por MDA, isla, juego, fabricante…"
-        value="${machEditFilter}" oninput="machEditFilter=this.value;renderAdmin()"
+        value="${machEditFilter}" oninput="machEditFilter=this.value;machApplyFilter()"
         style="flex:1;max-width:320px">
       <button class="btn sm" onclick="machSave()">💾 Guardar cambios</button>
-      <span id="machMsg" class="hint" style="margin-top:0">${filtered.length} / ${allMdas.length} máquinas</span>
+      <span id="machMsg" class="hint" style="margin-top:0">${allMdas.length} máquinas</span>
+      <span class="hint" style="margin-top:0">· <b style="color:var(--mid)">${allMdas.filter(([,ms])=>ms.modelo&&ms.modeloFuente==="import").length}</b> sin verificar</span>
     </div>
     <div class="tblWrap"><table id="tblMachEd">
       <thead><tr>
@@ -1513,7 +1827,22 @@ function renderAdmin(){
   </div>`;
   attachSort("tblLevAdm");
   attachSort("tblMachEd");
-  document.getElementById("machFiltInp")?.focus();
+  machApplyFilter();
+}
+// Filtra filas del editor de máquinas ocultándolas/mostrándolas sin
+// reconstruir el DOM (evita perder ediciones sin guardar y congelar la UI).
+function machApplyFilter(){
+  const q=machEditFilter.toLowerCase().trim();
+  const tbl=document.getElementById("tblMachEd"); if(!tbl)return;
+  const rows=tbl.tBodies[0]?.rows; if(!rows)return;
+  let visible=0;
+  for(const tr of rows){
+    const show=!q||(tr.getAttribute("data-search")||"").includes(q);
+    tr.style.display=show?"":"none";
+    if(show)visible++;
+  }
+  const msg=document.getElementById("machMsg");
+  if(msg)msg.textContent=`${visible} / ${rows.length} máquinas`;
 }
 function machSave(){
   document.querySelectorAll(".med-inp").forEach(inp=>{
@@ -1521,10 +1850,11 @@ function machSave(){
     const f=inp.getAttribute("data-f");
     if(!mda||!f||!state.master[mda])return;
     state.master[mda][f]=inp.value.trim();
+    if(f==="modelo")state.master[mda].modeloFuente="manual";
   });
   invalidate(); saveState();
   const msg=document.getElementById("machMsg");
-  if(msg){const prev=msg.textContent; msg.textContent="✓ Guardado."; setTimeout(()=>{if(msg)msg.textContent=prev;},2000);}
+  if(msg){const prev=msg.textContent; msg.textContent="✓ Guardado."; setTimeout(()=>{if(msg)machApplyFilter();},2000);}
 }
 function levAllAdm(mod){
   document.querySelectorAll("input[type=radio][name^='lev_']").forEach(inp=>{ inp.checked=(inp.value===mod); });
@@ -1551,6 +1881,7 @@ function levGuardarAdm(){
     const mda=inp.name.replace("lev_","");
     if(state.master[mda]){
       state.master[mda].modelo=inp.value;
+      state.master[mda].modeloFuente="manual";
       const firmSel=document.getElementById("firm_"+mda);
       if(firmSel) state.master[mda].firm=firmSel.value;
       const mqInp=document.getElementById("modelmaq_"+mda);
