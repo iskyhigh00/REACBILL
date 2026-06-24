@@ -423,7 +423,7 @@ canvas{max-height:320px}
 <body>
 <header>
   <div style="display:flex;align-items:center;gap:10px">
-    <h1>REACBILL <span class="ver">v1.8.5-main</span></h1>
+    <h1>REACBILL <span class="ver">v1.8.6-main</span></h1>
     <span id="dataInfo" class="ver" style="color:var(--muted2);font-size:10px"></span>
   </div>
   <div id="statsBar"></div>
@@ -433,8 +433,8 @@ canvas{max-height:320px}
 <main id="main"></main>
 
 <script>
-/* ===== REACBILL v1.8.5-main ===== */
-const VERSION = "1.8.5-main";
+/* ===== REACBILL v1.8.6-main ===== */
+const VERSION = "1.8.6-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
 
@@ -1078,7 +1078,7 @@ function renderResumen(){
   el.innerHTML=`<div class="card"><h2>Resumen histórico</h2>
     <div class="row">
       <input id="resFiltro" placeholder="Filtrar MDA / ISLA / Modelo" value="${resFiltroVal.replace(/"/g,'&quot;')}"
-        oninput="resFiltroVal=this.value;renderResBody();" style="width:280px;cursor:text">
+        oninput="resFiltroVal=this.value;resApplyFilter();" style="width:280px;cursor:text">
       <span class="hint">Click en % o Total para ordenar por semana</span>
     </div>
     <div id="resTopScroll" class="tbl-scroll-top"><div></div></div>
@@ -1108,7 +1108,6 @@ function renderResBody(){
     head2+=`<th class="sortable ${ts?(ss.dir===1?"s-asc":"s-desc"):""}" onclick="resSort('${d}','tot')">Total</th>`;
   }
   head+="</tr>"; head2+="</tr>";
-  const filtro=resFiltroVal.toLowerCase();
   let mdaList=[...mdaMap.keys()];
   if(ss){
     mdaList.sort((a,b)=>{
@@ -1121,17 +1120,26 @@ function renderResBody(){
   let body="";
   for(const mda of mdaList){
     const loc=getLoc(mda), mod=getMod(mda), firm=getFirm(mda);
-    if(filtro&&!(mda+loc+mod+firm).toLowerCase().includes(filtro))continue;
+    const searchKey=(mda+loc+mod+firm).toLowerCase().replace(/"/g,"&quot;");
     let tr=`<td class="s1 left"><b>${mda}</b></td><td class="s2 left muted">${loc}</td><td class="s3 left muted">${mod}</td><td class="s4 left muted" style="font-size:10px">${firm}</td>`;
     for(const d of weeks){
       const m=mdaMap.get(mda)?.[d];
       tr+=(m&&m.pct>0)?`<td class="${pctClass(m.pct)}">${fmtP(m.pct)}</td><td>${fmtN(m.total)}</td>`:`<td></td><td></td>`;
     }
-    body+=`<tr>${tr}</tr>`;
+    body+=`<tr data-search="${searchKey}">${tr}</tr>`;
   }
   wrap.innerHTML=`<table id="tblResumen"><thead>${head}${head2}</thead><tbody>${body}</tbody></table>`;
   attachSort("tblResumen");
+  resApplyFilter();
   requestAnimationFrame(()=>syncTopScroll("resTopScroll","resTblWrap","tblResumen"));
+}
+function resApplyFilter(){
+  const tbl=document.getElementById("tblResumen"); if(!tbl)return;
+  const rows=tbl.tBodies[0]?.rows; if(!rows)return;
+  const q=resFiltroVal.toLowerCase().trim();
+  for(const tr of rows){
+    tr.style.display=(!q||(tr.getAttribute("data-search")||"").includes(q))?"":"none";
+  }
 }
 
 // ---------- Por Fecha ----------
