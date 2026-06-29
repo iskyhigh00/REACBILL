@@ -433,8 +433,8 @@ canvas{max-height:320px}
 <main id="main"></main>
 
 <script>
-/* ===== REACBILL v1.8.15-main ===== */
-const VERSION = "1.8.15-main";
+/* ===== REACBILL v1.8.16-main ===== */
+const VERSION = "1.8.16-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
 // Collator compartido: localeCompare(str,"es",{numeric:true}) reconstruye un
@@ -1703,11 +1703,15 @@ function renderAdmin(){
   const p=state.params;
   const el=document.getElementById("tab-admin");
   // ---------- Editor completo de máquinas ----------
-  // Nota: el editor SIEMPRE incluye todas las filas, pero se construyen en
-  // tandas (requestAnimationFrame) para no bloquear el hilo principal al
-  // abrir la pestaña. El filtro de búsqueda sólo oculta/muestra filas vía
-  // machApplyFilter() sin reconstruir el DOM, para no perder ediciones sin
-  // guardar ni congelar la UI con cada tecla.
+  // Nota: a diferencia de las tablas de sólo lectura de otras pestañas, cada
+  // fila aquí tiene varios <input>/<select> editables — un elemento de
+  // formulario interactivo es mucho más costoso para el navegador que una
+  // celda de texto, así que con miles de máquinas renderizar TODAS las filas
+  // a la vez (aunque sea en tandas) sigue siendo pesado. Por eso el editor
+  // pagina: sólo se construyen las filas de la página actual; el filtro de
+  // búsqueda actúa sobre el arreglo completo (no sobre el DOM) y reinicia la
+  // página a 0. Las ediciones se guardan en machPendingEdits al vuelo para no
+  // perderse al cambiar de página o de filtro, hasta presionar "Guardar".
   const allMdas=Object.entries(state.master).sort(([a],[b])=>esCollator.compare(a,b));
 
   el.innerHTML=`
@@ -1778,21 +1782,23 @@ function renderAdmin(){
     </div>
     <div class="tblWrap" style="max-height:65vh"><table id="tblMachEd">
       <thead><tr>
-        <th class="left sortable">MDA</th>
-        <th class="sortable">ISLA</th>
-        <th class="sortable">Fabricante</th>
-        <th class="sortable">Modelo máq.</th>
-        <th class="left sortable">Juego</th>
-        <th class="sortable">Modelo bill.</th>
-        <th class="sortable">Firm</th>
-        <th class="sortable">Área</th>
-        <th class="sortable">Deno</th>
+        <th class="left sortable" data-col="mda" onclick="machSortClick('mda')">MDA</th>
+        <th class="sortable" data-col="isla" onclick="machSortClick('isla')">ISLA</th>
+        <th class="sortable" data-col="fabricante" onclick="machSortClick('fabricante')">Fabricante</th>
+        <th class="sortable" data-col="modelmaq" onclick="machSortClick('modelmaq')">Modelo máq.</th>
+        <th class="left sortable" data-col="juego" onclick="machSortClick('juego')">Juego</th>
+        <th class="sortable" data-col="modelo" onclick="machSortClick('modelo')">Modelo bill.</th>
+        <th class="sortable" data-col="firm" onclick="machSortClick('firm')">Firm</th>
+        <th class="sortable" data-col="area" onclick="machSortClick('area')">Área</th>
+        <th class="sortable" data-col="deno" onclick="machSortClick('deno')">Deno</th>
       </tr></thead>
       <tbody></tbody>
     </table></div>
+    <div class="row" id="machPager" style="margin-top:8px;justify-content:center"></div>
   </div>`;
   renderLevTable();
-  renderMachEditorRows(allMdas);
+  machEditAllMdas=allMdas;
+  renderMachEditorRows();
 }
 // Reconstruye sólo la tarjeta de Levantamiento (acotada a la isla elegida),
 // sin tocar el Editor de máquinas completo — evita reconstruir miles de
@@ -1851,72 +1857,119 @@ function renderLevTable(){
       <tbody>${levRows}</tbody></table></div>`;
   attachSort("tblLevAdm");
 }
-// Construye las filas del editor de máquinas en tandas (requestAnimationFrame)
-// para no bloquear el hilo principal cuando hay muchas máquinas cargadas.
-function renderMachEditorRows(allMdas){
+let machEditAllMdas=[];
+// Filtra (sobre el arreglo completo, no sobre el DOM) y ordena según
+// machSortCol/machSortDir. Devuelve sólo las entradas que corresponden,
+// sin tocar el DOM — la paginación decide cuántas de éstas se renderizan.
+function machGetFiltered(){
+  const q=machEditFilter.toLowerCase().trim();
+  let list=machEditAllMdas;
+  if(q) list=list.filter(([mda,ms])=>{
+    const key=[mda,ms.isla,ms.juego,ms.fabricante,ms.modelmaq].filter(Boolean).join(" ").toLowerCase();
+    return key.includes(q);
+  });
+  if(machSortCol){
+    const getVal=([mda,ms])=>machSortCol==="mda"?mda:(ms[machSortCol]||"");
+    list=list.slice().sort((a,b)=>{
+      const av=getVal(a), bv=getVal(b);
+      const an=sortVal(av), bn=sortVal(bv);
+      if(an!=null&&bn!=null){const d=(an-bn)*machSortDir;if(d!==0)return d;}
+      if(an!=null&&bn==null)return -1; if(an==null&&bn!=null)return 1;
+      return esCollator.compare(av,bv)*machSortDir;
+    });
+  }
+  return list;
+}
+function machSortClick(col){
+  machSortDir=(machSortCol===col)?-machSortDir:1;
+  machSortCol=col;
+  renderMachEditorRows();
+}
+function machGoPage(p){ machEditPage=p; renderMachEditorRows(); }
+function machEdit(mda,f,v){
+  if(!machPendingEdits[mda])machPendingEdits[mda]={};
+  machPendingEdits[mda][f]=v;
+}
+// Construye sólo la página actual (MACH_PAGE_SIZE filas) de la lista
+// filtrada/ordenada. Renderizar todas las filas a la vez (incluso en tandas)
+// sigue siendo pesado aquí porque cada celda tiene un <input>/<select>
+// editable — mucho más costoso para el navegador que una celda de texto.
+function renderMachEditorRows(){
   const tbl=document.getElementById("tblMachEd"); if(!tbl)return;
   const tbody=tbl.tBodies[0]; if(!tbody)return;
   const modOpts=mod=>[["","—"],["Advance","Advance"],["Cashflow","Cashflow"]].map(([v,l])=>`<option value="${v}" ${mod===v?"selected":""}>${l}</option>`).join("");
   const firmOpts2=f=>[["","—"],["403","403"],["255","255"]].map(([v,l])=>`<option value="${v}" ${f===v?"selected":""}>${l}</option>`).join("");
-  const CHUNK=150;
-  let i=0;
-  function step(){
-    const end=Math.min(i+CHUNK,allMdas.length);
-    let html="";
-    for(;i<end;i++){
-      const [mda,ms]=allMdas[i];
-      const val=(v,f,w=80)=>{
-        const v2=(v||"").replace(/"/g,"&quot;");
-        const empty=!v?"background:var(--crit-bg,#3a1a1a);border-color:var(--high)":"";
-        return `<td data-sort="${v||""}"><input class="med-inp" data-mda="${mda}" data-f="${f}" value="${v2}" style="width:${w}px;${empty}"></td>`;
-      };
-      const selMod=ms.modelo||"", selFirm=ms.firm||"";
-      const modEmpty=!selMod?"background:var(--crit-bg,#3a1a1a);border-color:var(--high)":"";
-      const firmEmpty=!selFirm?"background:var(--crit-bg,#3a1a1a);border-color:var(--high)":"";
-      const noVerif=selMod&&ms.modeloFuente==="import";
-      const modTag=noVerif?` <span class="badge b-mid" title="Modelo cargado automáticamente desde un Excel importado, nunca confirmado manualmente. Revisa que sea correcto y vuelve a guardar para marcarlo como verificado.">imp</span>`:"";
-      const searchKey=[mda,ms.isla,ms.juego,ms.fabricante,ms.modelmaq].filter(Boolean).join(" ").toLowerCase();
-      html+=`<tr data-search="${searchKey.replace(/"/g,"&quot;")}">
-        <td data-sort="${mda}" class="left" style="font-weight:700">${mda}</td>
-        ${val(ms.isla,"isla",62)}
-        ${val(ms.fabricante,"fabricante",80)}
-        ${val(ms.modelmaq,"modelmaq",90)}
-        ${val(ms.juego,"juego",140)}
-        <td data-sort="${selMod}"><select class="med-inp" data-mda="${mda}" data-f="modelo" style="width:80px;${modEmpty}">${modOpts(selMod)}</select>${modTag}</td>
-        <td data-sort="${selFirm}"><select class="med-inp" data-mda="${mda}" data-f="firm" style="width:52px;${firmEmpty}">${firmOpts2(selFirm)}</select></td>
-        ${val(ms.area,"area",40)}
-        ${val(ms.deno,"deno",50)}
-      </tr>`;
-    }
-    tbody.insertAdjacentHTML("beforeend",html);
-    if(i<allMdas.length) requestAnimationFrame(step);
-    else { attachSort("tblMachEd"); machApplyFilter(); }
+  const filtered=machGetFiltered();
+  const totalPages=Math.max(1,Math.ceil(filtered.length/MACH_PAGE_SIZE));
+  if(machEditPage>=totalPages)machEditPage=totalPages-1;
+  if(machEditPage<0)machEditPage=0;
+  const start=machEditPage*MACH_PAGE_SIZE;
+  const pageItems=filtered.slice(start,start+MACH_PAGE_SIZE);
+  let html="";
+  for(const [mda,ms] of pageItems){
+    const edits=machPendingEdits[mda]||{};
+    const cur=f=>(edits[f]!==undefined?edits[f]:(ms[f]||""));
+    const val=(f,w=80)=>{
+      const v=cur(f);
+      const v2=v.replace(/"/g,"&quot;");
+      const empty=!v?"background:var(--crit-bg,#3a1a1a);border-color:var(--high)":"";
+      return `<td data-sort="${v}"><input class="med-inp" data-mda="${mda}" data-f="${f}" value="${v2}" style="width:${w}px;${empty}"></td>`;
+    };
+    const selMod=cur("modelo"), selFirm=cur("firm");
+    const modEmpty=!selMod?"background:var(--crit-bg,#3a1a1a);border-color:var(--high)":"";
+    const firmEmpty=!selFirm?"background:var(--crit-bg,#3a1a1a);border-color:var(--high)":"";
+    const noVerif=selMod&&ms.modeloFuente==="import"&&edits.modelo===undefined;
+    const modTag=noVerif?` <span class="badge b-mid" title="Modelo cargado automáticamente desde un Excel importado, nunca confirmado manualmente. Revisa que sea correcto y vuelve a guardar para marcarlo como verificado.">imp</span>`:"";
+    html+=`<tr>
+      <td data-sort="${mda}" class="left" style="font-weight:700">${mda}</td>
+      ${val("isla",62)}
+      ${val("fabricante",80)}
+      ${val("modelmaq",90)}
+      ${val("juego",140)}
+      <td data-sort="${selMod}"><select class="med-inp" data-mda="${mda}" data-f="modelo" style="width:80px;${modEmpty}">${modOpts(selMod)}</select>${modTag}</td>
+      <td data-sort="${selFirm}"><select class="med-inp" data-mda="${mda}" data-f="firm" style="width:52px;${firmEmpty}">${firmOpts2(selFirm)}</select></td>
+      ${val("area",40)}
+      ${val("deno",50)}
+    </tr>`;
   }
-  step();
-}
-// Filtra filas del editor de máquinas ocultándolas/mostrándolas sin
-// reconstruir el DOM (evita perder ediciones sin guardar y congelar la UI).
-function machApplyFilter(){
-  const q=machEditFilter.toLowerCase().trim();
-  const tbl=document.getElementById("tblMachEd"); if(!tbl)return;
-  const rows=tbl.tBodies[0]?.rows; if(!rows)return;
-  let visible=0;
-  for(const tr of rows){
-    const show=!q||(tr.getAttribute("data-search")||"").includes(q);
-    tr.style.display=show?"":"none";
-    if(show)visible++;
+  tbody.innerHTML=html;
+  tbody.oninput=tbody.onchange=e=>{
+    const t=e.target; if(!t.classList.contains("med-inp"))return;
+    const mda=t.getAttribute("data-mda"), f=t.getAttribute("data-f");
+    if(mda&&f)machEdit(mda,f,t.value);
+  };
+  const thead=tbl.tHead;
+  if(thead) thead.querySelectorAll("th").forEach(th=>{
+    th.classList.remove("s-asc","s-desc");
+    if(th.getAttribute("data-col")===machSortCol) th.classList.add(machSortDir===1?"s-asc":"s-desc");
+  });
+  const pager=document.getElementById("machPager");
+  if(pager){
+    if(filtered.length<=MACH_PAGE_SIZE) pager.innerHTML="";
+    else pager.innerHTML=`
+      <button class="btn sec sm" onclick="machGoPage(${machEditPage-1})" ${machEditPage<=0?"disabled":""}>‹ Anterior</button>
+      <span class="hint" style="margin:0 10px">Página ${machEditPage+1} de ${totalPages} (${filtered.length} máquinas)</span>
+      <button class="btn sec sm" onclick="machGoPage(${machEditPage+1})" ${machEditPage>=totalPages-1?"disabled":""}>Siguiente ›</button>`;
   }
   const msg=document.getElementById("machMsg");
-  if(msg)msg.textContent=`${visible} / ${rows.length} máquinas`;
+  if(msg)msg.textContent=`${filtered.length} / ${machEditAllMdas.length} máquinas`;
+}
+// El filtro reinicia la página y reconstruye sólo la página actual (no todo
+// el listado), por eso puede tipearse sin congelar la UI.
+function machApplyFilter(){
+  machEditPage=0;
+  renderMachEditorRows();
 }
 function machSave(){
-  document.querySelectorAll(".med-inp").forEach(inp=>{
-    const mda=inp.getAttribute("data-mda");
-    const f=inp.getAttribute("data-f");
-    if(!mda||!f||!state.master[mda])return;
-    state.master[mda][f]=inp.value.trim();
-    if(f==="modelo")state.master[mda].modeloFuente="manual";
-  });
+  for(const mda in machPendingEdits){
+    if(!state.master[mda])continue;
+    const edits=machPendingEdits[mda];
+    for(const f in edits){
+      state.master[mda][f]=(edits[f]||"").trim();
+      if(f==="modelo")state.master[mda].modeloFuente="manual";
+    }
+  }
+  machPendingEdits={};
   invalidate(); saveState();
   const msg=document.getElementById("machMsg");
   if(msg){const prev=msg.textContent; msg.textContent="✓ Guardado."; setTimeout(()=>{if(msg)machApplyFilter();},2000);}
@@ -2036,6 +2089,10 @@ function resetParams(){
   Se maximiza cuando la diferencia de calidad Y de volumen son grandes.
 */
 let machEditFilter="";
+let machEditPage=0;
+const MACH_PAGE_SIZE=200;
+let machPendingEdits={}; // {mda:{campo:valor}} — ediciones aún no guardadas, sobreviven el cambio de página/filtro
+let machSortCol="mda", machSortDir=1;
 let intFiltroMod="", intFiltroMinVol=0, intFabLeft=new Set(), intFabRight=new Set(), intUsarPromedio=false, intPendiente=null;
 
 // Marcas que sólo pueden intercambiar entre sí (incompatibilidad física)
