@@ -423,7 +423,7 @@ canvas{max-height:320px}
 <body>
 <header>
   <div style="display:flex;align-items:center;gap:10px">
-    <h1>REACBILL <span class="ver">v1.8.13-main</span></h1>
+    <h1>REACBILL <span class="ver">v1.8.14-main</span></h1>
     <span id="dataInfo" class="ver" style="color:var(--muted2);font-size:10px"></span>
   </div>
   <div id="statsBar"></div>
@@ -433,8 +433,8 @@ canvas{max-height:320px}
 <main id="main"></main>
 
 <script>
-/* ===== REACBILL v1.8.13-main ===== */
-const VERSION = "1.8.13-main";
+/* ===== REACBILL v1.8.14-main ===== */
+const VERSION = "1.8.14-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
 
@@ -1698,92 +1698,15 @@ function renderAdmin(){
   const p=state.params;
   const el=document.getElementById("tab-admin");
   // ---------- Editor completo de máquinas ----------
-  // Nota: el editor SIEMPRE renderiza todas las filas; el filtro de búsqueda
-  // sólo oculta/muestra filas vía machApplyFilter() sin reconstruir el DOM,
-  // para no perder ediciones sin guardar ni congelar la UI con cada tecla.
+  // Nota: el editor SIEMPRE incluye todas las filas, pero se construyen en
+  // tandas (requestAnimationFrame) para no bloquear el hilo principal al
+  // abrir la pestaña. El filtro de búsqueda sólo oculta/muestra filas vía
+  // machApplyFilter() sin reconstruir el DOM, para no perder ediciones sin
+  // guardar ni congelar la UI con cada tecla.
   const allMdas=Object.entries(state.master).sort(([a],[b])=>a.localeCompare(b,"es",{numeric:true}));
-  const filtered=allMdas;
-  const modOpts=mod=>[["","—"],["Advance","Advance"],["Cashflow","Cashflow"]].map(([v,l])=>`<option value="${v}" ${mod===v?"selected":""}>${l}</option>`).join("");
-  const firmOpts2=f=>[["","—"],["403","403"],["255","255"]].map(([v,l])=>`<option value="${v}" ${f===v?"selected":""}>${l}</option>`).join("");
-  let edRows="";
-  for(const [mda,ms] of filtered){
-    const val=(v,f,w=80)=>{
-      const v2=(v||"").replace(/"/g,"&quot;");
-      const empty=!v?"background:var(--crit-bg,#3a1a1a);border-color:var(--high)":"";
-      return `<td data-sort="${v||""}"><input class="med-inp" data-mda="${mda}" data-f="${f}" value="${v2}" style="width:${w}px;${empty}"></td>`;
-    };
-    const selMod=ms.modelo||"", selFirm=ms.firm||"";
-    const modEmpty=!selMod?"background:var(--crit-bg,#3a1a1a);border-color:var(--high)":"";
-    const firmEmpty=!selFirm?"background:var(--crit-bg,#3a1a1a);border-color:var(--high)":"";
-    const noVerif=selMod&&ms.modeloFuente==="import";
-    const modTag=noVerif?` <span class="badge b-mid" title="Modelo cargado automáticamente desde un Excel importado, nunca confirmado manualmente. Revisa que sea correcto y vuelve a guardar para marcarlo como verificado.">imp</span>`:"";
-    const searchKey=[mda,ms.isla,ms.juego,ms.fabricante,ms.modelmaq].filter(Boolean).join(" ").toLowerCase();
-    edRows+=`<tr data-search="${searchKey.replace(/"/g,"&quot;")}">
-      <td data-sort="${mda}" class="left" style="font-weight:700">${mda}</td>
-      ${val(ms.isla,"isla",62)}
-      ${val(ms.fabricante,"fabricante",80)}
-      ${val(ms.modelmaq,"modelmaq",90)}
-      ${val(ms.juego,"juego",140)}
-      <td data-sort="${selMod}"><select class="med-inp" data-mda="${mda}" data-f="modelo" style="width:80px;${modEmpty}">${modOpts(selMod)}</select>${modTag}</td>
-      <td data-sort="${selFirm}"><select class="med-inp" data-mda="${mda}" data-f="firm" style="width:52px;${firmEmpty}">${firmOpts2(selFirm)}</select></td>
-      ${val(ms.area,"area",40)}
-      ${val(ms.deno,"deno",50)}
-    </tr>`;
-  }
-
-  const allIslasPrefixes=[...new Set(Object.values(state.master).map(m=>islaPrefix(m.isla||"")).filter(Boolean))].sort();
-  const storedLevIsla=document.getElementById("levIslaAdm")?.value||"";
-  const levIsla=allIslasPrefixes.includes(storedLevIsla)?storedLevIsla:(allIslasPrefixes[0]||"");
-  const levMachines=Object.entries(state.master).filter(([,ms])=>islaPrefix(ms.isla||"")===levIsla)
-    .sort(([a],[b])=>a.localeCompare(b,"es",{numeric:true}));
-  const cntAdv=levMachines.filter(([,ms])=>ms.modelo==="Advance").length;
-  const cntCf=levMachines.filter(([,ms])=>ms.modelo==="Cashflow").length;
-  const cntNone=levMachines.filter(([,ms])=>!ms.modelo).length;
-  let levRows="";
-  for(const [mda,ms] of levMachines){
-    const mod=ms.modelo||"";
-    const firm=ms.firm||"";
-    const firmOpts=[["","—"],["403","403"],["255","255"]].map(
-      ([v,l])=>`<option value="${v}" ${firm===v?"selected":""}>${l}</option>`).join("");
-    levRows+=`<tr>
-      <td><input type="checkbox" class="lev-chk" data-mda="${mda}"></td>
-      <td class="left"><b>${mda}</b></td>
-      <td class="left">${ms.isla||""}</td>
-      <td class="left"><input id="modelmaq_${mda}" type="text" value="${ms.modelmaq||""}" placeholder="Modelo" style="width:90px;font-size:11px;padding:2px;background:var(--panel);border:1px solid var(--border);color:var(--fg);border-radius:4px"></td>
-      <td class="left">${ms.juego||"—"}</td>
-      <td class="left"><select id="firm_${mda}" style="font-size:11px;padding:2px">${firmOpts}</select></td>
-      <td class="left lev-radio">
-        <label><input type="radio" name="lev_${mda}" value="Advance" ${mod==="Advance"?"checked":""}> Advance</label>
-        <label><input type="radio" name="lev_${mda}" value="Cashflow" ${mod==="Cashflow"?"checked":""}> Cashflow</label>
-        <label><input type="radio" name="lev_${mda}" value="" ${!mod?"checked":""}> —</label>
-      </td></tr>`;
-  }
-  const levIslaOpts=allIslasPrefixes.map(i=>`<option value="${i}" ${i===levIsla?"selected":""}>${i}</option>`).join("");
 
   el.innerHTML=`
-  <div class="card"><h2>Levantamiento de modelos de billetero</h2>
-    <p class="hint" style="margin-bottom:10px">Asigna el modelo (Advance/Cashflow) a las máquinas de cada isla. Selecciona la isla (por prefijo), usa los botones de lote o cambia individualmente.</p>
-    <div class="row">
-      <label class="fld">Isla (prefijo) <select id="levIslaAdm" onchange="renderAdmin()">${levIslaOpts}</select></label>
-      <span class="hint" style="margin-top:0">${levMachines.length} máquinas · <b>${cntAdv}</b> Advance · <b>${cntCf}</b> Cashflow · <b style="color:var(--high)">${cntNone}</b> sin asignar</span>
-    </div>
-    <div class="row">
-      <button class="btn sec sm" onclick="levAllAdm('Advance')">Toda → Advance</button>
-      <button class="btn sec sm" onclick="levAllAdm('Cashflow')">Toda → Cashflow</button>
-      <button class="btn sec sm" onclick="levSelAdm('Advance')">Seleccionadas → Advance</button>
-      <button class="btn sec sm" onclick="levSelAdm('Cashflow')">Seleccionadas → Cashflow</button>
-      <button class="btn sec sm" onclick="levChkNone()">Marcar sin modelo</button>
-      <button class="btn sm" onclick="levGuardarAdm()">💾 Guardar</button>
-      <button class="btn sec sm" onclick="exportMasterJSON()" title="Descarga un JSON con todos los datos de las máquinas (juego, isla, modelo, firmware, fabricante)">⬇ Exportar JSON</button>
-      <span id="levMsgAdm" class="hint" style="margin-top:0"></span>
-    </div>
-    <div class="tblWrap" style="max-height:40vh"><table id="tblLevAdm">
-      <thead><tr><th><input type="checkbox" onchange="levToggleAll(this)"></th>
-        <th class="left sortable">MDA</th><th class="left sortable">ISLA</th>
-        <th class="left">Modelo máq.</th><th class="left sortable">Juego</th>
-        <th class="left sortable">Firmware</th><th class="left">Modelo bill.</th></tr></thead>
-      <tbody>${levRows}</tbody></table></div>
-  </div>
+  <div class="card" id="levCard"></div>
 
   <div class="card"><h2>Parámetros de gravedad</h2>
     <p class="hint" style="margin-bottom:12px">
@@ -1860,12 +1783,111 @@ function renderAdmin(){
         <th class="sortable">Área</th>
         <th class="sortable">Deno</th>
       </tr></thead>
-      <tbody>${edRows}</tbody>
+      <tbody></tbody>
     </table></div>
   </div>`;
+  renderLevTable();
+  renderMachEditorRows(allMdas);
+}
+// Reconstruye sólo la tarjeta de Levantamiento (acotada a la isla elegida),
+// sin tocar el Editor de máquinas completo — evita reconstruir miles de
+// filas sólo por cambiar de isla en este selector.
+function renderLevTable(){
+  const card=document.getElementById("levCard"); if(!card)return;
+  const allIslasPrefixes=[...new Set(Object.values(state.master).map(m=>islaPrefix(m.isla||"")).filter(Boolean))].sort();
+  const storedLevIsla=document.getElementById("levIslaAdm")?.value||"";
+  const levIsla=allIslasPrefixes.includes(storedLevIsla)?storedLevIsla:(allIslasPrefixes[0]||"");
+  const levMachines=Object.entries(state.master).filter(([,ms])=>islaPrefix(ms.isla||"")===levIsla)
+    .sort(([a],[b])=>a.localeCompare(b,"es",{numeric:true}));
+  const cntAdv=levMachines.filter(([,ms])=>ms.modelo==="Advance").length;
+  const cntCf=levMachines.filter(([,ms])=>ms.modelo==="Cashflow").length;
+  const cntNone=levMachines.filter(([,ms])=>!ms.modelo).length;
+  let levRows="";
+  for(const [mda,ms] of levMachines){
+    const mod=ms.modelo||"";
+    const firm=ms.firm||"";
+    const firmOpts=[["","—"],["403","403"],["255","255"]].map(
+      ([v,l])=>`<option value="${v}" ${firm===v?"selected":""}>${l}</option>`).join("");
+    levRows+=`<tr>
+      <td><input type="checkbox" class="lev-chk" data-mda="${mda}"></td>
+      <td class="left"><b>${mda}</b></td>
+      <td class="left">${ms.isla||""}</td>
+      <td class="left"><input id="modelmaq_${mda}" type="text" value="${ms.modelmaq||""}" placeholder="Modelo" style="width:90px;font-size:11px;padding:2px;background:var(--panel);border:1px solid var(--border);color:var(--fg);border-radius:4px"></td>
+      <td class="left">${ms.juego||"—"}</td>
+      <td class="left"><select id="firm_${mda}" style="font-size:11px;padding:2px">${firmOpts}</select></td>
+      <td class="left lev-radio">
+        <label><input type="radio" name="lev_${mda}" value="Advance" ${mod==="Advance"?"checked":""}> Advance</label>
+        <label><input type="radio" name="lev_${mda}" value="Cashflow" ${mod==="Cashflow"?"checked":""}> Cashflow</label>
+        <label><input type="radio" name="lev_${mda}" value="" ${!mod?"checked":""}> —</label>
+      </td></tr>`;
+  }
+  const levIslaOpts=allIslasPrefixes.map(i=>`<option value="${i}" ${i===levIsla?"selected":""}>${i}</option>`).join("");
+  card.innerHTML=`<h2>Levantamiento de modelos de billetero</h2>
+    <p class="hint" style="margin-bottom:10px">Asigna el modelo (Advance/Cashflow) a las máquinas de cada isla. Selecciona la isla (por prefijo), usa los botones de lote o cambia individualmente.</p>
+    <div class="row">
+      <label class="fld">Isla (prefijo) <select id="levIslaAdm" onchange="renderLevTable()">${levIslaOpts}</select></label>
+      <span class="hint" style="margin-top:0">${levMachines.length} máquinas · <b>${cntAdv}</b> Advance · <b>${cntCf}</b> Cashflow · <b style="color:var(--high)">${cntNone}</b> sin asignar</span>
+    </div>
+    <div class="row">
+      <button class="btn sec sm" onclick="levAllAdm('Advance')">Toda → Advance</button>
+      <button class="btn sec sm" onclick="levAllAdm('Cashflow')">Toda → Cashflow</button>
+      <button class="btn sec sm" onclick="levSelAdm('Advance')">Seleccionadas → Advance</button>
+      <button class="btn sec sm" onclick="levSelAdm('Cashflow')">Seleccionadas → Cashflow</button>
+      <button class="btn sec sm" onclick="levChkNone()">Marcar sin modelo</button>
+      <button class="btn sm" onclick="levGuardarAdm()">💾 Guardar</button>
+      <button class="btn sec sm" onclick="exportMasterJSON()" title="Descarga un JSON con todos los datos de las máquinas (juego, isla, modelo, firmware, fabricante)">⬇ Exportar JSON</button>
+      <span id="levMsgAdm" class="hint" style="margin-top:0"></span>
+    </div>
+    <div class="tblWrap" style="max-height:40vh"><table id="tblLevAdm">
+      <thead><tr><th><input type="checkbox" onchange="levToggleAll(this)"></th>
+        <th class="left sortable">MDA</th><th class="left sortable">ISLA</th>
+        <th class="left">Modelo máq.</th><th class="left sortable">Juego</th>
+        <th class="left sortable">Firmware</th><th class="left">Modelo bill.</th></tr></thead>
+      <tbody>${levRows}</tbody></table></div>`;
   attachSort("tblLevAdm");
-  attachSort("tblMachEd");
-  machApplyFilter();
+}
+// Construye las filas del editor de máquinas en tandas (requestAnimationFrame)
+// para no bloquear el hilo principal cuando hay muchas máquinas cargadas.
+function renderMachEditorRows(allMdas){
+  const tbl=document.getElementById("tblMachEd"); if(!tbl)return;
+  const tbody=tbl.tBodies[0]; if(!tbody)return;
+  const modOpts=mod=>[["","—"],["Advance","Advance"],["Cashflow","Cashflow"]].map(([v,l])=>`<option value="${v}" ${mod===v?"selected":""}>${l}</option>`).join("");
+  const firmOpts2=f=>[["","—"],["403","403"],["255","255"]].map(([v,l])=>`<option value="${v}" ${f===v?"selected":""}>${l}</option>`).join("");
+  const CHUNK=150;
+  let i=0;
+  function step(){
+    const end=Math.min(i+CHUNK,allMdas.length);
+    let html="";
+    for(;i<end;i++){
+      const [mda,ms]=allMdas[i];
+      const val=(v,f,w=80)=>{
+        const v2=(v||"").replace(/"/g,"&quot;");
+        const empty=!v?"background:var(--crit-bg,#3a1a1a);border-color:var(--high)":"";
+        return `<td data-sort="${v||""}"><input class="med-inp" data-mda="${mda}" data-f="${f}" value="${v2}" style="width:${w}px;${empty}"></td>`;
+      };
+      const selMod=ms.modelo||"", selFirm=ms.firm||"";
+      const modEmpty=!selMod?"background:var(--crit-bg,#3a1a1a);border-color:var(--high)":"";
+      const firmEmpty=!selFirm?"background:var(--crit-bg,#3a1a1a);border-color:var(--high)":"";
+      const noVerif=selMod&&ms.modeloFuente==="import";
+      const modTag=noVerif?` <span class="badge b-mid" title="Modelo cargado automáticamente desde un Excel importado, nunca confirmado manualmente. Revisa que sea correcto y vuelve a guardar para marcarlo como verificado.">imp</span>`:"";
+      const searchKey=[mda,ms.isla,ms.juego,ms.fabricante,ms.modelmaq].filter(Boolean).join(" ").toLowerCase();
+      html+=`<tr data-search="${searchKey.replace(/"/g,"&quot;")}">
+        <td data-sort="${mda}" class="left" style="font-weight:700">${mda}</td>
+        ${val(ms.isla,"isla",62)}
+        ${val(ms.fabricante,"fabricante",80)}
+        ${val(ms.modelmaq,"modelmaq",90)}
+        ${val(ms.juego,"juego",140)}
+        <td data-sort="${selMod}"><select class="med-inp" data-mda="${mda}" data-f="modelo" style="width:80px;${modEmpty}">${modOpts(selMod)}</select>${modTag}</td>
+        <td data-sort="${selFirm}"><select class="med-inp" data-mda="${mda}" data-f="firm" style="width:52px;${firmEmpty}">${firmOpts2(selFirm)}</select></td>
+        ${val(ms.area,"area",40)}
+        ${val(ms.deno,"deno",50)}
+      </tr>`;
+    }
+    tbody.insertAdjacentHTML("beforeend",html);
+    if(i<allMdas.length) requestAnimationFrame(step);
+    else { attachSort("tblMachEd"); machApplyFilter(); }
+  }
+  step();
 }
 // Filtra filas del editor de máquinas ocultándolas/mostrándolas sin
 // reconstruir el DOM (evita perder ediciones sin guardar y congelar la UI).
