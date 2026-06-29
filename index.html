@@ -423,7 +423,7 @@ canvas{max-height:320px}
 <body>
 <header>
   <div style="display:flex;align-items:center;gap:10px">
-    <h1>REACBILL <span class="ver">v1.8.6-main</span></h1>
+    <h1>REACBILL <span class="ver">v1.8.7-main</span></h1>
     <span id="dataInfo" class="ver" style="color:var(--muted2);font-size:10px"></span>
   </div>
   <div id="statsBar"></div>
@@ -433,8 +433,8 @@ canvas{max-height:320px}
 <main id="main"></main>
 
 <script>
-/* ===== REACBILL v1.8.6-main ===== */
-const VERSION = "1.8.6-main";
+/* ===== REACBILL v1.8.7-main ===== */
+const VERSION = "1.8.7-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
 
@@ -674,6 +674,18 @@ function dateKeyFromName(name){
 function fmtKey(k){ const m=k.match(/^(\d{4})-(\d{2})-(\d{2})$/); return m?`${m[3]}-${m[2]}`:k; }
 function fmtKeyFull(k){ const m=k.match(/^(\d{4})-(\d{2})-(\d{2})$/); return m?`${m[3]}/${m[2]}/${m[1]}`:k; }
 function sortWeeks(){ state.weekOrder=Object.keys(state.weeks).sort((a,b)=>a.localeCompare(b)); }
+// últimas N semanas (por defecto los últimos 3 meses) — usado en vistas que listan columnas por semana, para no renderizar todo el histórico y volverse lento
+function visibleWeeks(){
+  const w=state.weekOrder;
+  if(w.length<=1)return w;
+  const lastD=w[w.length-1];
+  const m=lastD.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if(!m)return w;
+  const cutoff=new Date(+m[1],+m[2]-1,+m[3]);
+  cutoff.setMonth(cutoff.getMonth()-3);
+  const cutoffKey=`${cutoff.getFullYear()}-${String(cutoff.getMonth()+1).padStart(2,"0")}-${String(cutoff.getDate()).padStart(2,"0")}`;
+  return w.filter(d=>d>=cutoffKey);
+}
 
 function parseCnText(text){
   const lines=text.split(/\r?\n/).filter(l=>l.trim());
@@ -1075,11 +1087,13 @@ function resSort(wk,field){
 function renderResumen(){
   const el=document.getElementById("tab-resumen");
   if(!state.weekOrder.length){el.innerHTML='<div class="card muted">Sin datos.</div>';return;}
+  const hidden=state.weekOrder.length-visibleWeeks().length;
   el.innerHTML=`<div class="card"><h2>Resumen histórico</h2>
     <div class="row">
       <input id="resFiltro" placeholder="Filtrar MDA / ISLA / Modelo" value="${resFiltroVal.replace(/"/g,'&quot;')}"
         oninput="resFiltroVal=this.value;resApplyFilter();" style="width:280px;cursor:text">
       <span class="hint">Click en % o Total para ordenar por semana</span>
+      ${hidden>0?`<span class="hint">· mostrando últimos 3 meses (${hidden} semana${hidden===1?"":"s"} más antigua${hidden===1?"":"s"} oculta${hidden===1?"":"s"})</span>`:""}
     </div>
     <div id="resTopScroll" class="tbl-scroll-top"><div></div></div>
     <div class="tblWrap" id="resTblWrap" style="max-height:75vh"></div></div>`;
@@ -1087,7 +1101,7 @@ function renderResumen(){
 }
 function renderResBody(){
   const wrap=document.getElementById("resTblWrap"); if(!wrap)return;
-  const calcs=allCalcs(), weeks=state.weekOrder;
+  const calcs=allCalcs(), weeks=visibleWeeks();
   const mdaMap=new Map();
   for(const d of weeks) for(const m of calcs[d].rows){
     if(!mdaMap.has(m.mda))mdaMap.set(m.mda,{});
@@ -1316,7 +1330,7 @@ function renderSectores(){
       for(const mda of mdas.sort((a,b)=>a.localeCompare(b,"es",{numeric:true}))){
         const ms=state.master[mda]||{};
         let hist="";
-        for(const d of state.weekOrder){
+        for(const d of visibleWeeks()){
           const m=calcs[d]?.rows.find(r=>r.mda===mda);
           hist+=(m&&m.pct>0)?`<td class="${pctClass(m.pct)}">${fmtP(m.pct)}<br><span class="muted">${fmtN(m.total)}</span></td>`:`<td class="muted">—</td>`;
         }
@@ -1333,7 +1347,7 @@ function renderSectores(){
             <th class="left sortable" title="Modelo del billetero (Advance / Cashflow)">Modelo</th>
             <th class="left sortable" title="Versión de firmware del billetero">Firm</th>
             <th class="left sortable" title="Juego/título de la máquina">Juego</th>
-            ${state.weekOrder.map(d=>`<th class="sortable" title="% de aceptación semana ${fmtKey(d)}">${fmtKey(d)}</th>`).join("")}
+            ${visibleWeeks().map(d=>`<th class="sortable" title="% de aceptación semana ${fmtKey(d)}">${fmtKey(d)}</th>`).join("")}
           </tr></thead>
           <tbody>${machRows}</tbody></table></div></div>`;
     }
@@ -1599,7 +1613,7 @@ function renderBuscador(focusField){
     for(const mda of hits){
       const ms=state.master[mda]||{};
       let hist="";
-      for(const d of state.weekOrder){
+      for(const d of visibleWeeks()){
         const mm=calcs[d]?.rows.find(r=>r.mda===mda);
         hist+=(mm&&mm.pct>0)?`<td class="${pctClass(mm.pct)}">${fmtP(mm.pct)}<br><span class="muted">${fmtN(mm.total)}</span></td>`:`<td class="muted">—</td>`;
       }
@@ -1612,7 +1626,7 @@ function renderBuscador(focusField){
           <div class="kpi"><div class="v" style="font-size:14px">${ms.fabricante||"—"}</div><div class="l">Fabricante</div></div>
         </div>
         <div class="tblWrap" style="margin-top:8px;max-height:100px"><table>
-          <thead><tr>${state.weekOrder.map(d=>`<th>${fmtKey(d)}</th>`).join("")}</tr></thead>
+          <thead><tr>${visibleWeeks().map(d=>`<th>${fmtKey(d)}</th>`).join("")}</tr></thead>
           <tbody><tr>${hist}</tr></tbody></table></div></div>`;
     }
   }
@@ -1626,7 +1640,7 @@ function renderBuscador(focusField){
     for(const prefix of prefixes){
       const mdas=Object.entries(state.master).filter(([,ms])=>islaPrefix(ms.isla||"")===prefix).map(([mda])=>mda);
       let histHead="", histBody="";
-      for(const d of state.weekOrder){
+      for(const d of visibleWeeks()){
         const wRows=calcs[d]?.rows.filter(m=>mdas.includes(m.mda)&&m.pct>0&&m.total>0)||[];
         const islaAvg=wRows.length?avg(wRows.map(m=>m.pct)):null;
         histHead+=`<th>${fmtKey(d)}</th>`;
@@ -1636,7 +1650,7 @@ function renderBuscador(focusField){
       for(const mda of mdas.sort((a,b)=>a.localeCompare(b,"es",{numeric:true}))){
         const ms=state.master[mda]||{};
         let hist="";
-        for(const d of state.weekOrder){
+        for(const d of visibleWeeks()){
           const mm=calcs[d]?.rows.find(r=>r.mda===mda);
           hist+=(mm&&mm.pct>0)?`<td class="${pctClass(mm.pct)}">${fmtP(mm.pct)}<br><span class="muted">${fmtN(mm.total)}</span></td>`:`<td class="muted">—</td>`;
         }
@@ -1646,7 +1660,7 @@ function renderBuscador(focusField){
         <div class="hint" style="margin-bottom:6px">Promedio de la isla por semana:</div>
         <div class="tblWrap" style="max-height:60px;margin-bottom:8px"><table><thead><tr>${histHead}</tr></thead><tbody><tr>${histBody}</tr></tbody></table></div>
         <div class="tblWrap" style="max-height:260px"><table id="tblIsla_${prefix}">
-          <thead><tr><th class="left sortable">MDA</th><th class="left sortable">ISLA</th><th class="left sortable">Modelo</th><th class="left sortable">Firm</th>${state.weekOrder.map(d=>`<th class="sortable">${fmtKey(d)}</th>`).join("")}</tr></thead>
+          <thead><tr><th class="left sortable">MDA</th><th class="left sortable">ISLA</th><th class="left sortable">Modelo</th><th class="left sortable">Firm</th>${visibleWeeks().map(d=>`<th class="sortable">${fmtKey(d)}</th>`).join("")}</tr></thead>
           <tbody>${machRows}</tbody></table></div></div>`;
       setTimeout(()=>attachSort(`tblIsla_${prefix}`),0);
     }
