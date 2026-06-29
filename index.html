@@ -433,10 +433,11 @@ canvas{max-height:320px}
 <main id="main"></main>
 
 <script>
-/* ===== REACBILL v1.8.16-main ===== */
-const VERSION = "1.8.16-main";
+/* ===== REACBILL v1.8.17-main ===== */
+const VERSION = "1.8.17-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
+const ARCHIVE_KEY = "reacbill_archive_v1";
 // Collator compartido: localeCompare(str,"es",{numeric:true}) reconstruye un
 // Intl.Collator en cada llamada — para listas de miles de máquinas, ordenarlas
 // así (O(n log n) llamadas) bloquea el hilo principal varios segundos. Reusar
@@ -512,6 +513,61 @@ async function loadState(){
       rq.onerror=()=>res();
     });
   }catch(e){}
+}
+
+// ---------- Archivo de semanas antiguas ----------
+// Mantiene state.weeks acotado a las últimas semanas activas; lo más viejo se
+// mueve a un blob separado en IndexedDB (no se carga por defecto) para que
+// saveState()/loadState() sigan siendo rápidos sin importar cuánto histórico
+// se haya subido. Las semanas archivadas se pueden exportar a JSON desde Admin.
+let archivedWeeks = {}; // {dateKey: {rows:[...]}}
+let archivedWeekOrder = [];
+async function loadArchiveMeta(){
+  try{
+    const db=await idb();
+    return new Promise(res=>{
+      const rq=db.transaction("kv").objectStore("kv").get(ARCHIVE_KEY);
+      rq.onsuccess=()=>{
+        if(rq.result){ const a=JSON.parse(rq.result); archivedWeeks=a.weeks||{}; archivedWeekOrder=a.weekOrder||Object.keys(archivedWeeks).sort((x,y)=>x.localeCompare(y)); }
+        res();
+      };
+      rq.onerror=()=>res();
+    });
+  }catch(e){}
+}
+async function saveArchive(){
+  const db=await idb();
+  return new Promise((res,rej)=>{
+    const tx=db.transaction("kv","readwrite");
+    tx.objectStore("kv").put(JSON.stringify({weeks:archivedWeeks,weekOrder:archivedWeekOrder}),ARCHIVE_KEY);
+    tx.oncomplete=res; tx.onerror=rej;
+  });
+}
+// Mueve las semanas más viejas que el corte de "months" meses (def. 3) fuera
+// de state.weeks hacia el archivo. Devuelve true si archivó algo.
+async function archiveOldWeeks(months=3){
+  const cutoffKey=weeksCutoffKey(months);
+  if(!cutoffKey)return false;
+  const toArchive=state.weekOrder.filter(d=>d<cutoffKey);
+  if(!toArchive.length)return false;
+  for(const d of toArchive){
+    archivedWeeks[d]=state.weeks[d];
+    delete state.weeks[d];
+  }
+  archivedWeekOrder=Object.keys(archivedWeeks).sort((a,b)=>a.localeCompare(b));
+  sortWeeks();
+  invalidate();
+  await saveArchive();
+  await saveState();
+  return true;
+}
+function intExportarArchivo(){
+  if(!archivedWeekOrder.length){ alert("No hay semanas archivadas."); return; }
+  const blob=new Blob([JSON.stringify({weeks:archivedWeeks,weekOrder:archivedWeekOrder},null,2)],{type:"application/json"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download=`reacbill_archivo_${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
 }
 
 // ---------- Helpers isla/sector ----------
@@ -679,17 +735,24 @@ function dateKeyFromName(name){
 function fmtKey(k){ const m=k.match(/^(\d{4})-(\d{2})-(\d{2})$/); return m?`${m[3]}-${m[2]}`:k; }
 function fmtKeyFull(k){ const m=k.match(/^(\d{4})-(\d{2})-(\d{2})$/); return m?`${m[3]}/${m[2]}/${m[1]}`:k; }
 function sortWeeks(){ state.weekOrder=Object.keys(state.weeks).sort((a,b)=>a.localeCompare(b)); }
+// Calcula la clave YYYY-MM-DD que queda "months" meses antes de la última semana
+// cargada. Usado tanto para limitar qué semanas se muestran (visibleWeeks) como
+// para decidir qué semanas archivar fuera del estado activo (archiveOldWeeks).
+function weeksCutoffKey(months){
+  const w=state.weekOrder;
+  if(w.length<=1)return null;
+  const lastD=w[w.length-1];
+  const m=lastD.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if(!m)return null;
+  const cutoff=new Date(+m[1],+m[2]-1,+m[3]);
+  cutoff.setMonth(cutoff.getMonth()-months);
+  return `${cutoff.getFullYear()}-${String(cutoff.getMonth()+1).padStart(2,"0")}-${String(cutoff.getDate()).padStart(2,"0")}`;
+}
 // últimas N semanas (por defecto los últimos 3 meses) — usado en vistas que listan columnas por semana, para no renderizar todo el histórico y volverse lento
 function visibleWeeks(){
   const w=state.weekOrder;
-  if(w.length<=1)return w;
-  const lastD=w[w.length-1];
-  const m=lastD.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if(!m)return w;
-  const cutoff=new Date(+m[1],+m[2]-1,+m[3]);
-  cutoff.setMonth(cutoff.getMonth()-3);
-  const cutoffKey=`${cutoff.getFullYear()}-${String(cutoff.getMonth()+1).padStart(2,"0")}-${String(cutoff.getDate()).padStart(2,"0")}`;
-  return w.filter(d=>d>=cutoffKey);
+  const cutoffKey=weeksCutoffKey(3);
+  return cutoffKey?w.filter(d=>d>=cutoffKey):w;
 }
 
 function parseCnText(text){
@@ -977,7 +1040,7 @@ async function handleFiles(files){
       }
     }catch(e){ log.push(`${f.name}: ERROR — ${e.message}`); }
   }
-  sortWeeks(); invalidate(); await saveState(); renderAll();
+  sortWeeks(); invalidate(); await archiveOldWeeks(); await saveState(); renderAll();
   const ul=document.getElementById("uplog");
   if(ul)ul.innerHTML=log.map(l=>"• "+l).join("<br>");
 }
@@ -1795,6 +1858,12 @@ function renderAdmin(){
       <tbody></tbody>
     </table></div>
     <div class="row" id="machPager" style="margin-top:8px;justify-content:center"></div>
+  </div>
+
+  <div class="card"><h2>Archivo de semanas antiguas</h2>
+    <p class="hint">Para mantener la app rápida, las semanas de más de 3 meses se archivan automáticamente y se quitan del estado activo. Podés exportarlas a JSON en cualquier momento; nunca se borran.</p>
+    <p>${archivedWeekOrder.length} semana(s) archivada(s)${archivedWeekOrder.length?` (${archivedWeekOrder[0]} a ${archivedWeekOrder[archivedWeekOrder.length-1]})`:''}</p>
+    <div class="row"><button class="btn sec sm" onclick="intExportarArchivo()">⬇ Exportar archivo JSON</button></div>
   </div>`;
   renderLevTable();
   machEditAllMdas=allMdas;
@@ -2371,7 +2440,9 @@ function renderAll(){
   buildNav(); buildShells();
   await loadState();
   await loadHistory();
+  await loadArchiveMeta();
   sortWeeks();
+  await archiveOldWeeks();
   renderAll();
   if(state.weekOrder.length) showTab("resumen"); else showTab("carga");
 })();
