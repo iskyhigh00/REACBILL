@@ -433,10 +433,15 @@ canvas{max-height:320px}
 <main id="main"></main>
 
 <script>
-/* ===== REACBILL v1.8.14-main ===== */
-const VERSION = "1.8.14-main";
+/* ===== REACBILL v1.8.15-main ===== */
+const VERSION = "1.8.15-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
+// Collator compartido: localeCompare(str,"es",{numeric:true}) reconstruye un
+// Intl.Collator en cada llamada — para listas de miles de máquinas, ordenarlas
+// así (O(n log n) llamadas) bloquea el hilo principal varios segundos. Reusar
+// un único Collator.compare() evita esa reconstrucción repetida.
+const esCollator = new Intl.Collator("es",{numeric:true});
 
 let state = {
   weeks:{}, weekOrder:[],
@@ -641,7 +646,7 @@ function attachSort(tableId){
         const an=sortVal(av), bn=sortVal(bv);
         if(an!=null&&bn!=null){const d=(an-bn)*dir;if(d!==0)return d;}
         if(an!=null&&bn==null)return -1; if(an==null&&bn!=null)return 1;
-        return av.localeCompare(bv,"es",{numeric:true})*dir;
+        return esCollator.compare(av,bv)*dir;
       });
       rows.forEach(r=>tbody.appendChild(r));
     });
@@ -1314,7 +1319,7 @@ function renderSectores(){
       // fila expandida con el detalle de máquinas, justo debajo de la isla clickeada
       // (divs en flexbox, no una tabla anidada: evita conflictos con el sticky/overflow de la tabla contenedora)
       if(prefix===selIsla){
-        const sMdas=mdas.slice().sort((a,b)=>a.localeCompare(b,"es",{numeric:true}));
+        const sMdas=mdas.slice().sort(esCollator.compare);
         const wks=state.weekOrder.slice(-4);
         const colL="min-width:70px;flex:0 0 70px;text-align:left;white-space:normal";
         const colW="min-width:110px;flex:1 0 110px;text-align:right;white-space:normal";
@@ -1534,7 +1539,7 @@ function renderMaquinas(){
           const islaMap=fabMap[fab][maqSelJuego][maqSelGameTitle];
           html+=`<div style="margin-top:10px;padding-left:36px">`;
           for(const pre of Object.keys(islaMap).sort()){
-            const mdas=islaMap[pre].sort((a,b)=>a.localeCompare(b,"es",{numeric:true}));
+            const mdas=islaMap[pre].sort(esCollator.compare);
             const iAc=mdas.reduce((s,m)=>s+(pm[m]?.toAc||0),0);
             const iTot=mdas.reduce((s,m)=>s+(pm[m]?.total||0),0);
             const iP=iTot>0?iAc/iTot:0;
@@ -1663,7 +1668,7 @@ function renderBuscador(focusField){
         histBody+=islaAvg!=null?`<td class="${pctClass(islaAvg)}"><b>${fmtP(islaAvg)}</b><br><span class="muted">${wRows.length} máq</span></td>`:`<td class="muted">—</td>`;
       }
       let machRows="";
-      for(const mda of mdas.sort((a,b)=>a.localeCompare(b,"es",{numeric:true}))){
+      for(const mda of mdas.sort(esCollator.compare)){
         const ms=state.master[mda]||{};
         let hist="";
         for(const d of visibleWeeks()){
@@ -1703,7 +1708,7 @@ function renderAdmin(){
   // abrir la pestaña. El filtro de búsqueda sólo oculta/muestra filas vía
   // machApplyFilter() sin reconstruir el DOM, para no perder ediciones sin
   // guardar ni congelar la UI con cada tecla.
-  const allMdas=Object.entries(state.master).sort(([a],[b])=>a.localeCompare(b,"es",{numeric:true}));
+  const allMdas=Object.entries(state.master).sort(([a],[b])=>esCollator.compare(a,b));
 
   el.innerHTML=`
   <div class="card" id="levCard"></div>
@@ -1798,7 +1803,7 @@ function renderLevTable(){
   const storedLevIsla=document.getElementById("levIslaAdm")?.value||"";
   const levIsla=allIslasPrefixes.includes(storedLevIsla)?storedLevIsla:(allIslasPrefixes[0]||"");
   const levMachines=Object.entries(state.master).filter(([,ms])=>islaPrefix(ms.isla||"")===levIsla)
-    .sort(([a],[b])=>a.localeCompare(b,"es",{numeric:true}));
+    .sort(([a],[b])=>esCollator.compare(a,b));
   const cntAdv=levMachines.filter(([,ms])=>ms.modelo==="Advance").length;
   const cntCf=levMachines.filter(([,ms])=>ms.modelo==="Cashflow").length;
   const cntNone=levMachines.filter(([,ms])=>!ms.modelo).length;
