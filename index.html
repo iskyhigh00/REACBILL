@@ -423,7 +423,7 @@ canvas{max-height:320px}
 <body>
 <header>
   <div style="display:flex;align-items:center;gap:10px">
-    <h1>REACBILL <span class="ver">v1.8.9-main</span></h1>
+    <h1>REACBILL <span class="ver">v1.8.10-main</span></h1>
     <span id="dataInfo" class="ver" style="color:var(--muted2);font-size:10px"></span>
   </div>
   <div id="statsBar"></div>
@@ -433,8 +433,8 @@ canvas{max-height:320px}
 <main id="main"></main>
 
 <script>
-/* ===== REACBILL v1.8.9-main ===== */
-const VERSION = "1.8.9-main";
+/* ===== REACBILL v1.8.10-main ===== */
+const VERSION = "1.8.10-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
 
@@ -1302,7 +1302,7 @@ function renderSectores(){
       const prev=state.weekOrder.length>=2?islaStats(mdas,calcs[state.weekOrder[state.weekOrder.length-2]]):null;
       const trend=prev&&prev.pct>0?st.pct-prev.pct:null;
       const active=prefix===selIsla?"background:var(--accent);color:#fff;font-weight:700":"";
-      islaRows+=`<tr style="cursor:pointer;${active}" onclick="secSelIsla('${prefix}')">
+      islaRows+=`<tr data-isla="${prefix}" style="cursor:pointer;${active}" onclick="secSelIsla('${prefix}')">
         <td class="left"><b>${prefix}</b></td>
         <td>${mdas.length}</td>
         <td class="${pctClass(st.pct)}">${fmtP(st.pct)}</td>
@@ -1359,7 +1359,19 @@ function renderSectores(){
     <input type="hidden" id="secSel" value="${selSector}">
     <input type="hidden" id="secIslaSel" value="${selIsla}">
   </div>${sectorDetail}`;
-  attachSort("tblSecIslas"); reapplySort("tblSecIslas");
+  attachSort("tblSecIslas");
+  if(selIsla){
+    // el sort por columna reordena las filas "ordenables" y deja la fila de detalle (no-sort) flotando;
+    // la reanclamos a su isla dueña después de cada click de orden
+    const pinDetail=()=>{
+      const tbody=document.querySelector("#tblSecIslas tbody"); if(!tbody)return;
+      const owner=tbody.querySelector(`tr[data-isla="${selIsla}"]`);
+      const detail=tbody.querySelector("tr.no-sort");
+      if(owner&&detail)owner.after(detail);
+    };
+    document.querySelectorAll("#tblSecIslas th.sortable").forEach(th=>th.addEventListener("click",pinDetail));
+  }
+  reapplySort("tblSecIslas");
   attachSort("tblSecMach");  reapplySort("tblSecMach");
 }
 function secSelSector(s){ document.getElementById("secSel").value=s; document.getElementById("secIslaSel").value=""; renderSectores(); }
