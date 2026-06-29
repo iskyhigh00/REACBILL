@@ -423,7 +423,7 @@ canvas{max-height:320px}
 <body>
 <header>
   <div style="display:flex;align-items:center;gap:10px">
-    <h1>REACBILL <span class="ver">v1.8.7-main</span></h1>
+    <h1>REACBILL <span class="ver">v1.8.8-main</span></h1>
     <span id="dataInfo" class="ver" style="color:var(--muted2);font-size:10px"></span>
   </div>
   <div id="statsBar"></div>
@@ -433,8 +433,8 @@ canvas{max-height:320px}
 <main id="main"></main>
 
 <script>
-/* ===== REACBILL v1.8.7-main ===== */
-const VERSION = "1.8.7-main";
+/* ===== REACBILL v1.8.8-main ===== */
+const VERSION = "1.8.8-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
 
@@ -1311,6 +1311,35 @@ function renderSectores(){
         <td class="${trend==null?'':trend>=0?'up':'down'}">${trend==null?"—":(trend>=0?"+":"")+(trend*100).toFixed(1)+"%"}</td>
         <td style="color:${st.alerts>0?'var(--high)':'var(--muted)'}">${st.alerts}</td>
       </tr>`;
+      // fila expandida con el detalle de máquinas, justo debajo de la isla clickeada
+      if(prefix===selIsla){
+        const sMdas=mdas.slice().sort((a,b)=>a.localeCompare(b,"es",{numeric:true}));
+        let machRows="";
+        for(const mda of sMdas){
+          const ms=state.master[mda]||{};
+          let hist="";
+          for(const d of visibleWeeks()){
+            const m=calcs[d]?.rows.find(r=>r.mda===mda);
+            hist+=(m&&m.pct>0)?`<td class="${pctClass(m.pct)}">${fmtP(m.pct)}<br><span class="muted">${fmtN(m.total)}</span></td>`:`<td class="muted">—</td>`;
+          }
+          machRows+=`<tr><td class="left"><b>${mda}</b></td><td class="left">${getLoc(mda)}</td>
+            <td class="left">${ms.modelo||"—"}</td><td class="left" style="font-size:10px">${ms.firm||"—"}</td>
+            <td class="left">${ms.juego||"—"}</td>${hist}</tr>`;
+        }
+        const islaS=islaStats(mdas,lastC);
+        islaRows+=`<tr class="no-sort"><td colspan="7" style="padding:10px;background:var(--bg2,#0d1626)">
+          <div style="font-size:13px;font-weight:600;margin-bottom:8px">Isla ${selIsla} — ${mdas.length} máquinas · ${fmtP(islaS.pct)} prom. · ${islaS.alerts} alertas</div>
+          <div class="tblWrap" style="overflow-y:visible"><table id="tblSecMach">
+            <thead><tr>
+              <th class="left sortable" title="Número de máquina (MDA)">MDA</th>
+              <th class="left sortable" title="Isla donde está ubicada la máquina">ISLA</th>
+              <th class="left sortable" title="Modelo del billetero (Advance / Cashflow)">Modelo</th>
+              <th class="left sortable" title="Versión de firmware del billetero">Firm</th>
+              <th class="left sortable" title="Juego/título de la máquina">Juego</th>
+              ${visibleWeeks().map(d=>`<th class="sortable" title="% de aceptación semana ${fmtKey(d)}">${fmtKey(d)}</th>`).join("")}
+            </tr></thead>
+            <tbody>${machRows}</tbody></table></div></td></tr>`;
+      }
     }
     sectorDetail=`<div class="card"><h2>Sector ${selSector} — islas</h2>
       <div class="tblWrap" style="overflow-y:visible"><table id="tblSecIslas">
@@ -1323,34 +1352,6 @@ function renderSectores(){
           <th class="sortable" title="Variación del % de aceptación respecto a la semana anterior (positivo = mejoró)">Δ%</th>
           <th class="sortable" title="Número de máquinas con alertas (% bajo el umbral crítico)">Alertas</th>
         </tr></thead><tbody>${islaRows}</tbody></table></div></div>`;
-    // detalle de isla seleccionada
-    if(selIsla&&sectorMap[selSector][selIsla]){
-      const mdas=sectorMap[selSector][selIsla];
-      let machRows="";
-      for(const mda of mdas.sort((a,b)=>a.localeCompare(b,"es",{numeric:true}))){
-        const ms=state.master[mda]||{};
-        let hist="";
-        for(const d of visibleWeeks()){
-          const m=calcs[d]?.rows.find(r=>r.mda===mda);
-          hist+=(m&&m.pct>0)?`<td class="${pctClass(m.pct)}">${fmtP(m.pct)}<br><span class="muted">${fmtN(m.total)}</span></td>`:`<td class="muted">—</td>`;
-        }
-        machRows+=`<tr><td class="left"><b>${mda}</b></td><td class="left">${getLoc(mda)}</td>
-          <td class="left">${ms.modelo||"—"}</td><td class="left" style="font-size:10px">${ms.firm||"—"}</td>
-          <td class="left">${ms.juego||"—"}</td>${hist}</tr>`;
-      }
-      const islaS=islaStats(mdas,lastC);
-      sectorDetail+=`<div class="card"><h2>Isla ${selIsla} — ${mdas.length} máquinas · ${fmtP(islaS.pct)} prom. · ${islaS.alerts} alertas</h2>
-        <div class="tblWrap" style="overflow-y:visible"><table id="tblSecMach">
-          <thead><tr>
-            <th class="left sortable" title="Número de máquina (MDA)">MDA</th>
-            <th class="left sortable" title="Isla donde está ubicada la máquina">ISLA</th>
-            <th class="left sortable" title="Modelo del billetero (Advance / Cashflow)">Modelo</th>
-            <th class="left sortable" title="Versión de firmware del billetero">Firm</th>
-            <th class="left sortable" title="Juego/título de la máquina">Juego</th>
-            ${visibleWeeks().map(d=>`<th class="sortable" title="% de aceptación semana ${fmtKey(d)}">${fmtKey(d)}</th>`).join("")}
-          </tr></thead>
-          <tbody>${machRows}</tbody></table></div></div>`;
-    }
   }
   el.innerHTML=`<div class="card"><h2>Vista por sectores</h2>
     <div class="hint" style="margin-bottom:10px">Sector = primer dígito de la ISLA (ej: sector 6 = islas 6xx). Semana analizada: <b>${fmtKeyFull(lastD)}</b></div>
