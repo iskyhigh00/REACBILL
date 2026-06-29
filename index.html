@@ -423,7 +423,7 @@ canvas{max-height:320px}
 <body>
 <header>
   <div style="display:flex;align-items:center;gap:10px">
-    <h1>REACBILL <span class="ver">v1.8.8-main</span></h1>
+    <h1>REACBILL <span class="ver">v1.8.9-main</span></h1>
     <span id="dataInfo" class="ver" style="color:var(--muted2);font-size:10px"></span>
   </div>
   <div id="statsBar"></div>
@@ -433,8 +433,8 @@ canvas{max-height:320px}
 <main id="main"></main>
 
 <script>
-/* ===== REACBILL v1.8.8-main ===== */
-const VERSION = "1.8.8-main";
+/* ===== REACBILL v1.8.9-main ===== */
+const VERSION = "1.8.9-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
 
@@ -1363,7 +1363,7 @@ function renderSectores(){
   attachSort("tblSecMach");  reapplySort("tblSecMach");
 }
 function secSelSector(s){ document.getElementById("secSel").value=s; document.getElementById("secIslaSel").value=""; renderSectores(); }
-function secSelIsla(p){ document.getElementById("secIslaSel").value=p; renderSectores(); }
+function secSelIsla(p){ const el=document.getElementById("secIslaSel"); el.value=(el.value===p)?"":p; renderSectores(); }
 
 // ---------- Tendencias ----------
 let chTrend=null,chVol=null,chAl=null;
