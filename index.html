@@ -1618,6 +1618,7 @@ function renderMaquinas(){
               html+=`<tr style="border-bottom:1px solid var(--border)">
                 <td style="padding:3px 8px;font-weight:700">${mda}</td>
                 <td style="padding:3px 8px;color:var(--muted)">${ms.isla||"—"}</td>
+                <td style="padding:3px 8px;color:${ms.modelo==="Advance"?"#2ecc71":ms.modelo==="Cashflow"?"#f1c40f":"var(--muted)"}">${ms.modelo||"—"}</td>
                 <td style="padding:3px 8px" class="${pctClass(p.pct||0)}">${(p.pct||0)>0?fmtP(p.pct):"—"}</td>
                 <td style="padding:3px 8px;color:var(--muted)">${fmtN(p.total||0)}</td>
                 ${(p.score||0)>0?`<td style="color:var(--high);padding:3px 8px">⚠</td>`:`<td></td>`}
