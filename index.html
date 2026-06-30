@@ -291,6 +291,12 @@ button.btn.sm{padding:4px 10px;font-size:11px}
 }
 .selBtn.on{background:#2ecc71;color:#04210f}
 .selBadge{background:#2ecc71;color:#04210f;border-radius:10px;padding:0 6px;font-size:10px;font-weight:700;margin-left:4px}
+.tarjSelBtn{
+  width:20px;height:20px;min-width:20px;border-radius:50%;border:1px solid #e67e22;
+  background:transparent;color:#e67e22;cursor:pointer;font-size:12px;line-height:1;
+  padding:0;display:inline-flex;align-items:center;justify-content:center;font-weight:700;
+}
+.tarjSelBtn.on{background:#e67e22;color:#2b1400}
 
 /* ── Layout ── */
 .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px}
@@ -441,7 +447,7 @@ canvas{max-height:320px}
 
 <script>
 /* ===== REACBILL v1.8.19-main ===== */
-const VERSION = "1.8.25-main";
+const VERSION = "1.8.26-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
 const ARCHIVE_KEY = "reacbill_archive_v1";
@@ -1824,6 +1830,7 @@ function tarjRenderMachTable(rows,path){
     const ms=state.master[m.mda]||{};
     body+=`<tr style="border-bottom:1px solid var(--border)">
       <td style="padding:3px 8px">${selBtn(m.mda)}</td>
+      <td style="padding:3px 8px">${tarjSelBtnHtml(m.mda)}</td>
       <td style="padding:3px 8px;font-weight:700">${m.mda}</td>
       <td style="padding:3px 8px;color:var(--muted)">${ms.isla||"—"}</td>
       <td style="padding:3px 8px;color:var(--muted)">${ms.modelmaq||"—"}</td>
@@ -1835,7 +1842,7 @@ function tarjRenderMachTable(rows,path){
   const tblId="tblTarj_"+(path||"root").replace(/[^a-zA-Z0-9]/g,"_")+"_"+tarjSortTables.length;
   tarjSortTables.push(tblId);
   return `<div style="margin-top:8px;overflow-x:auto"><table id="${tblId}" style="width:100%;font-size:12px;border-collapse:collapse">
-    <thead><tr><th></th><th class="left sortable">MDA</th><th class="left sortable">ISLA</th><th class="left sortable">Modelo máq.</th>
+    <thead><tr><th></th><th></th><th class="left sortable">MDA</th><th class="left sortable">ISLA</th><th class="left sortable">Modelo máq.</th>
       <th class="sortable">Tarj. Ac</th><th class="sortable">Tarj. Re</th><th class="sortable">%</th></tr></thead>
     <tbody>${body}</tbody></table></div>`;
 }
@@ -1867,7 +1874,9 @@ function renderTarjetas(){
       </select></label>
       <label class="fld">Subdividir por <select id="tarjSubSel" onchange="renderTarjetas()">${subOptions}</select></label>
     </div>
-    ${html}</div>`;
+    </div>
+    ${tarjSelListHtml()}
+    <div class="card">${html}</div>`;
   tarjSortTables.forEach(id=>setTimeout(()=>attachSort(id),0));
 }
 function tarjToggle(path){
@@ -2378,6 +2387,90 @@ function selExportarCSV(){
   a.click();
 }
 
+// ---------- Lista de rechazo de tarjetas (sólo dentro de la pestaña Tarjetas) ----------
+// Botón "+" propio de la pestaña Tarjetas (independiente de la lista general),
+// para juntar las máquinas con baja aceptación de tarjeta y exportarlas.
+const TARJSEL_KEY="reacbill_tarjsel_v1";
+let tarjSelMaquinas=new Set();
+function tarjSelLoad(){
+  try{ const raw=localStorage.getItem(TARJSEL_KEY); if(raw) tarjSelMaquinas=new Set(JSON.parse(raw)); }catch(e){}
+}
+function tarjSelSave(){
+  try{ localStorage.setItem(TARJSEL_KEY, JSON.stringify([...tarjSelMaquinas])); }catch(e){}
+}
+function tarjSelBtnHtml(mda){
+  const on=tarjSelMaquinas.has(mda);
+  return `<button class="tarjSelBtn ${on?'on':''}" data-tarjselmda="${mda}" onclick="event.stopPropagation();tarjSelToggle('${mda}')" title="${on?'Quitar de rechazo de tarjetas':'Agregar a rechazo de tarjetas'}">${on?'✓':'+'}</button>`;
+}
+function tarjSelToggle(mda){
+  tarjSelMaquinas.has(mda)?tarjSelMaquinas.delete(mda):tarjSelMaquinas.add(mda);
+  tarjSelSave();
+  document.querySelectorAll(`[data-tarjselmda="${mda}"]`).forEach(b=>{
+    const on=tarjSelMaquinas.has(mda);
+    b.classList.toggle("on",on);
+    b.textContent=on?"✓":"+";
+    b.title=on?"Quitar de rechazo de tarjetas":"Agregar a rechazo de tarjetas";
+  });
+  if(activeTab==="tarjetas")renderTarjetas();
+}
+function tarjSelRows(){
+  if(!state.weekOrder.length)return [];
+  const lastD=state.weekOrder[state.weekOrder.length-1];
+  const pm={}; for(const m of allCalcs()[lastD].rows) pm[m.mda]=m;
+  return [...tarjSelMaquinas].map(mda=>{
+    const ms=state.master[mda]||{}, m=pm[mda];
+    const tarjAc=m?m.tarjAc||0:0, tarjRe=m?m.tarjRe||0:0;
+    return {mda, isla:ms.isla||"—", modelmaq:ms.modelmaq||"—", tarjAc, tarjRe,
+      pctTxt:(m&&(tarjAc||tarjRe))?fmtP(m.pctTarj):"—", pctRaw:(m&&(tarjAc||tarjRe))?m.pctTarj:null};
+  }).sort((a,b)=>esCollator.compare(b.isla,a.isla));
+}
+function tarjSelListHtml(){
+  const rows=tarjSelRows();
+  if(!rows.length){
+    return `<div class="card muted" style="margin-bottom:12px">Rechazo de tarjetas: lista vacía. Agregá máquinas con el botón naranja "+" en la tabla de abajo.</div>`;
+  }
+  const body=rows.map(r=>`<tr>
+    <td class="left"><b>${r.mda}</b></td><td class="left">${r.isla}</td>
+    <td class="left">${r.modelmaq}</td><td>${fmtN(r.tarjAc)}</td><td>${fmtN(r.tarjRe)}</td>
+    <td class="${r.pctRaw!=null?pctClass(r.pctRaw):''}">${r.pctTxt}</td>
+    <td><button class="btn sm danger" onclick="tarjSelToggle('${r.mda}')">✕</button></td>
+  </tr>`).join("");
+  return `<div class="card" style="margin-bottom:12px"><h2>🚫 Rechazo de tarjetas (${rows.length})</h2>
+    <p class="hint" style="margin-bottom:10px">Agregadas con el botón naranja "+" de esta pestaña. Persiste entre pestañas y recargas, ordenado por isla de mayor a menor.</p>
+    <div class="row" style="margin-bottom:10px">
+      <button class="btn sec sm" onclick="tarjSelCopiar()">📋 Copiar tabla</button>
+      <button class="btn sec sm" onclick="tarjSelExportarCSV()">⬇ Exportar CSV</button>
+      <button class="btn danger sm" onclick="tarjSelVaciar()">✕ Vaciar lista</button>
+    </div>
+    <div class="tblWrap"><table id="tblTarjRechazo">
+      <thead><tr><th class="left">MDA</th><th class="left">ISLA</th><th class="left">MODELO MÁQUINA</th>
+        <th>TARJ. ACEPTADAS</th><th>TARJ. RECHAZADAS</th><th>%ACEPT. TARJETA</th><th></th></tr></thead>
+      <tbody>${body}</tbody></table></div></div>`;
+}
+function tarjSelVaciar(){
+  if(!confirm("¿Vaciar la lista de rechazo de tarjetas?"))return;
+  tarjSelMaquinas.clear(); tarjSelSave(); renderTarjetas();
+}
+function tarjSelToText(){
+  let txt="MDA\tISLA\tMODELO MÁQUINA\tTARJ. ACEPTADAS\tTARJ. RECHAZADAS\t%ACEPT. TARJETA\n";
+  for(const r of tarjSelRows()) txt+=`${r.mda}\t${r.isla}\t${r.modelmaq}\t${r.tarjAc}\t${r.tarjRe}\t${r.pctTxt}\n`;
+  return txt;
+}
+function tarjSelCopiar(){
+  navigator.clipboard.writeText(tarjSelToText())
+    .then(()=>alert("Copiado al portapapeles."))
+    .catch(()=>alert("No se pudo copiar."));
+}
+function tarjSelExportarCSV(){
+  let csv="MDA;ISLA;MODELO MAQUINA;TARJ ACEPTADAS;TARJ RECHAZADAS;%ACEPT TARJETA\n";
+  for(const r of tarjSelRows()) csv+=`${r.mda};${r.isla};${r.modelmaq};${r.tarjAc};${r.tarjRe};${r.pctTxt}\n`;
+  const blob=new Blob([csv],{type:"text/csv"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download=`reacbill_rechazo_tarjetas_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+}
+
 // Marcas que sólo pueden intercambiar entre sí (incompatibilidad física)
 const RESTRICTED_BRANDS=new Set(["IGT"]);
 
@@ -2710,6 +2803,7 @@ function renderAll(){
 (async function(){
   document.getElementById("verSpan").textContent="v"+VERSION;
   selLoad();
+  tarjSelLoad();
   buildNav(); buildShells();
   updateSelBadge();
   await loadState();
