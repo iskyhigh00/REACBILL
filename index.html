@@ -447,7 +447,7 @@ canvas{max-height:320px}
 
 <script>
 /* ===== REACBILL v1.8.19-main ===== */
-const VERSION = "1.8.30-main";
+const VERSION = "1.8.31-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
 const ARCHIVE_KEY = "reacbill_archive_v1";
@@ -1782,6 +1782,16 @@ function renderBuscador(focusField){
 
 // ---------- Tarjetas (lectura de tarjetas, sin importar modelo de billetero) ----------
 let tarjGroupBy="sector", tarjSubBy="isla", tarjOpenPaths=new Set(), tarjSortTables=[];
+const TARJFILT_KEY="reacbill_tarjfilt_v1";
+function tarjFiltLoad(){
+  try{
+    const raw=localStorage.getItem(TARJFILT_KEY);
+    if(raw){ const o=JSON.parse(raw); if(o.groupBy)tarjGroupBy=o.groupBy; if(o.subBy)tarjSubBy=o.subBy; }
+  }catch(e){}
+}
+function tarjFiltSave(){
+  try{ localStorage.setItem(TARJFILT_KEY, JSON.stringify({groupBy:tarjGroupBy, subBy:tarjSubBy})); }catch(e){}
+}
 const TARJ_LBL={isla:"Isla",sector:"Sector",modelmaq:"Modelo de máquina",ninguna:"(sin subdividir)"};
 function tarjKeyFor(level,ms){
   if(level==="todas")return "Todas las máquinas";
@@ -1882,7 +1892,7 @@ function renderTarjetas(){
   const groupBy=document.getElementById("tarjGroupSel")?.value||tarjGroupBy;
   let subBy=document.getElementById("tarjSubSel")?.value||tarjSubBy;
   if(subBy===groupBy) subBy="ninguna";
-  tarjGroupBy=groupBy; tarjSubBy=subBy;
+  if(groupBy!==tarjGroupBy||subBy!==tarjSubBy){ tarjGroupBy=groupBy; tarjSubBy=subBy; tarjFiltSave(); }
   const rows=c.rows.filter(m=>(m.tarjAc||0)>0||(m.tarjRe||0)>0);
   const levels=subBy==="ninguna"?[groupBy]:[groupBy,subBy];
   tarjSortTables=[];
@@ -2867,6 +2877,7 @@ function renderAll(){
   document.getElementById("verSpan").textContent="v"+VERSION;
   selLoad();
   tarjSelLoad();
+  tarjFiltLoad();
   buildNav(); buildShells();
   updateSelBadge();
   await loadState();
