@@ -447,7 +447,7 @@ canvas{max-height:320px}
 
 <script>
 /* ===== REACBILL v1.8.19-main ===== */
-const VERSION = "1.8.26-main";
+const VERSION = "1.8.27-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
 const ARCHIVE_KEY = "reacbill_archive_v1";
@@ -1792,10 +1792,27 @@ function tarjKeyFor(level,ms){
   return pre?"Isla "+pre:"(sin isla)";
 }
 function tarjEsc(s){ return String(s).replace(/\\/g,"\\\\").replace(/'/g,"\\'"); }
+// Suma Ac/Re de tarjeta por MDA en las últimas (hasta) 4 semanas que terminan en `d`,
+// para mostrar el promedio junto al dato de la última semana.
+function tarjAvg4Sums(d){
+  const idx=state.weekOrder.indexOf(d);
+  const wks=state.weekOrder.slice(Math.max(0,idx-3),idx+1);
+  const calcs=allCalcs();
+  const map={};
+  for(const wd of wks){
+    for(const m of calcs[wd].rows){
+      if((m.tarjAc||0)+(m.tarjRe||0)<=0)continue;
+      if(!map[m.mda])map[m.mda]={ac:0,re:0};
+      map[m.mda].ac+=m.tarjAc||0;
+      map[m.mda].re+=m.tarjRe||0;
+    }
+  }
+  return map;
+}
 // Renderiza un nivel de agrupación; al llegar al último nivel (o si no hay más niveles
 // configurados) muestra la tabla de máquinas, con encabezados ordenables (attachSort).
-function tarjRenderLevel(rows,levels,path){
-  if(!levels.length) return tarjRenderMachTable(rows,path);
+function tarjRenderLevel(rows,levels,path,avg4){
+  if(!levels.length) return tarjRenderMachTable(rows,path,avg4);
   const [lvl,...rest]=levels;
   const groups={};
   for(const m of rows){
@@ -1809,25 +1826,33 @@ function tarjRenderLevel(rows,levels,path){
     const ac=gms.reduce((s,m)=>s+(m.tarjAc||0),0);
     const re=gms.reduce((s,m)=>s+(m.tarjRe||0),0);
     const pct=(ac+re)>0?ac/(ac+re):0;
+    const ac4=gms.reduce((s,m)=>s+(avg4[m.mda]?.ac||0),0);
+    const re4=gms.reduce((s,m)=>s+(avg4[m.mda]?.re||0),0);
+    const pct4=(ac4+re4)>0?ac4/(ac4+re4):null;
     const fullPath=path?path+"||"+key:key;
     const isOpen=tarjOpenPaths.has(fullPath);
     html+=`<div class="fab-card" style="margin-bottom:8px;${path?"margin-left:16px":""}">
       <div style="display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none;padding:4px 0" onclick="tarjToggle('${tarjEsc(fullPath)}')">
         <span style="font-size:13px;color:var(--accent)">${isOpen?"▼":"▶"}</span>
         <span style="font-weight:700;font-size:14px;flex:1">${key}</span>
+        <span class="muted" style="font-size:10px">últ. sem.</span>
         <span class="${pctClass(pct)}" style="font-weight:700">${fmtP(pct)}</span>
+        <span class="muted" style="font-size:10px">prom. 4 sem.</span>
+        <span class="${pct4==null?'':pctClass(pct4)}" style="font-weight:700">${pct4==null?"—":fmtP(pct4)}</span>
         <span class="muted" style="font-size:11px">${gms.length} máq. · Ac ${fmtN(ac)} · Re ${fmtN(re)}</span>
       </div>
-      ${isOpen?tarjRenderLevel(gms,rest,fullPath):""}
+      ${isOpen?tarjRenderLevel(gms,rest,fullPath,avg4):""}
     </div>`;
   }
   return html;
 }
-function tarjRenderMachTable(rows,path){
+function tarjRenderMachTable(rows,path,avg4){
   const sorted=rows.slice().sort((a,b)=>esCollator.compare(a.mda,b.mda));
   let body="";
   for(const m of sorted){
     const ms=state.master[m.mda]||{};
+    const s4=avg4[m.mda];
+    const pct4=s4&&(s4.ac+s4.re)>0?s4.ac/(s4.ac+s4.re):null;
     body+=`<tr style="border-bottom:1px solid var(--border)">
       <td style="padding:3px 8px">${selBtn(m.mda)}</td>
       <td style="padding:3px 8px">${tarjSelBtnHtml(m.mda)}</td>
@@ -1837,13 +1862,14 @@ function tarjRenderMachTable(rows,path){
       <td style="padding:3px 8px">${fmtN(m.tarjAc)}</td>
       <td style="padding:3px 8px">${fmtN(m.tarjRe)}</td>
       <td style="padding:3px 8px" class="${pctClass(m.pctTarj)}">${fmtP(m.pctTarj)}</td>
+      <td style="padding:3px 8px" class="${pct4==null?'':pctClass(pct4)}">${pct4==null?"—":fmtP(pct4)}</td>
     </tr>`;
   }
   const tblId="tblTarj_"+(path||"root").replace(/[^a-zA-Z0-9]/g,"_")+"_"+tarjSortTables.length;
   tarjSortTables.push(tblId);
   return `<div style="margin-top:8px;overflow-x:auto"><table id="${tblId}" style="width:100%;font-size:12px;border-collapse:collapse">
     <thead><tr><th></th><th></th><th class="left sortable">MDA</th><th class="left sortable">ISLA</th><th class="left sortable">Modelo máq.</th>
-      <th class="sortable">Tarj. Ac</th><th class="sortable">Tarj. Re</th><th class="sortable">%</th></tr></thead>
+      <th class="sortable">Tarj. Ac</th><th class="sortable">Tarj. Re</th><th class="sortable">% últ. sem.</th><th class="sortable">% prom. 4 sem.</th></tr></thead>
     <tbody>${body}</tbody></table></div>`;
 }
 function renderTarjetas(){
@@ -1859,7 +1885,8 @@ function renderTarjetas(){
   const rows=c.rows.filter(m=>(m.tarjAc||0)>0||(m.tarjRe||0)>0);
   const levels=subBy==="ninguna"?[groupBy]:[groupBy,subBy];
   tarjSortTables=[];
-  const html=rows.length?tarjRenderLevel(rows,levels,""):'<div class="card muted">Sin datos de lectura de tarjetas para esta semana.</div>';
+  const avg4=tarjAvg4Sums(d);
+  const html=rows.length?tarjRenderLevel(rows,levels,"",avg4):'<div class="card muted">Sin datos de lectura de tarjetas para esta semana.</div>';
   const subOptions=["isla","sector","modelmaq","ninguna"].filter(o=>o==="ninguna"||o!==groupBy)
     .map(o=>`<option value="${o}" ${subBy===o?"selected":""}>${TARJ_LBL[o]}</option>`).join("");
   el.innerHTML=`<div class="card"><h2>💳 Lectura de tarjetas</h2>
@@ -2417,11 +2444,15 @@ function tarjSelRows(){
   if(!state.weekOrder.length)return [];
   const lastD=state.weekOrder[state.weekOrder.length-1];
   const pm={}; for(const m of allCalcs()[lastD].rows) pm[m.mda]=m;
+  const avg4=tarjAvg4Sums(lastD);
   return [...tarjSelMaquinas].map(mda=>{
     const ms=state.master[mda]||{}, m=pm[mda];
     const tarjAc=m?m.tarjAc||0:0, tarjRe=m?m.tarjRe||0:0;
+    const s4=avg4[mda];
+    const pct4=s4&&(s4.ac+s4.re)>0?s4.ac/(s4.ac+s4.re):null;
     return {mda, isla:ms.isla||"—", modelmaq:ms.modelmaq||"—", tarjAc, tarjRe,
-      pctTxt:(m&&(tarjAc||tarjRe))?fmtP(m.pctTarj):"—", pctRaw:(m&&(tarjAc||tarjRe))?m.pctTarj:null};
+      pctTxt:(m&&(tarjAc||tarjRe))?fmtP(m.pctTarj):"—", pctRaw:(m&&(tarjAc||tarjRe))?m.pctTarj:null,
+      pct4Txt:pct4==null?"—":fmtP(pct4), pct4Raw:pct4};
   }).sort((a,b)=>esCollator.compare(b.isla,a.isla));
 }
 function tarjSelListHtml(){
@@ -2433,6 +2464,7 @@ function tarjSelListHtml(){
     <td class="left"><b>${r.mda}</b></td><td class="left">${r.isla}</td>
     <td class="left">${r.modelmaq}</td><td>${fmtN(r.tarjAc)}</td><td>${fmtN(r.tarjRe)}</td>
     <td class="${r.pctRaw!=null?pctClass(r.pctRaw):''}">${r.pctTxt}</td>
+    <td class="${r.pct4Raw!=null?pctClass(r.pct4Raw):''}">${r.pct4Txt}</td>
     <td><button class="btn sm danger" onclick="tarjSelToggle('${r.mda}')">✕</button></td>
   </tr>`).join("");
   return `<div class="card" style="margin-bottom:12px"><h2>🚫 Rechazo de tarjetas (${rows.length})</h2>
@@ -2444,7 +2476,7 @@ function tarjSelListHtml(){
     </div>
     <div class="tblWrap"><table id="tblTarjRechazo">
       <thead><tr><th class="left">MDA</th><th class="left">ISLA</th><th class="left">MODELO MÁQUINA</th>
-        <th>TARJ. ACEPTADAS</th><th>TARJ. RECHAZADAS</th><th>%ACEPT. TARJETA</th><th></th></tr></thead>
+        <th>TARJ. ACEPTADAS</th><th>TARJ. RECHAZADAS</th><th>%ÚLT. SEMANA</th><th>%PROM. 4 SEM.</th><th></th></tr></thead>
       <tbody>${body}</tbody></table></div></div>`;
 }
 function tarjSelVaciar(){
@@ -2452,8 +2484,8 @@ function tarjSelVaciar(){
   tarjSelMaquinas.clear(); tarjSelSave(); renderTarjetas();
 }
 function tarjSelToText(){
-  let txt="MDA\tISLA\tMODELO MÁQUINA\tTARJ. ACEPTADAS\tTARJ. RECHAZADAS\t%ACEPT. TARJETA\n";
-  for(const r of tarjSelRows()) txt+=`${r.mda}\t${r.isla}\t${r.modelmaq}\t${r.tarjAc}\t${r.tarjRe}\t${r.pctTxt}\n`;
+  let txt="MDA\tISLA\tMODELO MÁQUINA\tTARJ. ACEPTADAS\tTARJ. RECHAZADAS\t%ÚLT. SEMANA\t%PROM. 4 SEM.\n";
+  for(const r of tarjSelRows()) txt+=`${r.mda}\t${r.isla}\t${r.modelmaq}\t${r.tarjAc}\t${r.tarjRe}\t${r.pctTxt}\t${r.pct4Txt}\n`;
   return txt;
 }
 function tarjSelCopiar(){
@@ -2462,8 +2494,8 @@ function tarjSelCopiar(){
     .catch(()=>alert("No se pudo copiar."));
 }
 function tarjSelExportarCSV(){
-  let csv="MDA;ISLA;MODELO MAQUINA;TARJ ACEPTADAS;TARJ RECHAZADAS;%ACEPT TARJETA\n";
-  for(const r of tarjSelRows()) csv+=`${r.mda};${r.isla};${r.modelmaq};${r.tarjAc};${r.tarjRe};${r.pctTxt}\n`;
+  let csv="MDA;ISLA;MODELO MAQUINA;TARJ ACEPTADAS;TARJ RECHAZADAS;%ULT SEMANA;%PROM 4 SEM\n";
+  for(const r of tarjSelRows()) csv+=`${r.mda};${r.isla};${r.modelmaq};${r.tarjAc};${r.tarjRe};${r.pctTxt};${r.pct4Txt}\n`;
   const blob=new Blob([csv],{type:"text/csv"});
   const a=document.createElement("a");
   a.href=URL.createObjectURL(blob);
