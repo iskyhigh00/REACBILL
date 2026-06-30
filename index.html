@@ -441,7 +441,7 @@ canvas{max-height:320px}
 
 <script>
 /* ===== REACBILL v1.8.19-main ===== */
-const VERSION = "1.8.20-main";
+const VERSION = "1.8.21-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
 const ARCHIVE_KEY = "reacbill_archive_v1";
@@ -1059,6 +1059,7 @@ const TABS=[
   ["modelos","🔧 Modelos"],["maquinas","🎰 Máquinas"],
   ["intercambios","🔄 Intercambios"],
   ["denominaciones","💵 Denominaciones"],["buscador","🔎 Buscador"],
+  ["tarjetas","💳 Tarjetas"],
   ["lista","📋 Lista"],["admin","⚙️ Admin"]
 ];
 let activeTab="carga";
@@ -1073,7 +1074,8 @@ function showTab(id){
   ({resumen:renderResumen,fecha:renderFecha,ranking:renderRanking,sectores:renderSectores,
     tendencias:renderTendencias,modelos:renderModelos,maquinas:renderMaquinas,
     intercambios:renderIntercambios,
-    denominaciones:renderDenos,buscador:renderBuscador,lista:renderLista,admin:renderAdmin}[id]||(() => {}))();
+    denominaciones:renderDenos,buscador:renderBuscador,tarjetas:renderTarjetas,
+    lista:renderLista,admin:renderAdmin}[id]||(() => {}))();
 }
 function buildShells(){
   document.getElementById("main").innerHTML=TABS.map(([id])=>`<div class="tab" id="tab-${id}"></div>`).join("");
@@ -1248,7 +1250,6 @@ function renderFecha(){
       <td>${selBtn(m.mda)}</td>
       <td class="left"><b>${m.mda}</b></td><td class="left">${getLoc(m.mda)}</td>
       <td class="left">${ms.modelo||""}</td><td class="left" style="font-size:10px">${ms.firm||""}</td>
-      <td>${fmtN(m.tarjAc)}</td><td>${fmtN(m.tarjRe)}</td><td class="${pctClass(m.pctTarj)}">${fmtP(m.pctTarj)}</td>
       ${DENOS.map(dn=>`<td>${fmtN(m.acc[dn]||0)}</td>`).join("")}
       ${DENOS.map(dn=>`<td>${fmtN(m.rej[dn]||0)}</td>`).join("")}
       <td><b>${fmtN(m.toAc)}</b></td><td><b>${fmtN(m.toRe)}</b></td><td><b>${fmtN(m.total)}</b></td>
@@ -1271,12 +1272,10 @@ function renderFecha(){
       <thead>
         <tr><th></th><th class="left sortable">MDA</th><th class="left sortable">ISLA</th>
           <th class="left sortable">Modelo</th><th class="left sortable">Firm</th>
-          <th colspan="3" class="sortable">Tarjetas</th>
           <th colspan="6">Bill. Aceptado</th><th colspan="6">Bill. Rechazado</th>
           <th class="sortable">ToAc</th><th class="sortable">ToRe</th><th class="sortable">Total</th>
           <th class="sortable">%Acep</th><th class="sortable">Puntaje</th><th>Gravedad</th></tr>
         <tr><th></th><th></th><th></th><th></th><th></th>
-          <th class="sortable">Ac</th><th class="sortable">Re</th><th class="sortable">%</th>
           ${DENOS.map(dn=>`<th class="sortable">${dn}</th>`).join("")}
           ${DENOS.map(dn=>`<th class="sortable">${dn}</th>`).join("")}
           <th></th><th></th><th></th><th></th><th></th><th></th></tr>
@@ -1773,6 +1772,84 @@ function renderBuscador(focusField){
   const fid=focusField==="isla"?"busIsla":"busMDA";
   const inp=document.getElementById(fid);
   if(inp){ const v=inp.value.length; inp.focus(); inp.setSelectionRange(v,v); }
+}
+
+// ---------- Tarjetas (lectura de tarjetas) ----------
+let tarjGroupBy="isla", tarjOpen="";
+function renderTarjetas(){
+  const el=document.getElementById("tab-tarjetas");
+  if(!state.weekOrder.length){el.innerHTML='<div class="card muted">Sin datos.</div>';return;}
+  const selW=document.getElementById("tarjSel")?.value;
+  const d=state.weekOrder.includes(selW)?selW:state.weekOrder[state.weekOrder.length-1];
+  const c=allCalcs()[d];
+  const groupBy=document.getElementById("tarjGroupSel")?.value||tarjGroupBy;
+  tarjGroupBy=groupBy;
+  const rows=c.rows.filter(m=>(m.tarjAc||0)>0||(m.tarjRe||0)>0);
+  const groups={};
+  for(const m of rows){
+    const ms=state.master[m.mda]||{};
+    let key;
+    if(groupBy==="sector") key="Sector "+(islaSector(ms.isla||"")||"—");
+    else if(groupBy==="modelmaq") key=ms.modelmaq||"(sin modelo)";
+    else if(groupBy==="todas") key="Todas las máquinas";
+    else key=ms.isla||"(sin isla)";
+    if(!groups[key]) groups[key]=[];
+    groups[key].push(m);
+  }
+  const escape=s=>String(s).replace(/\\/g,"\\\\").replace(/'/g,"\\'");
+  let html="";
+  for(const key of Object.keys(groups).sort(esCollator.compare)){
+    const gms=groups[key];
+    const ac=gms.reduce((s,m)=>s+(m.tarjAc||0),0);
+    const re=gms.reduce((s,m)=>s+(m.tarjRe||0),0);
+    const pct=(ac+re)>0?ac/(ac+re):0;
+    const isOpen=key===tarjOpen;
+    html+=`<div class="fab-card" style="margin-bottom:8px">
+      <div style="display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none;padding:4px 0" onclick="tarjToggle('${escape(key)}')">
+        <span style="font-size:13px;color:var(--accent)">${isOpen?"▼":"▶"}</span>
+        <span style="font-weight:700;font-size:14px;flex:1">${key}</span>
+        <span class="${pctClass(pct)}" style="font-weight:700">${fmtP(pct)}</span>
+        <span class="muted" style="font-size:11px">${gms.length} máq. · Ac ${fmtN(ac)} · Re ${fmtN(re)}</span>
+      </div>`;
+    if(isOpen){
+      const sorted=gms.slice().sort((a,b)=>esCollator.compare(a.mda,b.mda));
+      let body="";
+      for(const m of sorted){
+        const ms=state.master[m.mda]||{};
+        body+=`<tr style="border-bottom:1px solid var(--border)">
+          <td style="padding:3px 8px">${selBtn(m.mda)}</td>
+          <td style="padding:3px 8px;font-weight:700">${m.mda}</td>
+          <td style="padding:3px 8px;color:var(--muted)">${ms.isla||"—"}</td>
+          <td style="padding:3px 8px;color:var(--muted)">${ms.modelmaq||"—"}</td>
+          <td style="padding:3px 8px;color:${ms.modelo==="Advance"?"#2ecc71":ms.modelo==="Cashflow"?"#f1c40f":"var(--muted)"}">${ms.modelo||"—"}</td>
+          <td style="padding:3px 8px">${fmtN(m.tarjAc)}</td>
+          <td style="padding:3px 8px">${fmtN(m.tarjRe)}</td>
+          <td style="padding:3px 8px" class="${pctClass(m.pctTarj)}">${fmtP(m.pctTarj)}</td>
+        </tr>`;
+      }
+      html+=`<div style="margin-top:8px;overflow-x:auto"><table style="width:100%;font-size:12px;border-collapse:collapse">
+        <thead><tr><th></th><th class="left">MDA</th><th class="left">ISLA</th><th class="left">Modelo máq.</th>
+          <th class="left">Billetero</th><th>Tarj. Ac</th><th>Tarj. Re</th><th>%</th></tr></thead>
+        <tbody>${body}</tbody></table></div>`;
+    }
+    html+=`</div>`;
+  }
+  if(!Object.keys(groups).length) html='<div class="card muted">Sin datos de lectura de tarjetas para esta semana.</div>';
+  el.innerHTML=`<div class="card"><h2>💳 Lectura de tarjetas</h2>
+    <div class="row">
+      <label class="fld">Semana <select id="tarjSel" onchange="renderTarjetas()">${state.weekOrder.map(w=>`<option value="${w}" ${w===d?"selected":""}>${fmtKeyFull(w)}</option>`).join("")}</select></label>
+      <label class="fld">Agrupar por <select id="tarjGroupSel" onchange="renderTarjetas()">
+        <option value="isla" ${groupBy==="isla"?"selected":""}>Isla</option>
+        <option value="sector" ${groupBy==="sector"?"selected":""}>Sector</option>
+        <option value="modelmaq" ${groupBy==="modelmaq"?"selected":""}>Modelo de máquina</option>
+        <option value="todas" ${groupBy==="todas"?"selected":""}>Todas (sin agrupar)</option>
+      </select></label>
+    </div>
+    ${html}</div>`;
+}
+function tarjToggle(key){
+  tarjOpen=tarjOpen===key?"":key;
+  renderTarjetas();
 }
 
 // ---------- Admin ----------
