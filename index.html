@@ -433,8 +433,8 @@ canvas{max-height:320px}
 <main id="main"></main>
 
 <script>
-/* ===== REACBILL v1.8.18-main ===== */
-const VERSION = "1.8.18-main";
+/* ===== REACBILL v1.8.19-main ===== */
+const VERSION = "1.8.19-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
 const ARCHIVE_KEY = "reacbill_archive_v1";
@@ -2164,6 +2164,12 @@ const MACH_PAGE_SIZE=200;
 let machPendingEdits={}; // {mda:{campo:valor}} — ediciones aún no guardadas, sobreviven el cambio de página/filtro
 let machSortCol="mda", machSortDir=1;
 let intFiltroMod="", intFiltroMinVol=0, intFabLeft=new Set(), intFabRight=new Set(), intUsarPromedio=false, intPendiente=null;
+// Sectores: origen = sector del billetero bueno (A), destino = sector de la posición problema (B).
+// A diferencia del panel de fabricante (compatibilidad simétrica), acá la dirección importa:
+// "origen sector 1, destino sector 6" sólo sugiere mover DE 1 HACIA 6, no al revés.
+let intSectorLeft=new Set(), intSectorRight=new Set();
+// Sectores de los que nunca se debe sacar un billetero bueno, sin importar los filtros de origen/destino.
+let intSectorExclude=new Set();
 
 // Marcas que sólo pueden intercambiar entre sí (incompatibilidad física)
 const RESTRICTED_BRANDS=new Set(["IGT"]);
@@ -2200,12 +2206,18 @@ function calcSwaps(rows){
     const A=rows[i];
     const msA=state.master[A.mda]||{};
     if(A.pct<state.params.thrOk)continue;
+    const secA=islaSector(msA.isla||"");
+    if(intSectorExclude.has(secA))continue;
+    if(intSectorLeft.size>0&&!intSectorLeft.has(secA))continue;
     for(let j=0;j<rows.length;j++){
       if(i===j)continue;
       const B=rows[j];
       const msB=state.master[B.mda]||{};
       if(B.pct>=state.params.thrOk)continue;
       if(B.total<=A.total)continue;
+      // filtro sector: dirección importa (origen=A, destino=B)
+      const secB=islaSector(msB.isla||"");
+      if(intSectorRight.size>0&&!intSectorRight.has(secB))continue;
       // filtro fabricante: IGT↔IGT, resto libre
       if(!swapFabOk(msA.fabricante||"",msB.fabricante||""))continue;
       // filtro fabricante manual (dos paneles)
@@ -2273,6 +2285,20 @@ function renderIntercambios(){
   const leftPanel=fabPanelHtml(allFabs,intFabLeft,intFabRight,"left");
   const rightPanel=fabPanelHtml(allFabs,intFabRight,intFabLeft,"right");
 
+  // chips de sector (origen/destino/excluidos) — el primer dígito de la ISLA
+  const allSectors=[...new Set(Object.values(state.master).map(m=>islaSector(m.isla||"")).filter(Boolean))].sort();
+  function sectorPanelHtml(selectedSet,side){
+    const reset=`<button class="btn sm sec" style="margin:2px;opacity:.6" onclick="intResetSector('${side}')">✕ Limpiar</button>`;
+    const chips=allSectors.map(sec=>{
+      const sel=selectedSet.has(sec);
+      return `<button class="btn sm ${sel?'':'sec'}" style="margin:2px" onclick="intToggleSector('${side}','${sec}')">Sector ${sec}</button>`;
+    }).join("");
+    return chips+(selectedSet.size>0?reset:"");
+  }
+  const sectorLeftPanel=sectorPanelHtml(intSectorLeft,"left");
+  const sectorRightPanel=sectorPanelHtml(intSectorRight,"right");
+  const sectorExcludePanel=sectorPanelHtml(intSectorExclude,"exclude");
+
   const useAvg=intUsarPromedio&&state.weekOrder.length>1;
   const swapRows=useAvg?buildAvgRows(calcs,d):calcs[d].rows;
   const nAvgWeeks=useAvg?Math.min(4,state.weekOrder.indexOf(d)+1):1;
@@ -2338,6 +2364,21 @@ function renderIntercambios(){
         <div class="hint" style="margin-bottom:6px"><b>Destino</b> — fabricante(s) del billetero malo <span style="color:var(--high);font-size:10px">(IGT solo con IGT)</span></div>
         ${rightPanel}
       </div>
+    </div>
+    <div style="display:flex;gap:16px;margin-bottom:12px">
+      <div style="flex:1;background:var(--panel2);border-radius:8px;padding:10px">
+        <div class="hint" style="margin-bottom:6px"><b>Origen</b> — sector(es) de donde sacar el billetero bueno</div>
+        ${sectorLeftPanel}
+      </div>
+      <div style="display:flex;align-items:center;font-size:20px;color:var(--accent)">⇄</div>
+      <div style="flex:1;background:var(--panel2);border-radius:8px;padding:10px">
+        <div class="hint" style="margin-bottom:6px"><b>Destino</b> — sector(es) donde colocarlo</div>
+        ${sectorRightPanel}
+      </div>
+    </div>
+    <div style="background:var(--panel2);border-radius:8px;padding:10px;margin-bottom:12px">
+      <div class="hint" style="margin-bottom:6px"><b>Nunca sacar billeteros de estos sectores</b> <span style="font-size:10px">(se respeta sin importar el filtro de Origen)</span></div>
+      ${sectorExcludePanel}
     </div>
     <div class="tblWrap" style="max-height:55vh"><table id="tblSwaps">
       <thead><tr>
@@ -2414,6 +2455,19 @@ function intToggleFab(side,fab){
 }
 function intResetFab(side){
   (side==="left"?intFabLeft:intFabRight).clear();
+  renderIntercambios();
+}
+
+function intSectorSet(side){
+  return side==="left"?intSectorLeft:side==="right"?intSectorRight:intSectorExclude;
+}
+function intToggleSector(side,sec){
+  const s=intSectorSet(side);
+  s.has(sec)?s.delete(sec):s.add(sec);
+  renderIntercambios();
+}
+function intResetSector(side){
+  intSectorSet(side).clear();
   renderIntercambios();
 }
 
