@@ -284,6 +284,13 @@ button.btn.sec{
 }
 button.btn.sec:hover{border-color:var(--border2);background:var(--panel3);box-shadow:none}
 button.btn.sm{padding:4px 10px;font-size:11px}
+.selBtn{
+  width:20px;height:20px;min-width:20px;border-radius:50%;border:1px solid #2ecc71;
+  background:transparent;color:#2ecc71;cursor:pointer;font-size:12px;line-height:1;
+  padding:0;display:inline-flex;align-items:center;justify-content:center;font-weight:700;
+}
+.selBtn.on{background:#2ecc71;color:#04210f}
+.selBadge{background:#2ecc71;color:#04210f;border-radius:10px;padding:0 6px;font-size:10px;font-weight:700;margin-left:4px}
 
 /* ── Layout ── */
 .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px}
@@ -434,7 +441,7 @@ canvas{max-height:320px}
 
 <script>
 /* ===== REACBILL v1.8.19-main ===== */
-const VERSION = "1.8.19-main";
+const VERSION = "1.8.20-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
 const ARCHIVE_KEY = "reacbill_archive_v1";
@@ -1051,7 +1058,8 @@ const TABS=[
   ["ranking","🚨 Gravedad"],["sectores","🗺 Sectores"],["tendencias","📈 Tendencias"],
   ["modelos","🔧 Modelos"],["maquinas","🎰 Máquinas"],
   ["intercambios","🔄 Intercambios"],
-  ["denominaciones","💵 Denominaciones"],["buscador","🔎 Buscador"],["admin","⚙️ Admin"]
+  ["denominaciones","💵 Denominaciones"],["buscador","🔎 Buscador"],
+  ["lista","📋 Lista"],["admin","⚙️ Admin"]
 ];
 let activeTab="carga";
 function buildNav(){
@@ -1065,7 +1073,7 @@ function showTab(id){
   ({resumen:renderResumen,fecha:renderFecha,ranking:renderRanking,sectores:renderSectores,
     tendencias:renderTendencias,modelos:renderModelos,maquinas:renderMaquinas,
     intercambios:renderIntercambios,
-    denominaciones:renderDenos,buscador:renderBuscador,admin:renderAdmin}[id]||(() => {}))();
+    denominaciones:renderDenos,buscador:renderBuscador,lista:renderLista,admin:renderAdmin}[id]||(() => {}))();
 }
 function buildShells(){
   document.getElementById("main").innerHTML=TABS.map(([id])=>`<div class="tab" id="tab-${id}"></div>`).join("");
@@ -1177,12 +1185,13 @@ function renderResBody(){
   }
   const ss=resSortState;
   let head=`<tr>
+    <th></th>
     <th class="s1 left sortable">MDA</th>
     <th class="s2 left sortable">ISLA</th>
     <th class="s3 left sortable">Modelo</th>
     <th class="s4 left sortable">Firm</th>`;
   let head2=`<tr>
-    <th class="s1"></th><th class="s2"></th><th class="s3"></th><th class="s4"></th>`;
+    <th></th><th class="s1"></th><th class="s2"></th><th class="s3"></th><th class="s4"></th>`;
   for(const d of weeks){
     const ps=ss&&ss.wk===d&&ss.field==="pct", ts=ss&&ss.wk===d&&ss.field==="tot";
     head+=`<th colspan="2" style="text-align:center">${fmtKey(d)}</th>`;
@@ -1203,7 +1212,7 @@ function renderResBody(){
   for(const mda of mdaList){
     const loc=getLoc(mda), mod=getMod(mda), firm=getFirm(mda);
     const searchKey=(mda+loc+mod+firm).toLowerCase().replace(/"/g,"&quot;");
-    let tr=`<td class="s1 left"><b>${mda}</b></td><td class="s2 left muted">${loc}</td><td class="s3 left muted">${mod}</td><td class="s4 left muted" style="font-size:10px">${firm}</td>`;
+    let tr=`<td>${selBtn(mda)}</td><td class="s1 left"><b>${mda}</b></td><td class="s2 left muted">${loc}</td><td class="s3 left muted">${mod}</td><td class="s4 left muted" style="font-size:10px">${firm}</td>`;
     for(const d of weeks){
       const m=mdaMap.get(mda)?.[d];
       tr+=(m&&m.pct>0)?`<td class="${pctClass(m.pct)}">${fmtP(m.pct)}</td><td>${fmtN(m.total)}</td>`:`<td></td><td></td>`;
@@ -1236,6 +1245,7 @@ function renderFecha(){
   for(const m of rows){
     const ms=state.master[m.mda]||{}, sc=sevClass(m.score,p);
     body+=`<tr>
+      <td>${selBtn(m.mda)}</td>
       <td class="left"><b>${m.mda}</b></td><td class="left">${getLoc(m.mda)}</td>
       <td class="left">${ms.modelo||""}</td><td class="left" style="font-size:10px">${ms.firm||""}</td>
       <td>${fmtN(m.tarjAc)}</td><td>${fmtN(m.tarjRe)}</td><td class="${pctClass(m.pctTarj)}">${fmtP(m.pctTarj)}</td>
@@ -1259,13 +1269,13 @@ function renderFecha(){
     </div>
     <div class="tblWrap" style="max-height:72vh"><table id="tblFecha">
       <thead>
-        <tr><th class="left sortable">MDA</th><th class="left sortable">ISLA</th>
+        <tr><th></th><th class="left sortable">MDA</th><th class="left sortable">ISLA</th>
           <th class="left sortable">Modelo</th><th class="left sortable">Firm</th>
           <th colspan="3" class="sortable">Tarjetas</th>
           <th colspan="6">Bill. Aceptado</th><th colspan="6">Bill. Rechazado</th>
           <th class="sortable">ToAc</th><th class="sortable">ToRe</th><th class="sortable">Total</th>
           <th class="sortable">%Acep</th><th class="sortable">Puntaje</th><th>Gravedad</th></tr>
-        <tr><th></th><th></th><th></th><th></th>
+        <tr><th></th><th></th><th></th><th></th><th></th>
           <th class="sortable">Ac</th><th class="sortable">Re</th><th class="sortable">%</th>
           ${DENOS.map(dn=>`<th class="sortable">${dn}</th>`).join("")}
           ${DENOS.map(dn=>`<th class="sortable">${dn}</th>`).join("")}
@@ -1289,7 +1299,7 @@ function renderRanking(){
     const ms=state.master[m.mda]||{}, sc=sevClass(m.score,p);
     const pm=prevMap[m.mda], trend=pm&&pm.total>0?m.pct-pm.pct:null;
     body+=`<tr>
-      <td>${i+1}</td><td class="left"><b>${m.mda}</b></td><td class="left">${getLoc(m.mda)}</td>
+      <td>${i+1}</td><td>${selBtn(m.mda)}</td><td class="left"><b>${m.mda}</b></td><td class="left">${getLoc(m.mda)}</td>
       <td class="left">${ms.modelo||""}</td><td class="left" style="font-size:10px">${ms.firm||""}</td>
       <td class="${pctClass(m.pct)}"><b>${fmtP(m.pct)}</b></td>
       <td>${fmtN(m.total)}</td><td>${fmtN(m.toRe)}</td>
@@ -1308,7 +1318,7 @@ function renderRanking(){
     </div>
     <div class="tblWrap" style="max-height:72vh"><table id="tblRank">
       <thead><tr>
-        <th class="sortable">#</th><th class="left sortable">MDA</th><th class="left sortable">ISLA</th>
+        <th></th><th class="sortable">#</th><th class="left sortable">MDA</th><th class="left sortable">ISLA</th>
         <th class="left sortable">Modelo</th><th class="left sortable">Firm</th>
         <th class="sortable">%Acep</th><th class="sortable">Total</th><th class="sortable">Rechazos</th>
         <th class="sortable">Δ%</th><th class="sortable">Puntaje</th><th>Gravedad</th>
@@ -1387,6 +1397,7 @@ function renderSectores(){
         const colL="min-width:70px;flex:0 0 70px;text-align:left;white-space:normal";
         const colW="min-width:110px;flex:1 0 110px;text-align:right;white-space:normal";
         let machGrid=`<div style="display:flex;gap:0;padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);border-bottom:1px solid var(--border)">
+          <div style="min-width:24px;flex:0 0 24px"></div>
           <div style="${colL}">MDA</div>
           <div style="${colL};min-width:90px;flex:0 0 90px">Modelo</div>
           <div style="${colL}">Firm</div>
@@ -1400,7 +1411,8 @@ function renderSectores(){
             const m=calcs[d]?.rows.find(r=>r.mda===mda);
             hist+=`<div style="${colW}${m&&m.pct>0?"":";color:var(--muted)"}">${m&&m.pct>0?`<span class="${pctClass(m.pct)}" style="padding:1px 5px;border-radius:4px">${fmtP(m.pct)}</span><br><span class="muted" style="font-size:10px">${fmtN(m.total)}</span>`:"—"}</div>`;
           }
-          machGrid+=`<div style="display:flex;gap:0;padding:5px 8px;border-bottom:1px solid var(--border)">
+          machGrid+=`<div style="display:flex;gap:0;padding:5px 8px;border-bottom:1px solid var(--border);align-items:center">
+            <div style="min-width:24px;flex:0 0 24px">${selBtn(mda)}</div>
             <div style="${colL}"><b>${mda}</b></div>
             <div style="${colL};min-width:90px;flex:0 0 90px">${ms.modelo||"—"}</div>
             <div style="${colL};font-size:10px">${ms.firm||"—"}</div>
@@ -1616,6 +1628,7 @@ function renderMaquinas(){
               const ms=state.master[mda]||{};
               const p=pm[mda]||{};
               html+=`<tr style="border-bottom:1px solid var(--border)">
+                <td style="padding:3px 8px">${selBtn(mda)}</td>
                 <td style="padding:3px 8px;font-weight:700">${mda}</td>
                 <td style="padding:3px 8px;color:var(--muted)">${ms.isla||"—"}</td>
                 <td style="padding:3px 8px;color:${ms.modelo==="Advance"?"#2ecc71":ms.modelo==="Cashflow"?"#f1c40f":"var(--muted)"}">${ms.modelo||"—"}</td>
@@ -1702,7 +1715,7 @@ function renderBuscador(focusField){
         const mm=calcs[d]?.rows.find(r=>r.mda===mda);
         hist+=(mm&&mm.pct>0)?`<td class="${pctClass(mm.pct)}">${fmtP(mm.pct)}<br><span class="muted">${fmtN(mm.total)}</span></td>`:`<td class="muted">—</td>`;
       }
-      resMDA+=`<div class="card"><h2>MDA ${mda}</h2>
+      resMDA+=`<div class="card"><h2>MDA ${mda} ${selBtn(mda)}</h2>
         <div class="kpis">
           <div class="kpi"><div class="v" style="font-size:16px">${getLoc(mda)||"—"}</div><div class="l">ISLA</div></div>
           <div class="kpi"><div class="v" style="font-size:14px">${ms.modelo||"—"}</div><div class="l">Modelo billetero</div></div>
@@ -1739,13 +1752,13 @@ function renderBuscador(focusField){
           const mm=calcs[d]?.rows.find(r=>r.mda===mda);
           hist+=(mm&&mm.pct>0)?`<td class="${pctClass(mm.pct)}">${fmtP(mm.pct)}<br><span class="muted">${fmtN(mm.total)}</span></td>`:`<td class="muted">—</td>`;
         }
-        machRows+=`<tr><td class="left"><b>${mda}</b></td><td class="left">${getLoc(mda)}</td><td class="left">${ms.modelo||"—"}</td><td class="left" style="font-size:10px">${ms.firm||"—"}</td>${hist}</tr>`;
+        machRows+=`<tr><td>${selBtn(mda)}</td><td class="left"><b>${mda}</b></td><td class="left">${getLoc(mda)}</td><td class="left">${ms.modelo||"—"}</td><td class="left" style="font-size:10px">${ms.firm||"—"}</td>${hist}</tr>`;
       }
       resIsla+=`<div class="card"><h2>Isla ${prefix} — ${mdas.length} máquinas</h2>
         <div class="hint" style="margin-bottom:6px">Promedio de la isla por semana:</div>
         <div class="tblWrap" style="max-height:60px;margin-bottom:8px"><table><thead><tr>${histHead}</tr></thead><tbody><tr>${histBody}</tr></tbody></table></div>
         <div class="tblWrap" style="max-height:260px"><table id="tblIsla_${prefix}">
-          <thead><tr><th class="left sortable">MDA</th><th class="left sortable">ISLA</th><th class="left sortable">Modelo</th><th class="left sortable">Firm</th>${visibleWeeks().map(d=>`<th class="sortable">${fmtKey(d)}</th>`).join("")}</tr></thead>
+          <thead><tr><th></th><th class="left sortable">MDA</th><th class="left sortable">ISLA</th><th class="left sortable">Modelo</th><th class="left sortable">Firm</th>${visibleWeeks().map(d=>`<th class="sortable">${fmtKey(d)}</th>`).join("")}</tr></thead>
           <tbody>${machRows}</tbody></table></div></div>`;
       setTimeout(()=>attachSort(`tblIsla_${prefix}`),0);
     }
@@ -2171,6 +2184,100 @@ let intSectorLeft=new Set(), intSectorRight=new Set();
 // Sectores de los que nunca se debe sacar un billetero bueno, sin importar los filtros de origen/destino.
 let intSectorExclude=new Set();
 
+// ---------- Lista de máquinas seleccionadas (bitácora) ----------
+// Botón + presente en cualquier tabla de máquinas; agrega el MDA a esta lista,
+// que persiste entre pestañas y recargas (localStorage) hasta exportarla o vaciarla.
+const SEL_KEY="reacbill_sel_v1";
+let selMaquinas=new Set();
+function selLoad(){
+  try{ const raw=localStorage.getItem(SEL_KEY); if(raw) selMaquinas=new Set(JSON.parse(raw)); }catch(e){}
+}
+function selSave(){
+  try{ localStorage.setItem(SEL_KEY, JSON.stringify([...selMaquinas])); }catch(e){}
+}
+function selBtn(mda){
+  const on=selMaquinas.has(mda);
+  return `<button class="selBtn ${on?'on':''}" data-selmda="${mda}" onclick="event.stopPropagation();selToggle('${mda}')" title="${on?'Quitar de la lista':'Agregar a la lista'}">${on?'✓':'+'}</button>`;
+}
+function selToggle(mda){
+  selMaquinas.has(mda)?selMaquinas.delete(mda):selMaquinas.add(mda);
+  selSave();
+  document.querySelectorAll(`[data-selmda="${mda}"]`).forEach(b=>{
+    const on=selMaquinas.has(mda);
+    b.classList.toggle("on",on);
+    b.textContent=on?"✓":"+";
+    b.title=on?"Quitar de la lista":"Agregar a la lista";
+  });
+  updateSelBadge();
+  if(activeTab==="lista")renderLista();
+}
+function updateSelBadge(){
+  const b=document.getElementById("nb-lista");
+  if(b)b.innerHTML=`📋 Lista${selMaquinas.size?`<span class="selBadge">${selMaquinas.size}</span>`:""}`;
+}
+function selLastCalcRows(){
+  if(!state.weekOrder.length)return {};
+  const calcs=allCalcs(), lastD=state.weekOrder[state.weekOrder.length-1];
+  const pm={}; for(const m of calcs[lastD].rows) pm[m.mda]=m;
+  return pm;
+}
+function selRows(){
+  const pm=selLastCalcRows();
+  return [...selMaquinas].sort(esCollator.compare).map(mda=>{
+    const ms=state.master[mda]||{}, p=pm[mda];
+    return {mda, isla:ms.isla||"—", modelmaq:ms.modelmaq||"—", modelo:ms.modelo||"—",
+      pctTxt:(p&&p.pct>0)?fmtP(p.pct):"—", pctRaw:(p&&p.pct>0)?p.pct:null};
+  });
+}
+function renderLista(){
+  const el=document.getElementById("tab-lista"); if(!el)return;
+  const rows=selRows();
+  if(!rows.length){
+    el.innerHTML='<div class="card muted">Lista vacía. Agregá máquinas con el botón verde "+" en cualquier vista.</div>';
+    return;
+  }
+  const body=rows.map(r=>`<tr>
+    <td class="left"><b>${r.mda}</b></td><td class="left">${r.isla}</td>
+    <td class="left">${r.modelmaq}</td><td class="left">${r.modelo}</td>
+    <td class="${r.pctRaw!=null?pctClass(r.pctRaw):''}">${r.pctTxt}</td>
+    <td><button class="btn sm danger" onclick="selToggle('${r.mda}')">✕</button></td>
+  </tr>`).join("");
+  el.innerHTML=`<div class="card"><h2>📋 Lista de máquinas (${rows.length})</h2>
+    <p class="hint" style="margin-bottom:10px">Agregadas con el botón "+" en cualquier vista. Se mantiene aunque cambies de pestaña o recargues la página.</p>
+    <div class="row" style="margin-bottom:10px">
+      <button class="btn sec sm" onclick="selCopiar()">📋 Copiar tabla</button>
+      <button class="btn sec sm" onclick="selExportarCSV()">⬇ Exportar CSV</button>
+      <button class="btn danger sm" onclick="selVaciar()">✕ Vaciar lista</button>
+    </div>
+    <div class="tblWrap"><table id="tblSelLista">
+      <thead><tr><th class="left">MDA</th><th class="left">ISLA</th><th class="left">MODELO MÁQUINA</th>
+        <th class="left">MODELO BILLETERO</th><th>ÚLTIMO %</th><th></th></tr></thead>
+      <tbody>${body}</tbody></table></div></div>`;
+}
+function selVaciar(){
+  if(!confirm("¿Vaciar la lista completa?"))return;
+  selMaquinas.clear(); selSave(); updateSelBadge(); renderLista();
+}
+function selToText(){
+  let txt="MDA\tISLA\tMODELO MÁQUINA\tMODELO BILLETERO\tÚLTIMO %\n";
+  for(const r of selRows()) txt+=`${r.mda}\t${r.isla}\t${r.modelmaq}\t${r.modelo}\t${r.pctTxt}\n`;
+  return txt;
+}
+function selCopiar(){
+  navigator.clipboard.writeText(selToText())
+    .then(()=>alert("Copiado al portapapeles."))
+    .catch(()=>alert("No se pudo copiar."));
+}
+function selExportarCSV(){
+  let csv="MDA;ISLA;MODELO MAQUINA;MODELO BILLETERO;ULTIMO %\n";
+  for(const r of selRows()) csv+=`${r.mda};${r.isla};${r.modelmaq};${r.modelo};${r.pctTxt}\n`;
+  const blob=new Blob([csv],{type:"text/csv"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download=`reacbill_lista_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+}
+
 // Marcas que sólo pueden intercambiar entre sí (incompatibilidad física)
 const RESTRICTED_BRANDS=new Set(["IGT"]);
 
@@ -2493,7 +2600,9 @@ function renderAll(){
 }
 (async function(){
   document.getElementById("verSpan").textContent="v"+VERSION;
+  selLoad();
   buildNav(); buildShells();
+  updateSelBadge();
   await loadState();
   await loadHistory();
   await loadArchiveMeta();
