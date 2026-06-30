@@ -423,7 +423,7 @@ canvas{max-height:320px}
 <body>
 <header>
   <div style="display:flex;align-items:center;gap:10px">
-    <h1>REACBILL <span class="ver">v1.8.14-main</span></h1>
+    <h1>REACBILL <span class="ver" id="verSpan"></span></h1>
     <span id="dataInfo" class="ver" style="color:var(--muted2);font-size:10px"></span>
   </div>
   <div id="statsBar"></div>
@@ -433,8 +433,8 @@ canvas{max-height:320px}
 <main id="main"></main>
 
 <script>
-/* ===== REACBILL v1.8.17-main ===== */
-const VERSION = "1.8.17-main";
+/* ===== REACBILL v1.8.18-main ===== */
+const VERSION = "1.8.18-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
 const ARCHIVE_KEY = "reacbill_archive_v1";
@@ -2438,6 +2438,7 @@ function renderAll(){
   showTab(activeTab);
 }
 (async function(){
+  document.getElementById("verSpan").textContent="v"+VERSION;
   buildNav(); buildShells();
   await loadState();
   await loadHistory();
