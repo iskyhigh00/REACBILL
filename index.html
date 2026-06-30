@@ -441,7 +441,7 @@ canvas{max-height:320px}
 
 <script>
 /* ===== REACBILL v1.8.19-main ===== */
-const VERSION = "1.8.23-main";
+const VERSION = "1.8.24-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
 const ARCHIVE_KEY = "reacbill_archive_v1";
@@ -1781,7 +1781,9 @@ function tarjKeyFor(level,ms){
   if(level==="todas")return "Todas las máquinas";
   if(level==="sector")return "Sector "+(islaSector(ms.isla||"")||"—");
   if(level==="modelmaq")return ms.modelmaq||"(sin modelo)";
-  return ms.isla||"(sin isla)";
+  // isla: agrupa por el número de isla (ej "103"), no por la posición completa ("103-01")
+  const pre=islaPrefix(ms.isla||"")||ms.isla;
+  return pre?"Isla "+pre:"(sin isla)";
 }
 function tarjEsc(s){ return String(s).replace(/\\/g,"\\\\").replace(/'/g,"\\'"); }
 // Renderiza un nivel de agrupación; al llegar al último nivel (o si no hay más niveles
