@@ -441,7 +441,7 @@ canvas{max-height:320px}
 
 <script>
 /* ===== REACBILL v1.8.19-main ===== */
-const VERSION = "1.8.21-main";
+const VERSION = "1.8.22-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
 const ARCHIVE_KEY = "reacbill_archive_v1";
@@ -1774,8 +1774,69 @@ function renderBuscador(focusField){
   if(inp){ const v=inp.value.length; inp.focus(); inp.setSelectionRange(v,v); }
 }
 
-// ---------- Tarjetas (lectura de tarjetas) ----------
-let tarjGroupBy="isla", tarjOpen="";
+// ---------- Tarjetas (lectura de tarjetas, sin importar modelo de billetero) ----------
+let tarjGroupBy="sector", tarjSubBy="isla", tarjOpenPaths=new Set(), tarjSortTables=[];
+const TARJ_LBL={isla:"Isla",sector:"Sector",modelmaq:"Modelo de máquina",ninguna:"(sin subdividir)"};
+function tarjKeyFor(level,ms){
+  if(level==="todas")return "Todas las máquinas";
+  if(level==="sector")return "Sector "+(islaSector(ms.isla||"")||"—");
+  if(level==="modelmaq")return ms.modelmaq||"(sin modelo)";
+  return ms.isla||"(sin isla)";
+}
+function tarjEsc(s){ return String(s).replace(/\\/g,"\\\\").replace(/'/g,"\\'"); }
+// Renderiza un nivel de agrupación; al llegar al último nivel (o si no hay más niveles
+// configurados) muestra la tabla de máquinas, con encabezados ordenables (attachSort).
+function tarjRenderLevel(rows,levels,path){
+  if(!levels.length) return tarjRenderMachTable(rows,path);
+  const [lvl,...rest]=levels;
+  const groups={};
+  for(const m of rows){
+    const ms=state.master[m.mda]||{};
+    const key=tarjKeyFor(lvl,ms);
+    (groups[key]=groups[key]||[]).push(m);
+  }
+  let html="";
+  for(const key of Object.keys(groups).sort(esCollator.compare)){
+    const gms=groups[key];
+    const ac=gms.reduce((s,m)=>s+(m.tarjAc||0),0);
+    const re=gms.reduce((s,m)=>s+(m.tarjRe||0),0);
+    const pct=(ac+re)>0?ac/(ac+re):0;
+    const fullPath=path?path+"||"+key:key;
+    const isOpen=tarjOpenPaths.has(fullPath);
+    html+=`<div class="fab-card" style="margin-bottom:8px;${path?"margin-left:16px":""}">
+      <div style="display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none;padding:4px 0" onclick="tarjToggle('${tarjEsc(fullPath)}')">
+        <span style="font-size:13px;color:var(--accent)">${isOpen?"▼":"▶"}</span>
+        <span style="font-weight:700;font-size:14px;flex:1">${key}</span>
+        <span class="${pctClass(pct)}" style="font-weight:700">${fmtP(pct)}</span>
+        <span class="muted" style="font-size:11px">${gms.length} máq. · Ac ${fmtN(ac)} · Re ${fmtN(re)}</span>
+      </div>
+      ${isOpen?tarjRenderLevel(gms,rest,fullPath):""}
+    </div>`;
+  }
+  return html;
+}
+function tarjRenderMachTable(rows,path){
+  const sorted=rows.slice().sort((a,b)=>esCollator.compare(a.mda,b.mda));
+  let body="";
+  for(const m of sorted){
+    const ms=state.master[m.mda]||{};
+    body+=`<tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:3px 8px">${selBtn(m.mda)}</td>
+      <td style="padding:3px 8px;font-weight:700">${m.mda}</td>
+      <td style="padding:3px 8px;color:var(--muted)">${ms.isla||"—"}</td>
+      <td style="padding:3px 8px;color:var(--muted)">${ms.modelmaq||"—"}</td>
+      <td style="padding:3px 8px">${fmtN(m.tarjAc)}</td>
+      <td style="padding:3px 8px">${fmtN(m.tarjRe)}</td>
+      <td style="padding:3px 8px" class="${pctClass(m.pctTarj)}">${fmtP(m.pctTarj)}</td>
+    </tr>`;
+  }
+  const tblId="tblTarj_"+(path||"root").replace(/[^a-zA-Z0-9]/g,"_")+"_"+tarjSortTables.length;
+  tarjSortTables.push(tblId);
+  return `<div style="margin-top:8px;overflow-x:auto"><table id="${tblId}" style="width:100%;font-size:12px;border-collapse:collapse">
+    <thead><tr><th></th><th class="left sortable">MDA</th><th class="left sortable">ISLA</th><th class="left sortable">Modelo máq.</th>
+      <th class="sortable">Tarj. Ac</th><th class="sortable">Tarj. Re</th><th class="sortable">%</th></tr></thead>
+    <tbody>${body}</tbody></table></div>`;
+}
 function renderTarjetas(){
   const el=document.getElementById("tab-tarjetas");
   if(!state.weekOrder.length){el.innerHTML='<div class="card muted">Sin datos.</div>';return;}
@@ -1783,59 +1844,17 @@ function renderTarjetas(){
   const d=state.weekOrder.includes(selW)?selW:state.weekOrder[state.weekOrder.length-1];
   const c=allCalcs()[d];
   const groupBy=document.getElementById("tarjGroupSel")?.value||tarjGroupBy;
-  tarjGroupBy=groupBy;
+  let subBy=document.getElementById("tarjSubSel")?.value||tarjSubBy;
+  if(subBy===groupBy) subBy="ninguna";
+  tarjGroupBy=groupBy; tarjSubBy=subBy;
   const rows=c.rows.filter(m=>(m.tarjAc||0)>0||(m.tarjRe||0)>0);
-  const groups={};
-  for(const m of rows){
-    const ms=state.master[m.mda]||{};
-    let key;
-    if(groupBy==="sector") key="Sector "+(islaSector(ms.isla||"")||"—");
-    else if(groupBy==="modelmaq") key=ms.modelmaq||"(sin modelo)";
-    else if(groupBy==="todas") key="Todas las máquinas";
-    else key=ms.isla||"(sin isla)";
-    if(!groups[key]) groups[key]=[];
-    groups[key].push(m);
-  }
-  const escape=s=>String(s).replace(/\\/g,"\\\\").replace(/'/g,"\\'");
-  let html="";
-  for(const key of Object.keys(groups).sort(esCollator.compare)){
-    const gms=groups[key];
-    const ac=gms.reduce((s,m)=>s+(m.tarjAc||0),0);
-    const re=gms.reduce((s,m)=>s+(m.tarjRe||0),0);
-    const pct=(ac+re)>0?ac/(ac+re):0;
-    const isOpen=key===tarjOpen;
-    html+=`<div class="fab-card" style="margin-bottom:8px">
-      <div style="display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none;padding:4px 0" onclick="tarjToggle('${escape(key)}')">
-        <span style="font-size:13px;color:var(--accent)">${isOpen?"▼":"▶"}</span>
-        <span style="font-weight:700;font-size:14px;flex:1">${key}</span>
-        <span class="${pctClass(pct)}" style="font-weight:700">${fmtP(pct)}</span>
-        <span class="muted" style="font-size:11px">${gms.length} máq. · Ac ${fmtN(ac)} · Re ${fmtN(re)}</span>
-      </div>`;
-    if(isOpen){
-      const sorted=gms.slice().sort((a,b)=>esCollator.compare(a.mda,b.mda));
-      let body="";
-      for(const m of sorted){
-        const ms=state.master[m.mda]||{};
-        body+=`<tr style="border-bottom:1px solid var(--border)">
-          <td style="padding:3px 8px">${selBtn(m.mda)}</td>
-          <td style="padding:3px 8px;font-weight:700">${m.mda}</td>
-          <td style="padding:3px 8px;color:var(--muted)">${ms.isla||"—"}</td>
-          <td style="padding:3px 8px;color:var(--muted)">${ms.modelmaq||"—"}</td>
-          <td style="padding:3px 8px;color:${ms.modelo==="Advance"?"#2ecc71":ms.modelo==="Cashflow"?"#f1c40f":"var(--muted)"}">${ms.modelo||"—"}</td>
-          <td style="padding:3px 8px">${fmtN(m.tarjAc)}</td>
-          <td style="padding:3px 8px">${fmtN(m.tarjRe)}</td>
-          <td style="padding:3px 8px" class="${pctClass(m.pctTarj)}">${fmtP(m.pctTarj)}</td>
-        </tr>`;
-      }
-      html+=`<div style="margin-top:8px;overflow-x:auto"><table style="width:100%;font-size:12px;border-collapse:collapse">
-        <thead><tr><th></th><th class="left">MDA</th><th class="left">ISLA</th><th class="left">Modelo máq.</th>
-          <th class="left">Billetero</th><th>Tarj. Ac</th><th>Tarj. Re</th><th>%</th></tr></thead>
-        <tbody>${body}</tbody></table></div>`;
-    }
-    html+=`</div>`;
-  }
-  if(!Object.keys(groups).length) html='<div class="card muted">Sin datos de lectura de tarjetas para esta semana.</div>';
+  const levels=subBy==="ninguna"?[groupBy]:[groupBy,subBy];
+  tarjSortTables=[];
+  const html=rows.length?tarjRenderLevel(rows,levels,""):'<div class="card muted">Sin datos de lectura de tarjetas para esta semana.</div>';
+  const subOptions=["isla","sector","modelmaq","ninguna"].filter(o=>o==="ninguna"||o!==groupBy)
+    .map(o=>`<option value="${o}" ${subBy===o?"selected":""}>${TARJ_LBL[o]}</option>`).join("");
   el.innerHTML=`<div class="card"><h2>💳 Lectura de tarjetas</h2>
+    <p class="hint" style="margin-bottom:10px">Independiente del modelo de billetero (Advance/Cashflow).</p>
     <div class="row">
       <label class="fld">Semana <select id="tarjSel" onchange="renderTarjetas()">${state.weekOrder.map(w=>`<option value="${w}" ${w===d?"selected":""}>${fmtKeyFull(w)}</option>`).join("")}</select></label>
       <label class="fld">Agrupar por <select id="tarjGroupSel" onchange="renderTarjetas()">
@@ -1844,11 +1863,13 @@ function renderTarjetas(){
         <option value="modelmaq" ${groupBy==="modelmaq"?"selected":""}>Modelo de máquina</option>
         <option value="todas" ${groupBy==="todas"?"selected":""}>Todas (sin agrupar)</option>
       </select></label>
+      <label class="fld">Subdividir por <select id="tarjSubSel" onchange="renderTarjetas()">${subOptions}</select></label>
     </div>
     ${html}</div>`;
+  tarjSortTables.forEach(id=>setTimeout(()=>attachSort(id),0));
 }
-function tarjToggle(key){
-  tarjOpen=tarjOpen===key?"":key;
+function tarjToggle(path){
+  tarjOpenPaths.has(path)?tarjOpenPaths.delete(path):tarjOpenPaths.add(path);
   renderTarjetas();
 }
 
