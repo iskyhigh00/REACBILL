@@ -447,7 +447,7 @@ canvas{max-height:320px}
 
 <script>
 /* ===== REACBILL v1.8.19-main ===== */
-const VERSION = "1.8.27-main";
+const VERSION = "1.8.28-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
 const ARCHIVE_KEY = "reacbill_archive_v1";
@@ -1904,7 +1904,7 @@ function renderTarjetas(){
     </div>
     ${tarjSelListHtml()}
     <div class="card">${html}</div>`;
-  tarjSortTables.forEach(id=>setTimeout(()=>attachSort(id),0));
+  tarjSortTables.forEach(id=>setTimeout(()=>{attachSort(id);reapplySort(id);},0));
 }
 function tarjToggle(path){
   tarjOpenPaths.has(path)?tarjOpenPaths.delete(path):tarjOpenPaths.add(path);
