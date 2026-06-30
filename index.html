@@ -431,6 +431,17 @@ canvas{max-height:320px}
   font-size:13px;
 }
 .empty svg,.empty .empty-icon{font-size:32px;opacity:.4;margin-bottom:10px}
+
+/* ── Export bar ── */
+.exportBar{display:flex;gap:8px;padding:6px 0 2px}
+
+/* ── Impresión / PDF: sólo se imprime la pestaña activa, sin controles ── */
+@media print{
+  body *{visibility:hidden}
+  .tab.active, .tab.active *{visibility:visible}
+  .tab.active{position:absolute;left:0;top:0;width:100%}
+  header, nav, .exportBar, button, select, input, .selBtn, .tarjSelBtn{display:none !important}
+}
 </style>
 </head>
 <body>
@@ -442,12 +453,16 @@ canvas{max-height:320px}
   <div id="statsBar"></div>
   <div id="paramsBar"></div>
   <nav id="nav"></nav>
+  <div id="exportBar" class="exportBar">
+    <button class="btn sec sm" onclick="exportActiveTabCopy()">📋 Copiar como tabla</button>
+    <button class="btn sec sm" onclick="exportActiveTabPrint()">🖨️ Exportar / Imprimir PDF</button>
+  </div>
 </header>
 <main id="main"></main>
 
 <script>
 /* ===== REACBILL v1.8.19-main ===== */
-const VERSION = "1.8.31-main";
+const VERSION = "1.8.32-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
 const ARCHIVE_KEY = "reacbill_archive_v1";
@@ -1082,6 +1097,34 @@ function showTab(id){
     intercambios:renderIntercambios,
     denominaciones:renderDenos,buscador:renderBuscador,tarjetas:renderTarjetas,
     lista:renderLista,admin:renderAdmin}[id]||(() => {}))();
+}
+// ---------- Exportar reporte de la pestaña activa (copiar como tabla / imprimir PDF) ----------
+function exportActiveTabPrint(){
+  window.print();
+}
+function exportActiveTabCopy(){
+  const el=document.getElementById("tab-"+activeTab);
+  if(!el){alert("No hay nada que copiar.");return;}
+  const clone=el.cloneNode(true);
+  clone.querySelectorAll("button,select,input,.selBtn,.tarjSelBtn").forEach(n=>n.remove());
+  const tables=clone.querySelectorAll("table");
+  if(!tables.length){alert("Esta pestaña no tiene tablas para copiar.");return;}
+  const html=[...tables].map(t=>t.outerHTML).join("<br>");
+  let text="";
+  tables.forEach(t=>{
+    [...t.querySelectorAll("tr")].forEach(tr=>{
+      text+=[...tr.children].map(c=>c.textContent.trim()).join("\t")+"\n";
+    });
+    text+="\n";
+  });
+  const doCopy=()=>navigator.clipboard.writeText(text).then(()=>alert("Copiado al portapapeles.")).catch(()=>alert("No se pudo copiar."));
+  if(window.ClipboardItem){
+    const item=new ClipboardItem({
+      "text/html":new Blob([html],{type:"text/html"}),
+      "text/plain":new Blob([text],{type:"text/plain"})
+    });
+    navigator.clipboard.write([item]).then(()=>alert("Copiado al portapapeles (como tabla).")).catch(doCopy);
+  }else doCopy();
 }
 function buildShells(){
   document.getElementById("main").innerHTML=TABS.map(([id])=>`<div class="tab" id="tab-${id}"></div>`).join("");
