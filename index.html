@@ -441,7 +441,7 @@ canvas{max-height:320px}
 
 <script>
 /* ===== REACBILL v1.8.19-main ===== */
-const VERSION = "1.8.24-main";
+const VERSION = "1.8.25-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
 const ARCHIVE_KEY = "reacbill_archive_v1";
@@ -2323,11 +2323,11 @@ function selLastCalcRows(){
 }
 function selRows(){
   const pm=selLastCalcRows();
-  return [...selMaquinas].sort(esCollator.compare).map(mda=>{
+  return [...selMaquinas].map(mda=>{
     const ms=state.master[mda]||{}, p=pm[mda];
     return {mda, isla:ms.isla||"—", modelmaq:ms.modelmaq||"—", modelo:ms.modelo||"—",
       pctTxt:(p&&p.pct>0)?fmtP(p.pct):"—", pctRaw:(p&&p.pct>0)?p.pct:null};
-  });
+  }).sort((a,b)=>esCollator.compare(b.isla,a.isla));
 }
 function renderLista(){
   const el=document.getElementById("tab-lista"); if(!el)return;
