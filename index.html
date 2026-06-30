@@ -447,7 +447,7 @@ canvas{max-height:320px}
 
 <script>
 /* ===== REACBILL v1.8.19-main ===== */
-const VERSION = "1.8.28-main";
+const VERSION = "1.8.29-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
 const ARCHIVE_KEY = "reacbill_archive_v1";
@@ -1875,6 +1875,7 @@ function tarjRenderMachTable(rows,path,avg4){
 function renderTarjetas(){
   const el=document.getElementById("tab-tarjetas");
   if(!state.weekOrder.length){el.innerHTML='<div class="card muted">Sin datos.</div>';return;}
+  const scrollY=window.scrollY;
   const selW=document.getElementById("tarjSel")?.value;
   const d=state.weekOrder.includes(selW)?selW:state.weekOrder[state.weekOrder.length-1];
   const c=allCalcs()[d];
@@ -1905,6 +1906,8 @@ function renderTarjetas(){
     ${tarjSelListHtml()}
     <div class="card">${html}</div>`;
   tarjSortTables.forEach(id=>setTimeout(()=>{attachSort(id);reapplySort(id);},0));
+  window.scrollTo(0,scrollY);
+  requestAnimationFrame(()=>window.scrollTo(0,scrollY));
 }
 function tarjToggle(path){
   tarjOpenPaths.has(path)?tarjOpenPaths.delete(path):tarjOpenPaths.add(path);
