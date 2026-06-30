@@ -447,7 +447,7 @@ canvas{max-height:320px}
 
 <script>
 /* ===== REACBILL v1.8.19-main ===== */
-const VERSION = "1.8.29-main";
+const VERSION = "1.8.30-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
 const ARCHIVE_KEY = "reacbill_archive_v1";
@@ -2422,6 +2422,7 @@ function selExportarCSV(){
 // para juntar las máquinas con baja aceptación de tarjeta y exportarlas.
 const TARJSEL_KEY="reacbill_tarjsel_v1";
 let tarjSelMaquinas=new Set();
+let tarjSelExpanded=false;
 function tarjSelLoad(){
   try{ const raw=localStorage.getItem(TARJSEL_KEY); if(raw) tarjSelMaquinas=new Set(JSON.parse(raw)); }catch(e){}
 }
@@ -2443,44 +2444,71 @@ function tarjSelToggle(mda){
   });
   if(activeTab==="tarjetas")renderTarjetas();
 }
+function tarjSelRowData(mda,pm,avg4){
+  const ms=state.master[mda]||{}, m=pm[mda];
+  const tarjAc=m?m.tarjAc||0:0, tarjRe=m?m.tarjRe||0:0;
+  const s4=avg4[mda];
+  const pct4=s4&&(s4.ac+s4.re)>0?s4.ac/(s4.ac+s4.re):null;
+  return {mda, isla:ms.isla||"—", modelmaq:ms.modelmaq||"—", tarjAc, tarjRe,
+    pctTxt:(m&&(tarjAc||tarjRe))?fmtP(m.pctTarj):"—", pctRaw:(m&&(tarjAc||tarjRe))?m.pctTarj:null,
+    pct4Txt:pct4==null?"—":fmtP(pct4), pct4Raw:pct4};
+}
+// Lista completa, ordenada por isla — usada para exportar/copiar (incluye todo).
 function tarjSelRows(){
   if(!state.weekOrder.length)return [];
   const lastD=state.weekOrder[state.weekOrder.length-1];
   const pm={}; for(const m of allCalcs()[lastD].rows) pm[m.mda]=m;
   const avg4=tarjAvg4Sums(lastD);
-  return [...tarjSelMaquinas].map(mda=>{
-    const ms=state.master[mda]||{}, m=pm[mda];
-    const tarjAc=m?m.tarjAc||0:0, tarjRe=m?m.tarjRe||0:0;
-    const s4=avg4[mda];
-    const pct4=s4&&(s4.ac+s4.re)>0?s4.ac/(s4.ac+s4.re):null;
-    return {mda, isla:ms.isla||"—", modelmaq:ms.modelmaq||"—", tarjAc, tarjRe,
-      pctTxt:(m&&(tarjAc||tarjRe))?fmtP(m.pctTarj):"—", pctRaw:(m&&(tarjAc||tarjRe))?m.pctTarj:null,
-      pct4Txt:pct4==null?"—":fmtP(pct4), pct4Raw:pct4};
-  }).sort((a,b)=>esCollator.compare(b.isla,a.isla));
+  return [...tarjSelMaquinas].map(mda=>tarjSelRowData(mda,pm,avg4))
+    .sort((a,b)=>esCollator.compare(b.isla,a.isla));
+}
+// Las últimas N agregadas (orden de inserción, más reciente primero) — para la
+// vista previa desplegable, así no crece sin límite ni desplaza la tabla de abajo.
+function tarjSelRecentRows(n){
+  if(!state.weekOrder.length)return [];
+  const lastD=state.weekOrder[state.weekOrder.length-1];
+  const pm={}; for(const m of allCalcs()[lastD].rows) pm[m.mda]=m;
+  const avg4=tarjAvg4Sums(lastD);
+  return [...tarjSelMaquinas].slice(-n).reverse().map(mda=>tarjSelRowData(mda,pm,avg4));
+}
+function tarjSelToggleExpand(){
+  tarjSelExpanded=!tarjSelExpanded;
+  renderTarjetas();
 }
 function tarjSelListHtml(){
-  const rows=tarjSelRows();
-  if(!rows.length){
+  const total=tarjSelMaquinas.size;
+  if(!total){
     return `<div class="card muted" style="margin-bottom:12px">Rechazo de tarjetas: lista vacía. Agregá máquinas con el botón naranja "+" en la tabla de abajo.</div>`;
   }
-  const body=rows.map(r=>`<tr>
-    <td class="left"><b>${r.mda}</b></td><td class="left">${r.isla}</td>
-    <td class="left">${r.modelmaq}</td><td>${fmtN(r.tarjAc)}</td><td>${fmtN(r.tarjRe)}</td>
-    <td class="${r.pctRaw!=null?pctClass(r.pctRaw):''}">${r.pctTxt}</td>
-    <td class="${r.pct4Raw!=null?pctClass(r.pct4Raw):''}">${r.pct4Txt}</td>
-    <td><button class="btn sm danger" onclick="tarjSelToggle('${r.mda}')">✕</button></td>
-  </tr>`).join("");
-  return `<div class="card" style="margin-bottom:12px"><h2>🚫 Rechazo de tarjetas (${rows.length})</h2>
-    <p class="hint" style="margin-bottom:10px">Agregadas con el botón naranja "+" de esta pestaña. Persiste entre pestañas y recargas, ordenado por isla de mayor a menor.</p>
-    <div class="row" style="margin-bottom:10px">
-      <button class="btn sec sm" onclick="tarjSelCopiar()">📋 Copiar tabla</button>
-      <button class="btn sec sm" onclick="tarjSelExportarCSV()">⬇ Exportar CSV</button>
-      <button class="btn danger sm" onclick="tarjSelVaciar()">✕ Vaciar lista</button>
-    </div>
-    <div class="tblWrap"><table id="tblTarjRechazo">
+  let tableHtml="";
+  if(tarjSelExpanded){
+    const rows=tarjSelRecentRows(3);
+    const body=rows.map(r=>`<tr>
+      <td class="left"><b>${r.mda}</b></td><td class="left">${r.isla}</td>
+      <td class="left">${r.modelmaq}</td><td>${fmtN(r.tarjAc)}</td><td>${fmtN(r.tarjRe)}</td>
+      <td class="${r.pctRaw!=null?pctClass(r.pctRaw):''}">${r.pctTxt}</td>
+      <td class="${r.pct4Raw!=null?pctClass(r.pct4Raw):''}">${r.pct4Txt}</td>
+      <td><button class="btn sm danger" onclick="tarjSelToggle('${r.mda}')">✕</button></td>
+    </tr>`).join("");
+    tableHtml=`<div class="tblWrap"><table id="tblTarjRechazo">
       <thead><tr><th class="left">MDA</th><th class="left">ISLA</th><th class="left">MODELO MÁQUINA</th>
         <th>TARJ. ACEPTADAS</th><th>TARJ. RECHAZADAS</th><th>%ÚLT. SEMANA</th><th>%PROM. 4 SEM.</th><th></th></tr></thead>
-      <tbody>${body}</tbody></table></div></div>`;
+      <tbody>${body}</tbody></table></div>
+      ${total>3?`<p class="hint" style="margin-top:6px">Mostrando las últimas 3 agregadas de ${total}. Copiar/Exportar incluye la lista completa.</p>`:""}`;
+  }
+  return `<div class="card" style="margin-bottom:12px">
+    <div style="display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none" onclick="tarjSelToggleExpand()">
+      <span style="font-size:13px;color:var(--accent)">${tarjSelExpanded?"▼":"▶"}</span>
+      <h2 style="margin:0;border:none;padding:0">🚫 Rechazo de tarjetas (${total})</h2>
+    </div>
+    <p class="hint" style="margin:6px 0 10px">Agregadas con el botón naranja "+" de esta pestaña. Persiste entre pestañas y recargas.</p>
+    <div class="row" style="margin-bottom:10px">
+      <button class="btn sec sm" onclick="event.stopPropagation();tarjSelCopiar()">📋 Copiar tabla (todas)</button>
+      <button class="btn sec sm" onclick="event.stopPropagation();tarjSelExportarCSV()">⬇ Exportar CSV (todas)</button>
+      <button class="btn danger sm" onclick="event.stopPropagation();tarjSelVaciar()">✕ Vaciar lista</button>
+    </div>
+    ${tableHtml}
+  </div>`;
 }
 function tarjSelVaciar(){
   if(!confirm("¿Vaciar la lista de rechazo de tarjetas?"))return;
