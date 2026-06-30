@@ -441,7 +441,7 @@ canvas{max-height:320px}
 
 <script>
 /* ===== REACBILL v1.8.19-main ===== */
-const VERSION = "1.8.22-main";
+const VERSION = "1.8.23-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
 const ARCHIVE_KEY = "reacbill_archive_v1";
@@ -2445,7 +2445,16 @@ function calcSwaps(rows){
     }
   }
   results.sort((a,b)=>b.gain-a.gain);
-  return results.slice(0,50);
+  // selección greedy: cada billetero (A u B) participa en una sola sugerencia,
+  // la de mayor ganancia, para no repetir la misma MDA en varias filas
+  const usedA=new Set(), usedB=new Set(), picked=[];
+  for(const r of results){
+    if(usedA.has(r.mdaA)||usedB.has(r.mdaB))continue;
+    usedA.add(r.mdaA); usedB.add(r.mdaB);
+    picked.push(r);
+    if(picked.length>=50)break;
+  }
+  return picked;
 }
 
 function renderIntercambios(){
