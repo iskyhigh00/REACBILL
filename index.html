@@ -462,7 +462,7 @@ canvas{max-height:320px}
 
 <script>
 /* ===== REACBILL v1.8.19-main ===== */
-const VERSION = "1.8.33-main";
+const VERSION = "1.8.34-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
 const ARCHIVE_KEY = "reacbill_archive_v1";
@@ -1351,7 +1351,7 @@ function renderRanking(){
     const pm=prevMap[m.mda], trend=pm&&pm.total>0?m.pct-pm.pct:null;
     body+=`<tr>
       <td>${i+1}</td><td>${selBtn(m.mda)}</td><td class="left"><b>${m.mda}</b></td><td class="left">${getLoc(m.mda)}</td>
-      <td class="left">${ms.modelo||""}</td><td class="left" style="font-size:10px">${ms.firm||""}</td>
+      <td class="left">${ms.modelo||""}</td><td class="left" style="font-size:10px">${ms.modelmaq||""}</td><td class="left" style="font-size:10px">${ms.firm||""}</td>
       <td class="${pctClass(m.pct)}"><b>${fmtP(m.pct)}</b></td>
       <td>${fmtN(m.total)}</td><td>${fmtN(m.toRe)}</td>
       <td class="${trend==null?'':trend>=0?'up':'down'}">${trend==null?"—":(trend>=0?"+":"")+(trend*100).toFixed(1)+"%"}</td>
@@ -1375,7 +1375,7 @@ function renderRanking(){
     <div class="tblWrap" style="max-height:72vh"><table id="tblRank">
       <thead><tr>
         <th></th><th class="sortable">#</th><th class="left sortable">MDA</th><th class="left sortable">ISLA</th>
-        <th class="left sortable">Modelo</th><th class="left sortable">Firm</th>
+        <th class="left sortable">Modelo</th><th class="left sortable">Modelo máq.</th><th class="left sortable">Firm</th>
         <th class="sortable">%Acep</th><th class="sortable">Total</th><th class="sortable">Rechazos</th>
         <th class="sortable">Δ%</th><th class="sortable">Puntaje</th><th>Gravedad</th>
       </tr></thead><tbody>${body}</tbody></table></div></div>`;
