@@ -462,7 +462,7 @@ canvas{max-height:320px}
 
 <script>
 /* ===== REACBILL v1.8.19-main ===== */
-const VERSION = "1.8.34-main";
+const VERSION = "1.8.35-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
 const ARCHIVE_KEY = "reacbill_archive_v1";
@@ -2425,7 +2425,7 @@ function selRows(){
   const pm=selLastCalcRows();
   return [...selMaquinas].map(mda=>{
     const ms=state.master[mda]||{}, p=pm[mda];
-    return {mda, isla:ms.isla||"—", modelmaq:ms.modelmaq||"—", modelo:ms.modelo||"—",
+    return {mda, isla:ms.isla||"—", modelmaq:ms.modelmaq||"—", modelo:ms.modelo||"—", firm:ms.firm||"—",
       pctTxt:(p&&p.pct>0)?fmtP(p.pct):"—", pctRaw:(p&&p.pct>0)?p.pct:null};
   }).sort((a,b)=>esCollator.compare(b.isla,a.isla));
 }
@@ -2439,6 +2439,7 @@ function renderLista(){
   const body=rows.map(r=>`<tr>
     <td class="left"><b>${r.mda}</b></td><td class="left">${r.isla}</td>
     <td class="left">${r.modelmaq}</td><td class="left">${r.modelo}</td>
+    <td class="left" style="font-size:11px">${r.firm}</td>
     <td class="${r.pctRaw!=null?pctClass(r.pctRaw):''}">${r.pctTxt}</td>
     <td><button class="btn sm danger" onclick="selToggle('${r.mda}')">✕</button></td>
   </tr>`).join("");
@@ -2451,7 +2452,7 @@ function renderLista(){
     </div>
     <div class="tblWrap"><table id="tblSelLista">
       <thead><tr><th class="left">MDA</th><th class="left">ISLA</th><th class="left">MODELO MÁQUINA</th>
-        <th class="left">MODELO BILLETERO</th><th>ÚLTIMO %</th><th></th></tr></thead>
+        <th class="left">MODELO BILLETERO</th><th class="left">FIRMWARE</th><th>ÚLTIMO %</th><th></th></tr></thead>
       <tbody>${body}</tbody></table></div></div>`;
 }
 function selVaciar(){
@@ -2459,8 +2460,8 @@ function selVaciar(){
   selMaquinas.clear(); selSave(); updateSelBadge(); renderLista();
 }
 function selToText(){
-  let txt="MDA\tISLA\tMODELO MÁQUINA\tMODELO BILLETERO\tÚLTIMO %\n";
-  for(const r of selRows()) txt+=`${r.mda}\t${r.isla}\t${r.modelmaq}\t${r.modelo}\t${r.pctTxt}\n`;
+  let txt="MDA\tISLA\tMODELO MÁQUINA\tMODELO BILLETERO\tFIRMWARE\tÚLTIMO %\n";
+  for(const r of selRows()) txt+=`${r.mda}\t${r.isla}\t${r.modelmaq}\t${r.modelo}\t${r.firm}\t${r.pctTxt}\n`;
   return txt;
 }
 function selCopiar(){
@@ -2469,8 +2470,8 @@ function selCopiar(){
     .catch(()=>alert("No se pudo copiar."));
 }
 function selExportarCSV(){
-  let csv="MDA;ISLA;MODELO MAQUINA;MODELO BILLETERO;ULTIMO %\n";
-  for(const r of selRows()) csv+=`${r.mda};${r.isla};${r.modelmaq};${r.modelo};${r.pctTxt}\n`;
+  let csv="MDA;ISLA;MODELO MAQUINA;MODELO BILLETERO;FIRMWARE;ULTIMO %\n";
+  for(const r of selRows()) csv+=`${r.mda};${r.isla};${r.modelmaq};${r.modelo};${r.firm};${r.pctTxt}\n`;
   const blob=new Blob([csv],{type:"text/csv"});
   const a=document.createElement("a");
   a.href=URL.createObjectURL(blob);
