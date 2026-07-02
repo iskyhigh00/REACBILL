@@ -462,7 +462,7 @@ canvas{max-height:320px}
 
 <script>
 /* ===== REACBILL v1.8.19-main ===== */
-const VERSION = "1.8.32-main";
+const VERSION = "1.8.33-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
 const ARCHIVE_KEY = "reacbill_archive_v1";
@@ -1338,10 +1338,13 @@ function renderRanking(){
   if(!state.weekOrder.length){el.innerHTML='<div class="card muted">Sin datos.</div>';return;}
   const p=state.params, calcs=allCalcs();
   const sel=document.getElementById("rankSel")?.value;
+  const modeloFil=document.getElementById("rankModeloSel")?.value||"todas";
   const d=state.weekOrder.includes(sel)?sel:state.weekOrder[state.weekOrder.length-1];
   const prevD=state.weekOrder[state.weekOrder.indexOf(d)-1];
   const prevMap={}; if(prevD) for(const m of calcs[prevD].rows) prevMap[m.mda]=m;
-  const rows=calcs[d].rows.filter(m=>m.score>0).sort((a,b)=>b.score-a.score);
+  let rows=calcs[d].rows.filter(m=>m.score>0);
+  if(modeloFil!=="todas") rows=rows.filter(m=>(state.master[m.mda]?.modelo||"").toLowerCase()===modeloFil);
+  rows=rows.sort((a,b)=>b.score-a.score);
   let body="";
   rows.forEach((m,i)=>{
     const ms=state.master[m.mda]||{}, sc=sevClass(m.score,p);
@@ -1358,6 +1361,11 @@ function renderRanking(){
   el.innerHTML=`<div class="card"><h2>Ranking de gravedad</h2>
     <div class="row">
       <label class="fld">Semana <select id="rankSel" onchange="renderRanking()">${state.weekOrder.map(w=>`<option value="${w}" ${w===d?"selected":""}>${fmtKeyFull(w)}</option>`).join("")}</select></label>
+      <label class="fld">Modelo <select id="rankModeloSel" onchange="renderRanking()">
+        <option value="todas" ${modeloFil==="todas"?"selected":""}>Todas</option>
+        <option value="advance" ${modeloFil==="advance"?"selected":""}>Advance</option>
+        <option value="cashflow" ${modeloFil==="cashflow"?"selected":""}>Cashflow</option>
+      </select></label>
       <div class="kpis">
         <div class="kpi"><div class="v" style="color:var(--crit)">${cnt.cr}</div><div class="l">Urgentes</div></div>
         <div class="kpi"><div class="v" style="color:var(--high)">${cnt.hi}</div><div class="l">Altas</div></div>
@@ -1371,7 +1379,7 @@ function renderRanking(){
         <th class="sortable">%Acep</th><th class="sortable">Total</th><th class="sortable">Rechazos</th>
         <th class="sortable">Δ%</th><th class="sortable">Puntaje</th><th>Gravedad</th>
       </tr></thead><tbody>${body}</tbody></table></div></div>`;
-  attachSort("tblRank");
+  attachSort("tblRank"); reapplySort("tblRank");
 }
 
 // ---------- Sectores ----------
