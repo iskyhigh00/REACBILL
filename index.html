@@ -462,7 +462,7 @@ canvas{max-height:320px}
 
 <script>
 /* ===== REACBILL v1.8.19-main ===== */
-const VERSION = "1.8.35-main";
+const VERSION = "1.8.36-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
 const ARCHIVE_KEY = "reacbill_archive_v1";
@@ -1994,6 +1994,8 @@ function renderAdmin(){
   el.innerHTML=`
   <div class="card" id="levCard"></div>
 
+  <div class="card" id="bulkEditCard"></div>
+
   <div class="card"><h2>Parámetros de gravedad</h2>
     <p class="hint" style="margin-bottom:12px">
       La <b>fórmula de gravedad</b> cuantifica cuánto afecta un billetero al negocio:<br>
@@ -2080,8 +2082,49 @@ function renderAdmin(){
     <div class="row"><button class="btn sec sm" onclick="intExportarArchivo()">⬇ Exportar archivo JSON</button></div>
   </div>`;
   renderLevTable();
+  renderBulkEditCard();
   machEditAllMdas=allMdas;
   renderMachEditorRows();
+}
+// ---------- Edición masiva por fabricante ----------
+function renderBulkEditCard(){
+  const card=document.getElementById("bulkEditCard"); if(!card)return;
+  const firms=[...new Set(Object.values(state.master).map(m=>m.firm||"").filter(Boolean))].sort();
+  const selFirm=document.getElementById("bulkFirmSel")?.value||firms[0]||"";
+  const selModelo=document.getElementById("bulkModeloSel")?.value||"Advance";
+  const count=Object.values(state.master).filter(m=>(m.firm||"")=== selFirm).length;
+  const firmOpts=firms.map(f=>`<option value="${f}" ${f===selFirm?"selected":""}>${f}</option>`).join("");
+  card.innerHTML=`<h2>Corrección masiva por fabricante</h2>
+    <p class="hint" style="margin-bottom:12px">Asigna el modelo de billetero a <b>todas</b> las máquinas de un fabricante de una sola vez. Útil para corregir errores de importación.</p>
+    <div class="row" style="align-items:flex-end;gap:12px;flex-wrap:wrap">
+      <label class="fld">Fabricante (Firm)
+        <select id="bulkFirmSel" onchange="renderBulkEditCard()"><option value="">— elegir —</option>${firmOpts}</select>
+      </label>
+      <label class="fld">Modelo billetero
+        <select id="bulkModeloSel" onchange="renderBulkEditCard()">
+          <option value="Advance" ${selModelo==="Advance"?"selected":""}>Advance</option>
+          <option value="Cashflow" ${selModelo==="Cashflow"?"selected":""}>Cashflow</option>
+          <option value="" ${selModelo===""?"selected":""}>— vaciar —</option>
+        </select>
+      </label>
+      <button class="btn" style="background:var(--accent)" onclick="bulkEditApply()" ${!selFirm?"disabled":""}>
+        Aplicar a ${count} máquina${count!==1?"s":""}
+      </button>
+    </div>
+    <p id="bulkMsg" class="hint" style="margin-top:8px"></p>`;
+}
+function bulkEditApply(){
+  const firm=document.getElementById("bulkFirmSel")?.value;
+  const modelo=document.getElementById("bulkModeloSel")?.value;
+  if(!firm)return;
+  let cnt=0;
+  for(const ms of Object.values(state.master)){
+    if((ms.firm||"")===firm){ ms.modelo=modelo; ms.modeloFuente="manual"; cnt++; }
+  }
+  invalidate(); saveState();
+  const msg=document.getElementById("bulkMsg");
+  if(msg){ msg.textContent=`✓ ${cnt} máquinas actualizadas a "${modelo||"(vacío)"}" (fabricante: ${firm}).`; }
+  renderBulkEditCard();
 }
 // Reconstruye sólo la tarjeta de Levantamiento (acotada a la isla elegida),
 // sin tocar el Editor de máquinas completo — evita reconstruir miles de
