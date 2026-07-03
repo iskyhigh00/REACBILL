@@ -462,7 +462,7 @@ canvas{max-height:320px}
 
 <script>
 /* ===== REACBILL v1.8.19-main ===== */
-const VERSION = "1.8.36-main";
+const VERSION = "1.8.37-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
 const ARCHIVE_KEY = "reacbill_archive_v1";
@@ -2086,44 +2086,60 @@ function renderAdmin(){
   machEditAllMdas=allMdas;
   renderMachEditorRows();
 }
-// ---------- Edición masiva por fabricante ----------
+// ---------- Edición masiva por fabricante / modelo de máquina ----------
 function renderBulkEditCard(){
   const card=document.getElementById("bulkEditCard"); if(!card)return;
-  const firms=[...new Set(Object.values(state.master).map(m=>m.firm||"").filter(Boolean))].sort();
-  const selFirm=document.getElementById("bulkFirmSel")?.value||firms[0]||"";
+  const fabs=[...new Set(Object.values(state.master).map(m=>m.fabricante||"").filter(Boolean))].sort();
+  const selFab=document.getElementById("bulkFabSel")?.value||"";
+  const modsForFab=selFab
+    ?[...new Set(Object.values(state.master).filter(m=>(m.fabricante||"")===selFab).map(m=>m.modelmaq||"").filter(Boolean))].sort()
+    :[];
+  const selMod=document.getElementById("bulkModmaqSel")?.value||"";
   const selModelo=document.getElementById("bulkModeloSel")?.value||"Advance";
-  const count=Object.values(state.master).filter(m=>(m.firm||"")=== selFirm).length;
-  const firmOpts=firms.map(f=>`<option value="${f}" ${f===selFirm?"selected":""}>${f}</option>`).join("");
-  card.innerHTML=`<h2>Corrección masiva por fabricante</h2>
-    <p class="hint" style="margin-bottom:12px">Asigna el modelo de billetero a <b>todas</b> las máquinas de un fabricante de una sola vez. Útil para corregir errores de importación.</p>
+  const count=Object.values(state.master).filter(m=>{
+    if((m.fabricante||"")!==selFab)return false;
+    if(selMod&&(m.modelmaq||"")!==selMod)return false;
+    return true;
+  }).length;
+  const fabOpts=fabs.map(f=>`<option value="${f}" ${f===selFab?"selected":""}>${f}</option>`).join("");
+  const modOpts=`<option value="">Todos los modelos (${modsForFab.length})</option>`
+    +modsForFab.map(m=>`<option value="${m}" ${m===selMod?"selected":""}>${m}</option>`).join("");
+  card.innerHTML=`<h2>Corrección masiva de modelo billetero</h2>
+    <p class="hint" style="margin-bottom:12px">Filtrá por fabricante y opcionalmente por modelo de máquina; luego asignale el modelo de billetero a todas las coincidencias de una vez.</p>
     <div class="row" style="align-items:flex-end;gap:12px;flex-wrap:wrap">
-      <label class="fld">Fabricante (Firm)
-        <select id="bulkFirmSel" onchange="renderBulkEditCard()"><option value="">— elegir —</option>${firmOpts}</select>
+      <label class="fld">Fabricante
+        <select id="bulkFabSel" onchange="renderBulkEditCard()"><option value="">— elegir —</option>${fabOpts}</select>
       </label>
-      <label class="fld">Modelo billetero
+      <label class="fld">Modelo de máquina
+        <select id="bulkModmaqSel" onchange="renderBulkEditCard()" ${!selFab?"disabled":""}>${modOpts}</select>
+      </label>
+      <label class="fld">Modelo billetero a asignar
         <select id="bulkModeloSel" onchange="renderBulkEditCard()">
           <option value="Advance" ${selModelo==="Advance"?"selected":""}>Advance</option>
           <option value="Cashflow" ${selModelo==="Cashflow"?"selected":""}>Cashflow</option>
           <option value="" ${selModelo===""?"selected":""}>— vaciar —</option>
         </select>
       </label>
-      <button class="btn" style="background:var(--accent)" onclick="bulkEditApply()" ${!selFirm?"disabled":""}>
+      <button class="btn" style="background:var(--accent);align-self:flex-end" onclick="bulkEditApply()" ${!selFab?"disabled":""}>
         Aplicar a ${count} máquina${count!==1?"s":""}
       </button>
     </div>
     <p id="bulkMsg" class="hint" style="margin-top:8px"></p>`;
 }
 function bulkEditApply(){
-  const firm=document.getElementById("bulkFirmSel")?.value;
+  const fab=document.getElementById("bulkFabSel")?.value;
+  const modmaq=document.getElementById("bulkModmaqSel")?.value||"";
   const modelo=document.getElementById("bulkModeloSel")?.value;
-  if(!firm)return;
+  if(!fab)return;
   let cnt=0;
   for(const ms of Object.values(state.master)){
-    if((ms.firm||"")===firm){ ms.modelo=modelo; ms.modeloFuente="manual"; cnt++; }
+    if((ms.fabricante||"")!==fab)continue;
+    if(modmaq&&(ms.modelmaq||"")!==modmaq)continue;
+    ms.modelo=modelo; ms.modeloFuente="manual"; cnt++;
   }
   invalidate(); saveState();
   const msg=document.getElementById("bulkMsg");
-  if(msg){ msg.textContent=`✓ ${cnt} máquinas actualizadas a "${modelo||"(vacío)"}" (fabricante: ${firm}).`; }
+  if(msg){ msg.textContent=`✓ ${cnt} máquina${cnt!==1?"s":""} actualizada${cnt!==1?"s":""} a "${modelo||"(vacío)"}" (${fab}${modmaq?" › "+modmaq:""}).`; }
   renderBulkEditCard();
 }
 // Reconstruye sólo la tarjeta de Levantamiento (acotada a la isla elegida),
