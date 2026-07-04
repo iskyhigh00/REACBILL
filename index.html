@@ -462,7 +462,7 @@ canvas{max-height:320px}
 
 <script>
 /* ===== REACBILL v1.8.19-main ===== */
-const VERSION = "1.8.37-main";
+const VERSION = "1.8.38-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
 const ARCHIVE_KEY = "reacbill_archive_v1";
@@ -1499,6 +1499,7 @@ function renderSectores(){
     <input type="hidden" id="secSel" value="${selSector}">
     <input type="hidden" id="secIslaSel" value="${selIsla}">
   </div>${sectorDetail}`;
+  if(!sortStates["tblSecIslas"]) sortStates["tblSecIslas"]={col:2,dir:1};
   attachSort("tblSecIslas");
   if(selIsla){
     // el sort por columna reordena las filas "ordenables" y deja la fila de detalle (no-sort) flotando;
