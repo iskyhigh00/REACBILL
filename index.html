@@ -462,7 +462,7 @@ canvas{max-height:320px}
 
 <script>
 /* ===== REACBILL v1.8.19-main ===== */
-const VERSION = "1.8.39-main";
+const VERSION = "1.8.40-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
 const ARCHIVE_KEY = "reacbill_archive_v1";
@@ -2103,6 +2103,9 @@ function renderBulkEditCard(){
   const selMod=document.getElementById("bulkModmaqSel")?.value||"";
   const selModelo=document.getElementById("bulkModeloSel")?.value;
   const selModeloVal=selModelo!=null?selModelo:"Advance";
+  const chkModelo=document.getElementById("bulkChkModelo")?.checked!==false;
+  const chkFirm=document.getElementById("bulkChkFirm")?.checked||false;
+  const firmVal=document.getElementById("bulkFirmVal")?.value??"";
   const hasFilter=selSec||selFab;
   const count=Object.values(state.master).filter(m=>{
     if(selSec&&islaSector(m.isla||"")!==selSec)return false;
@@ -2114,8 +2117,8 @@ function renderBulkEditCard(){
   const fabOpts=fabs.map(f=>`<option value="${f}" ${f===selFab?"selected":""}>${f}</option>`).join("");
   const modOpts=`<option value="">Todos los modelos (${modsFiltered.length})</option>`
     +modsFiltered.map(m=>`<option value="${m}" ${m===selMod?"selected":""}>${m}</option>`).join("");
-  card.innerHTML=`<h2>Corrección masiva de modelo billetero</h2>
-    <p class="hint" style="margin-bottom:12px">Filtrá por sector, fabricante y/o modelo de máquina (al menos uno), luego asignale el modelo de billetero a todas las coincidencias de una vez.</p>
+  card.innerHTML=`<h2>Corrección masiva de modelo billetero / firmware</h2>
+    <p class="hint" style="margin-bottom:12px">Filtrá por sector, fabricante y/o modelo de máquina (al menos uno), elegí qué campo(s) actualizar y aplicá a todas las coincidencias de una vez.</p>
     <div class="row" style="align-items:flex-end;gap:12px;flex-wrap:wrap">
       <label class="fld">Sector
         <select id="bulkSecSel" onchange="renderBulkEditCard()"><option value="">— todos —</option>${secOpts}</select>
@@ -2126,14 +2129,27 @@ function renderBulkEditCard(){
       <label class="fld">Modelo de máquina
         <select id="bulkModmaqSel" onchange="renderBulkEditCard()">${modOpts}</select>
       </label>
-      <label class="fld">Modelo billetero a asignar
-        <select id="bulkModeloSel" onchange="renderBulkEditCard()">
-          <option value="Advance" ${selModeloVal==="Advance"?"selected":""}>Advance</option>
-          <option value="Cashflow" ${selModeloVal==="Cashflow"?"selected":""}>Cashflow</option>
-          <option value="" ${selModeloVal===""?"selected":""}>— desconocido —</option>
-        </select>
+    </div>
+    <div class="row" style="align-items:center;gap:12px;flex-wrap:wrap;margin-top:14px">
+      <label class="fld" style="flex-direction:row;align-items:center;gap:6px">
+        <input type="checkbox" id="bulkChkModelo" ${chkModelo?"checked":""} onchange="renderBulkEditCard()">
+        Modelo billetero
       </label>
-      <button class="btn" style="background:var(--accent);align-self:flex-end" onclick="bulkEditApply()" ${!hasFilter?"disabled":""}>
+      <select id="bulkModeloSel" onchange="renderBulkEditCard()" ${!chkModelo?"disabled":""}>
+        <option value="Advance" ${selModeloVal==="Advance"?"selected":""}>Advance</option>
+        <option value="Cashflow" ${selModeloVal==="Cashflow"?"selected":""}>Cashflow</option>
+        <option value="" ${selModeloVal===""?"selected":""}>— desconocido —</option>
+      </select>
+    </div>
+    <div class="row" style="align-items:center;gap:12px;flex-wrap:wrap;margin-top:8px">
+      <label class="fld" style="flex-direction:row;align-items:center;gap:6px">
+        <input type="checkbox" id="bulkChkFirm" ${chkFirm?"checked":""} onchange="renderBulkEditCard()">
+        Firmware
+      </label>
+      <input type="text" id="bulkFirmVal" value="${firmVal}" placeholder="Ej: 403" ${!chkFirm?"disabled":""} style="width:140px">
+    </div>
+    <div class="row" style="margin-top:14px">
+      <button class="btn" style="background:var(--accent)" onclick="bulkEditApply()" ${!hasFilter||(!chkModelo&&!chkFirm)?"disabled":""}>
         Aplicar a ${count} máquina${count!==1?"s":""}
       </button>
     </div>
@@ -2143,19 +2159,25 @@ function bulkEditApply(){
   const sec=document.getElementById("bulkSecSel")?.value||"";
   const fab=document.getElementById("bulkFabSel")?.value||"";
   const modmaq=document.getElementById("bulkModmaqSel")?.value||"";
+  const chkModelo=document.getElementById("bulkChkModelo")?.checked||false;
+  const chkFirm=document.getElementById("bulkChkFirm")?.checked||false;
   const modelo=document.getElementById("bulkModeloSel")?.value;
-  if(!sec&&!fab)return;
+  const firmVal=(document.getElementById("bulkFirmVal")?.value||"").trim();
+  if((!sec&&!fab)||(!chkModelo&&!chkFirm))return;
   let cnt=0;
   for(const ms of Object.values(state.master)){
     if(sec&&islaSector(ms.isla||"")!==sec)continue;
     if(fab&&(ms.fabricante||"")!==fab)continue;
     if(modmaq&&(ms.modelmaq||"")!==modmaq)continue;
-    ms.modelo=modelo; ms.modeloFuente="manual"; cnt++;
+    if(chkModelo){ ms.modelo=modelo; ms.modeloFuente="manual"; }
+    if(chkFirm){ ms.firm=firmVal; }
+    cnt++;
   }
   invalidate(); saveState();
   const parts=[sec?"Sector "+sec:"",fab,modmaq].filter(Boolean).join(" › ");
+  const changed=[chkModelo?`modelo="${modelo||"(desconocido)"}"`:"",chkFirm?`firmware="${firmVal||"(vacío)"}"`:""].filter(Boolean).join(", ");
   const msg=document.getElementById("bulkMsg");
-  if(msg){ msg.textContent=`✓ ${cnt} máquina${cnt!==1?"s":""} actualizada${cnt!==1?"s":""} a "${modelo||"(desconocido)"}" (${parts}).`; }
+  if(msg){ msg.textContent=`✓ ${cnt} máquina${cnt!==1?"s":""} actualizada${cnt!==1?"s":""}: ${changed} (${parts}).`; }
   renderBulkEditCard();
 }
 // Reconstruye sólo la tarjeta de Levantamiento (acotada a la isla elegida),
