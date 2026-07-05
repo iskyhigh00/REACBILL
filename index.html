@@ -462,7 +462,7 @@ canvas{max-height:320px}
 
 <script>
 /* ===== REACBILL v1.8.19-main ===== */
-const VERSION = "1.9.1-main";
+const VERSION = "1.9.2-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
 const ARCHIVE_KEY = "reacbill_archive_v1";
@@ -1388,14 +1388,16 @@ function renderSectores(){
   if(!state.weekOrder.length){el.innerHTML='<div class="card muted">Sin datos.</div>';return;}
   const selSector=document.getElementById("secSel")?.value||"";
   const selIsla=document.getElementById("secIslaSel")?.value||"";
+  const selModelo=document.getElementById("secModSel")?.value||"";
   const calcs=allCalcs();
   const lastD=state.weekOrder[state.weekOrder.length-1];
   const lastC=calcs[lastD];
-  // agrupar por sector → isla_prefix → máquinas
+  // agrupar por sector → isla_prefix → máquinas (filtrando por modelo de billetero si corresponde)
   const sectorMap={};
   for(const [mda,ms] of Object.entries(state.master)){
     const isla=ms.isla||"";
     if(!isla)continue;
+    if(selModelo&&(ms.modelo||"")!==selModelo)continue;
     const prefix=islaPrefix(isla);
     const sector=islaSector(isla);
     if(!sectorMap[sector])sectorMap[sector]={};
@@ -1437,6 +1439,7 @@ function renderSectores(){
       const trend=prev&&prev.pct>0?st.pct-prev.pct:null;
       const active=prefix===selIsla?"background:var(--accent);color:#fff;font-weight:700":"";
       islaRows+=`<tr data-isla="${prefix}" style="cursor:pointer;${active}" onclick="secSelIsla('${prefix}')">
+        <td onclick="event.stopPropagation()"><button class="selBtn" onclick="secAddIsla('${prefix}')" title="Agregar todas las máquinas de esta isla a la lista">+</button></td>
         <td class="left"><b>${prefix}</b></td>
         <td>${mdas.length}</td>
         <td class="${pctClass(st.pct)}">${fmtP(st.pct)}</td>
@@ -1476,14 +1479,16 @@ function renderSectores(){
             ${hist}</div>`;
         }
         const islaS=islaStats(mdas,lastC);
-        islaRows+=`<tr class="no-sort"><td colspan="7" style="padding:10px;background:var(--bg2,#0d1626)">
+        islaRows+=`<tr class="no-sort"><td colspan="8" style="padding:10px;background:var(--bg2,#0d1626)">
           <div style="font-size:13px;font-weight:600;margin-bottom:8px">Isla ${selIsla} — ${mdas.length} máquinas · ${fmtP(islaS.pct)} prom. · ${islaS.alerts} alertas</div>
           <div style="overflow-x:auto">${machGrid}</div></td></tr>`;
       }
     }
     sectorDetail=`<div class="card"><h2>Sector ${selSector} — islas</h2>
+      <p id="secAddMsg" class="hint" style="min-height:16px"></p>
       <div class="tblWrap" style="overflow-y:visible"><table id="tblSecIslas">
         <thead><tr>
+          <th></th>
           <th class="left sortable" title="Código de isla (3 dígitos)">ISLA</th>
           <th class="sortable" title="Número de máquinas en la isla">Máq.</th>
           <th class="sortable" title="Promedio de % de aceptación de billetes en la última semana">% prom.</th>
@@ -1495,6 +1500,13 @@ function renderSectores(){
   }
   el.innerHTML=`<div class="card"><h2>Vista por sectores</h2>
     <div class="hint" style="margin-bottom:10px">Sector = primer dígito de la ISLA (ej: sector 6 = islas 6xx). Semana analizada: <b>${fmtKeyFull(lastD)}</b></div>
+    <div class="row" style="margin-bottom:10px">
+      <label class="fld">Modelo billetero <select id="secModSel" onchange="renderSectores()">
+        <option value="" ${selModelo===""?"selected":""}>Todas</option>
+        <option value="Advance" ${selModelo==="Advance"?"selected":""}>Advance</option>
+        <option value="Cashflow" ${selModelo==="Cashflow"?"selected":""}>Cashflow</option>
+      </select></label>
+    </div>
     ${sectorCards}
     <input type="hidden" id="secSel" value="${selSector}">
     <input type="hidden" id="secIslaSel" value="${selIsla}">
@@ -1516,6 +1528,19 @@ function renderSectores(){
 }
 function secSelSector(s){ document.getElementById("secSel").value=s; document.getElementById("secIslaSel").value=""; renderSectores(); }
 function secSelIsla(p){ const el=document.getElementById("secIslaSel"); el.value=(el.value===p)?"":p; renderSectores(); }
+function secAddIsla(prefix){
+  const selModelo=document.getElementById("secModSel")?.value||"";
+  let n=0;
+  for(const [mda,ms] of Object.entries(state.master)){
+    if(islaPrefix(ms.isla||"")!==prefix)continue;
+    if(selModelo&&(ms.modelo||"")!==selModelo)continue;
+    if(!selMaquinas.has(mda)){ selMaquinas.add(mda); n++; }
+  }
+  selSave(); updateSelBadge();
+  if(activeTab==="lista")renderLista();
+  const msg=document.getElementById("secAddMsg");
+  if(msg){ msg.textContent=`✓ ${n} máquina${n!==1?"s":""} de la isla ${prefix} agregada${n!==1?"s":""} a la lista.`; setTimeout(()=>{if(msg)msg.textContent="";},2500); }
+}
 
 // ---------- Tendencias ----------
 let chTrend=null,chVol=null,chAl=null;
