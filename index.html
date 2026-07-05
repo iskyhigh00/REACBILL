@@ -462,7 +462,7 @@ canvas{max-height:320px}
 
 <script>
 /* ===== REACBILL v1.8.19-main ===== */
-const VERSION = "1.9.2-main";
+const VERSION = "1.9.3-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
 const ARCHIVE_KEY = "reacbill_archive_v1";
@@ -1383,6 +1383,15 @@ function renderRanking(){
 }
 
 // ---------- Sectores ----------
+let secSummaryData=[], secSummaryDate="";
+function secCopiarResumen(){
+  let txt=`Vista por sectores — semana ${secSummaryDate}\n`;
+  txt+="SECTOR\t% PROM.\tISLAS\tMÁQUINAS\tALERTAS\n";
+  for(const s of secSummaryData) txt+=`${s.sector}\t${fmtP(s.pct)}\t${s.islas}\t${s.maq}\t${s.alertas}\n`;
+  navigator.clipboard.writeText(txt)
+    .then(()=>alert("Copiado al portapapeles."))
+    .catch(()=>alert("No se pudo copiar."));
+}
 function renderSectores(){
   const el=document.getElementById("tab-sectores");
   if(!state.weekOrder.length){el.innerHTML='<div class="card muted">Sin datos.</div>';return;}
@@ -1413,12 +1422,14 @@ function renderSectores(){
     return { pct:totAll>0?totAc/totAll:0, tot:totAll, alerts:rows.filter(m=>m.score>0).length, n:rows.length };
   }
   // cards de sectores
+  secSummaryData=[]; secSummaryDate=fmtKeyFull(lastD);
   let sectorCards=`<div class="grid3" style="margin-bottom:12px">`;
   for(const sec of sectors){
     const allMdas=Object.values(sectorMap[sec]).flat();
     const st=islaStats(allMdas,lastC);
     const cls=pctClass(st.pct);
     const active=sec===selSector?"border:2px solid var(--accent)":"";
+    secSummaryData.push({sector:sec, pct:st.pct, islas:Object.keys(sectorMap[sec]).length, maq:allMdas.length, alertas:st.alerts});
     sectorCards+=`<div class="sector-card" onclick="secSelSector('${sec}')" style="${active}">
       <div class="sc-num" style="${cls?`color:${cls==='c-ok'?'var(--ok)':cls==='c-mid'?'var(--mid)':cls==='c-hi'?'var(--high)':'var(--crit)'}`:''}">${sec}</div>
       <div style="font-size:14px;font-weight:600;margin:2px 0">${fmtP(st.pct)}</div>
@@ -1500,12 +1511,13 @@ function renderSectores(){
   }
   el.innerHTML=`<div class="card"><h2>Vista por sectores</h2>
     <div class="hint" style="margin-bottom:10px">Sector = primer dígito de la ISLA (ej: sector 6 = islas 6xx). Semana analizada: <b>${fmtKeyFull(lastD)}</b></div>
-    <div class="row" style="margin-bottom:10px">
+    <div class="row" style="margin-bottom:10px;align-items:flex-end">
       <label class="fld">Modelo billetero <select id="secModSel" onchange="renderSectores()">
         <option value="" ${selModelo===""?"selected":""}>Todas</option>
         <option value="Advance" ${selModelo==="Advance"?"selected":""}>Advance</option>
         <option value="Cashflow" ${selModelo==="Cashflow"?"selected":""}>Cashflow</option>
       </select></label>
+      <button class="btn sec sm" onclick="secCopiarResumen()">📋 Copiar resumen de sectores</button>
     </div>
     ${sectorCards}
     <input type="hidden" id="secSel" value="${selSector}">
