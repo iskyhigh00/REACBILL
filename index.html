@@ -292,11 +292,11 @@ button.btn.sm{padding:4px 10px;font-size:11px}
 .selBtn.on{background:#2ecc71;color:#04210f}
 .selBadge{background:#2ecc71;color:#04210f;border-radius:10px;padding:0 6px;font-size:10px;font-weight:700;margin-left:4px}
 .tarjSelBtn{
-  width:20px;height:20px;min-width:20px;border-radius:50%;border:1px solid #e67e22;
-  background:transparent;color:#e67e22;cursor:pointer;font-size:12px;line-height:1;
+  width:20px;height:20px;min-width:20px;border-radius:50%;border:1px solid var(--tsc,#e67e22);
+  background:transparent;color:var(--tsc,#e67e22);cursor:pointer;font-size:12px;line-height:1;
   padding:0;display:inline-flex;align-items:center;justify-content:center;font-weight:700;
 }
-.tarjSelBtn.on{background:#e67e22;color:#2b1400}
+.tarjSelBtn.on{background:var(--tsc,#e67e22);color:#1a1200}
 
 /* ── Layout ── */
 .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px}
@@ -462,7 +462,7 @@ canvas{max-height:320px}
 
 <script>
 /* ===== REACBILL v1.8.19-main ===== */
-const VERSION = "1.9.3-main";
+const VERSION = "1.9.4-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
 const ARCHIVE_KEY = "reacbill_archive_v1";
@@ -1953,8 +1953,9 @@ function tarjRenderMachTable(rows,path,avg4){
     const s4=avg4[m.mda];
     const pct4=s4&&(s4.ac+s4.re)>0?s4.ac/(s4.ac+s4.re):null;
     body+=`<tr style="border-bottom:1px solid var(--border)">
-      <td style="padding:3px 8px">${selBtn(m.mda)}</td>
-      <td style="padding:3px 8px">${tarjSelBtnHtml(m.mda)}</td>
+      <td style="padding:3px 8px">${tarjListBtnHtml("rechazo",m.mda)}</td>
+      <td style="padding:3px 8px">${tarjListBtnHtml("b",m.mda)}</td>
+      <td style="padding:3px 8px">${tarjListBtnHtml("c",m.mda)}</td>
       <td style="padding:3px 8px;font-weight:700">${m.mda}</td>
       <td style="padding:3px 8px;color:var(--muted)">${ms.isla||"—"}</td>
       <td style="padding:3px 8px;color:var(--muted)">${ms.modelmaq||"—"}</td>
@@ -1967,7 +1968,7 @@ function tarjRenderMachTable(rows,path,avg4){
   const tblId="tblTarj_"+(path||"root").replace(/[^a-zA-Z0-9]/g,"_")+"_"+tarjSortTables.length;
   tarjSortTables.push(tblId);
   return `<div style="margin-top:8px;overflow-x:auto"><table id="${tblId}" style="width:100%;font-size:12px;border-collapse:collapse">
-    <thead><tr><th></th><th></th><th class="left sortable">MDA</th><th class="left sortable">ISLA</th><th class="left sortable">Modelo máq.</th>
+    <thead><tr><th></th><th></th><th></th><th class="left sortable">MDA</th><th class="left sortable">ISLA</th><th class="left sortable">Modelo máq.</th>
       <th class="sortable">Tarj. Ac</th><th class="sortable">Tarj. Re</th><th class="sortable">% últ. sem.</th><th class="sortable">% prom. 4 sem.</th></tr></thead>
     <tbody>${body}</tbody></table></div>`;
 }
@@ -2002,7 +2003,7 @@ function renderTarjetas(){
       <label class="fld">Subdividir por <select id="tarjSubSel" onchange="renderTarjetas()">${subOptions}</select></label>
     </div>
     </div>
-    ${tarjSelListHtml()}
+    ${tarjListHtml("rechazo")}${tarjListHtml("b")}${tarjListHtml("c")}
     <div class="card">${html}</div>`;
   tarjSortTables.forEach(id=>setTimeout(()=>{attachSort(id);reapplySort(id);},0));
   window.scrollTo(0,scrollY);
@@ -2613,34 +2614,40 @@ function selExportarCSV(){
   a.click();
 }
 
-// ---------- Lista de rechazo de tarjetas (sólo dentro de la pestaña Tarjetas) ----------
-// Botón "+" propio de la pestaña Tarjetas (independiente de la lista general),
-// para juntar las máquinas con baja aceptación de tarjeta y exportarlas.
-const TARJSEL_KEY="reacbill_tarjsel_v1";
-let tarjSelMaquinas=new Set();
-let tarjSelExpanded=false;
-function tarjSelLoad(){
-  try{ const raw=localStorage.getItem(TARJSEL_KEY); if(raw) tarjSelMaquinas=new Set(JSON.parse(raw)); }catch(e){}
+// ---------- Listas propias de la pestaña Tarjetas (Rechazo / B / C) ----------
+// Tres botones "+" de colores distintos (independientes de la lista general),
+// para armar hasta 3 listas propias dentro de esta pestaña y exportarlas.
+const TARJ_LIST_DEFS={
+  rechazo:{label:"Rechazo de tarjetas", icon:"🚫", color:"#e67e22", key:"reacbill_tarjsel_v1"},
+  b:{label:"Lista B", icon:"🅱️", color:"#3b82f6", key:"reacbill_tarjselb_v1"},
+  c:{label:"Lista C", icon:"🇨", color:"#a855f7", key:"reacbill_tarjselc_v1"}
+};
+let tarjLists={rechazo:new Set(), b:new Set(), c:new Set()};
+let tarjListsExpanded={rechazo:false, b:false, c:false};
+function tarjListsLoad(){
+  for(const id in TARJ_LIST_DEFS){
+    try{ const raw=localStorage.getItem(TARJ_LIST_DEFS[id].key); if(raw) tarjLists[id]=new Set(JSON.parse(raw)); }catch(e){}
+  }
 }
-function tarjSelSave(){
-  try{ localStorage.setItem(TARJSEL_KEY, JSON.stringify([...tarjSelMaquinas])); }catch(e){}
+function tarjListSave(id){
+  try{ localStorage.setItem(TARJ_LIST_DEFS[id].key, JSON.stringify([...tarjLists[id]])); }catch(e){}
 }
-function tarjSelBtnHtml(mda){
-  const on=tarjSelMaquinas.has(mda);
-  return `<button class="tarjSelBtn ${on?'on':''}" data-tarjselmda="${mda}" onclick="event.stopPropagation();tarjSelToggle('${mda}')" title="${on?'Quitar de rechazo de tarjetas':'Agregar a rechazo de tarjetas'}">${on?'✓':'+'}</button>`;
+function tarjListBtnHtml(id,mda){
+  const def=TARJ_LIST_DEFS[id], on=tarjLists[id].has(mda);
+  return `<button class="tarjSelBtn ${on?'on':''}" style="--tsc:${def.color}" data-tarjlist="${id}" data-tarjselmda="${mda}" onclick="event.stopPropagation();tarjListToggle('${id}','${mda}')" title="${on?'Quitar de '+def.label:'Agregar a '+def.label}">${on?'✓':'+'}</button>`;
 }
-function tarjSelToggle(mda){
-  tarjSelMaquinas.has(mda)?tarjSelMaquinas.delete(mda):tarjSelMaquinas.add(mda);
-  tarjSelSave();
-  document.querySelectorAll(`[data-tarjselmda="${mda}"]`).forEach(b=>{
-    const on=tarjSelMaquinas.has(mda);
+function tarjListToggle(id,mda){
+  tarjLists[id].has(mda)?tarjLists[id].delete(mda):tarjLists[id].add(mda);
+  tarjListSave(id);
+  document.querySelectorAll(`[data-tarjlist="${id}"][data-tarjselmda="${mda}"]`).forEach(b=>{
+    const on=tarjLists[id].has(mda);
     b.classList.toggle("on",on);
     b.textContent=on?"✓":"+";
-    b.title=on?"Quitar de rechazo de tarjetas":"Agregar a rechazo de tarjetas";
+    b.title=on?"Quitar de "+TARJ_LIST_DEFS[id].label:"Agregar a "+TARJ_LIST_DEFS[id].label;
   });
   if(activeTab==="tarjetas")renderTarjetas();
 }
-function tarjSelRowData(mda,pm,avg4){
+function tarjListRowData(mda,pm,avg4){
   const ms=state.master[mda]||{}, m=pm[mda];
   const tarjAc=m?m.tarjAc||0:0, tarjRe=m?m.tarjRe||0:0;
   const s4=avg4[mda];
@@ -2650,83 +2657,84 @@ function tarjSelRowData(mda,pm,avg4){
     pct4Txt:pct4==null?"—":fmtP(pct4), pct4Raw:pct4};
 }
 // Lista completa, ordenada por isla — usada para exportar/copiar (incluye todo).
-function tarjSelRows(){
+function tarjListRows(id){
   if(!state.weekOrder.length)return [];
   const lastD=state.weekOrder[state.weekOrder.length-1];
   const pm={}; for(const m of allCalcs()[lastD].rows) pm[m.mda]=m;
   const avg4=tarjAvg4Sums(lastD);
-  return [...tarjSelMaquinas].map(mda=>tarjSelRowData(mda,pm,avg4))
+  return [...tarjLists[id]].map(mda=>tarjListRowData(mda,pm,avg4))
     .sort((a,b)=>esCollator.compare(b.isla,a.isla));
 }
 // Las últimas N agregadas (orden de inserción, más reciente primero) — para la
 // vista previa desplegable, así no crece sin límite ni desplaza la tabla de abajo.
-function tarjSelRecentRows(n){
+function tarjListRecentRows(id,n){
   if(!state.weekOrder.length)return [];
   const lastD=state.weekOrder[state.weekOrder.length-1];
   const pm={}; for(const m of allCalcs()[lastD].rows) pm[m.mda]=m;
   const avg4=tarjAvg4Sums(lastD);
-  return [...tarjSelMaquinas].slice(-n).reverse().map(mda=>tarjSelRowData(mda,pm,avg4));
+  return [...tarjLists[id]].slice(-n).reverse().map(mda=>tarjListRowData(mda,pm,avg4));
 }
-function tarjSelToggleExpand(){
-  tarjSelExpanded=!tarjSelExpanded;
+function tarjListToggleExpand(id){
+  tarjListsExpanded[id]=!tarjListsExpanded[id];
   renderTarjetas();
 }
-function tarjSelListHtml(){
-  const total=tarjSelMaquinas.size;
+function tarjListHtml(id){
+  const def=TARJ_LIST_DEFS[id];
+  const total=tarjLists[id].size;
   if(!total){
-    return `<div class="card muted" style="margin-bottom:12px">Rechazo de tarjetas: lista vacía. Agregá máquinas con el botón naranja "+" en la tabla de abajo.</div>`;
+    return `<div class="card muted" style="margin-bottom:12px">${def.label}: lista vacía. Agregá máquinas con el botón "+" (color ${def.color}) en la tabla de abajo.</div>`;
   }
   let tableHtml="";
-  if(tarjSelExpanded){
-    const rows=tarjSelRecentRows(3);
+  if(tarjListsExpanded[id]){
+    const rows=tarjListRecentRows(id,3);
     const body=rows.map(r=>`<tr>
       <td class="left"><b>${r.mda}</b></td><td class="left">${r.isla}</td>
       <td class="left">${r.modelmaq}</td><td>${fmtN(r.tarjAc)}</td><td>${fmtN(r.tarjRe)}</td>
       <td class="${r.pctRaw!=null?pctClass(r.pctRaw):''}">${r.pctTxt}</td>
       <td class="${r.pct4Raw!=null?pctClass(r.pct4Raw):''}">${r.pct4Txt}</td>
-      <td><button class="btn sm danger" onclick="tarjSelToggle('${r.mda}')">✕</button></td>
+      <td><button class="btn sm danger" onclick="tarjListToggle('${id}','${r.mda}')">✕</button></td>
     </tr>`).join("");
-    tableHtml=`<div class="tblWrap"><table id="tblTarjRechazo">
+    tableHtml=`<div class="tblWrap"><table id="tblTarjList_${id}">
       <thead><tr><th class="left">MDA</th><th class="left">ISLA</th><th class="left">MODELO MÁQUINA</th>
         <th>TARJ. ACEPTADAS</th><th>TARJ. RECHAZADAS</th><th>%ÚLT. SEMANA</th><th>%PROM. 4 SEM.</th><th></th></tr></thead>
       <tbody>${body}</tbody></table></div>
       ${total>3?`<p class="hint" style="margin-top:6px">Mostrando las últimas 3 agregadas de ${total}. Copiar/Exportar incluye la lista completa.</p>`:""}`;
   }
   return `<div class="card" style="margin-bottom:12px">
-    <div style="display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none" onclick="tarjSelToggleExpand()">
-      <span style="font-size:13px;color:var(--accent)">${tarjSelExpanded?"▼":"▶"}</span>
-      <h2 style="margin:0;border:none;padding:0">🚫 Rechazo de tarjetas (${total})</h2>
+    <div style="display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none" onclick="tarjListToggleExpand('${id}')">
+      <span style="font-size:13px;color:var(--accent)">${tarjListsExpanded[id]?"▼":"▶"}</span>
+      <h2 style="margin:0;border:none;padding:0;color:${def.color}">${def.icon} ${def.label} (${total})</h2>
     </div>
-    <p class="hint" style="margin:6px 0 10px">Agregadas con el botón naranja "+" de esta pestaña. Persiste entre pestañas y recargas.</p>
+    <p class="hint" style="margin:6px 0 10px">Agregadas con el botón "+" de color ${def.color} de esta pestaña. Persiste entre pestañas y recargas.</p>
     <div class="row" style="margin-bottom:10px">
-      <button class="btn sec sm" onclick="event.stopPropagation();tarjSelCopiar()">📋 Copiar tabla (todas)</button>
-      <button class="btn sec sm" onclick="event.stopPropagation();tarjSelExportarCSV()">⬇ Exportar CSV (todas)</button>
-      <button class="btn danger sm" onclick="event.stopPropagation();tarjSelVaciar()">✕ Vaciar lista</button>
+      <button class="btn sec sm" onclick="event.stopPropagation();tarjListCopiar('${id}')">📋 Copiar tabla (todas)</button>
+      <button class="btn sec sm" onclick="event.stopPropagation();tarjListExportarCSV('${id}')">⬇ Exportar CSV (todas)</button>
+      <button class="btn danger sm" onclick="event.stopPropagation();tarjListVaciar('${id}')">✕ Vaciar lista</button>
     </div>
     ${tableHtml}
   </div>`;
 }
-function tarjSelVaciar(){
-  if(!confirm("¿Vaciar la lista de rechazo de tarjetas?"))return;
-  tarjSelMaquinas.clear(); tarjSelSave(); renderTarjetas();
+function tarjListVaciar(id){
+  if(!confirm(`¿Vaciar la lista "${TARJ_LIST_DEFS[id].label}"?`))return;
+  tarjLists[id].clear(); tarjListSave(id); renderTarjetas();
 }
-function tarjSelToText(){
+function tarjListToText(id){
   let txt="MDA\tISLA\tMODELO MÁQUINA\tTARJ. ACEPTADAS\tTARJ. RECHAZADAS\t%ÚLT. SEMANA\t%PROM. 4 SEM.\n";
-  for(const r of tarjSelRows()) txt+=`${r.mda}\t${r.isla}\t${r.modelmaq}\t${r.tarjAc}\t${r.tarjRe}\t${r.pctTxt}\t${r.pct4Txt}\n`;
+  for(const r of tarjListRows(id)) txt+=`${r.mda}\t${r.isla}\t${r.modelmaq}\t${r.tarjAc}\t${r.tarjRe}\t${r.pctTxt}\t${r.pct4Txt}\n`;
   return txt;
 }
-function tarjSelCopiar(){
-  navigator.clipboard.writeText(tarjSelToText())
+function tarjListCopiar(id){
+  navigator.clipboard.writeText(tarjListToText(id))
     .then(()=>alert("Copiado al portapapeles."))
     .catch(()=>alert("No se pudo copiar."));
 }
-function tarjSelExportarCSV(){
+function tarjListExportarCSV(id){
   let csv="MDA;ISLA;MODELO MAQUINA;TARJ ACEPTADAS;TARJ RECHAZADAS;%ULT SEMANA;%PROM 4 SEM\n";
-  for(const r of tarjSelRows()) csv+=`${r.mda};${r.isla};${r.modelmaq};${r.tarjAc};${r.tarjRe};${r.pctTxt};${r.pct4Txt}\n`;
+  for(const r of tarjListRows(id)) csv+=`${r.mda};${r.isla};${r.modelmaq};${r.tarjAc};${r.tarjRe};${r.pctTxt};${r.pct4Txt}\n`;
   const blob=new Blob([csv],{type:"text/csv"});
   const a=document.createElement("a");
   a.href=URL.createObjectURL(blob);
-  a.download=`reacbill_rechazo_tarjetas_${new Date().toISOString().slice(0,10)}.csv`;
+  a.download=`reacbill_${TARJ_LIST_DEFS[id].label.toLowerCase().replace(/\s+/g,"_")}_${new Date().toISOString().slice(0,10)}.csv`;
   a.click();
 }
 
@@ -3068,7 +3076,7 @@ function renderAll(){
 (async function(){
   document.getElementById("verSpan").textContent="v"+VERSION;
   selLoad();
-  tarjSelLoad();
+  tarjListsLoad();
   tarjFiltLoad();
   buildNav(); buildShells();
   updateSelBadge();
