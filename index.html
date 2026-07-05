@@ -462,7 +462,7 @@ canvas{max-height:320px}
 
 <script>
 /* ===== REACBILL v1.8.19-main ===== */
-const VERSION = "1.8.40-main";
+const VERSION = "1.9.1-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
 const ARCHIVE_KEY = "reacbill_archive_v1";
@@ -2473,7 +2473,7 @@ let machEditPage=0;
 const MACH_PAGE_SIZE=200;
 let machPendingEdits={}; // {mda:{campo:valor}} — ediciones aún no guardadas, sobreviven el cambio de página/filtro
 let machSortCol="mda", machSortDir=1;
-let intFiltroMod="", intFiltroMinVol=0, intFabLeft=new Set(), intFabRight=new Set(), intUsarPromedio=false, intPendiente=null;
+let intFiltroModA="", intFiltroModB="", intFiltroMinVol=0, intFabLeft=new Set(), intFabRight=new Set(), intUsarPromedio=false, intPendiente=null;
 // Sectores: origen = sector del billetero bueno (A), destino = sector de la posición problema (B).
 // A diferencia del panel de fabricante (compatibilidad simétrica), acá la dirección importa:
 // "origen sector 1, destino sector 6" sólo sugiere mover DE 1 HACIA 6, no al revés.
@@ -2749,9 +2749,10 @@ function calcSwaps(rows){
         const dir2=(intFabLeft.size===0||intFabLeft.has(fB))&&(intFabRight.size===0||intFabRight.has(fA));
         if(!dir1&&!dir2)continue;
       }
-      // filtro modelo billetero: no mezclar Advance con Cashflow
-      if(intFiltroMod&&(msA.modelo!==intFiltroMod||msB.modelo!==intFiltroMod))continue;
-      else if(!intFiltroMod&&msA.modelo&&msB.modelo&&msA.modelo!==msB.modelo)continue;
+      // filtro modelo billetero: origen y destino se filtran de forma independiente
+      if(intFiltroModA&&msA.modelo!==intFiltroModA)continue;
+      if(intFiltroModB&&msB.modelo!==intFiltroModB)continue;
+      if(!intFiltroModA&&!intFiltroModB&&msA.modelo&&msB.modelo&&msA.modelo!==msB.modelo)continue;
       if(B.total<intFiltroMinVol)continue;
       const gain=(A.pct-B.pct)*(B.total-A.total);
       results.push({
@@ -2781,7 +2782,8 @@ function renderIntercambios(){
   const selD=document.getElementById("intSel")?.value;
   const d=state.weekOrder.includes(selD)?selD:state.weekOrder[state.weekOrder.length-1];
   const mods=[...new Set(Object.values(state.master).map(m=>m.modelo||"").filter(Boolean))];
-  intFiltroMod=document.getElementById("intMod")?.value||"";
+  intFiltroModA=document.getElementById("intModA")?.value||"";
+  intFiltroModB=document.getElementById("intModB")?.value||"";
   intFiltroMinVol=parseInt(document.getElementById("intMinVol")?.value||"0")||0;
   intUsarPromedio=document.getElementById("intPromedio")?.checked??intUsarPromedio;
 
@@ -2875,9 +2877,13 @@ function renderIntercambios(){
     </p>
     <div class="row">
       <label class="fld">Semana <select id="intSel" onchange="renderIntercambios()">${state.weekOrder.map(w=>`<option value="${w}" ${w===d?"selected":""}>${fmtKeyFull(w)}</option>`).join("")}</select></label>
-      <label class="fld">Modelo billetero <select id="intMod" onchange="renderIntercambios()">
-        <option value="">Todos (mismo modelo)</option>
-        ${mods.map(m=>`<option value="${m}" ${m===intFiltroMod?"selected":""}>${m}</option>`).join("")}
+      <label class="fld">Modelo billetero origen <select id="intModA" onchange="renderIntercambios()">
+        <option value="">Todos</option>
+        ${mods.map(m=>`<option value="${m}" ${m===intFiltroModA?"selected":""}>${m}</option>`).join("")}
+      </select></label>
+      <label class="fld">Modelo billetero destino <select id="intModB" onchange="renderIntercambios()">
+        <option value="">Todos</option>
+        ${mods.map(m=>`<option value="${m}" ${m===intFiltroModB?"selected":""}>${m}</option>`).join("")}
       </select></label>
       <label class="fld">Flujo mín. destino <input id="intMinVol" type="number" min="0" step="50" value="${intFiltroMinVol}" oninput="renderIntercambios()" style="width:90px"></label>
       <label class="fld" style="align-items:center;gap:6px" title="Promedia % y volumen de las últimas 4 semanas disponibles para mayor robustez. Si solo hay una semana, usa ese dato igual.">
