@@ -472,7 +472,7 @@ canvas{max-height:320px}
 
 <script>
 /* ===== REACBILL v1.8.19-main ===== */
-const VERSION = "1.9.10-main";
+const VERSION = "1.9.11-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
 const ARCHIVE_KEY = "reacbill_archive_v1";
@@ -2560,10 +2560,21 @@ const SEL_LIST_DEFS={
   c:{label:"Lista C", icon:"🇨", color:"#a855f7", key:"reacbill_selC_v1"}
 };
 let selLists={a:new Set(), b:new Set(), c:new Set()};
+const SEL_LEGACY_KEY="reacbill_sel_v1";
 function selLoad(){
   for(const id in SEL_LIST_DEFS){
     try{ const raw=localStorage.getItem(SEL_LIST_DEFS[id].key); if(raw) selLists[id]=new Set(JSON.parse(raw)); }catch(e){}
   }
+  // Migración: la Lista general era una sola lista antes de dividirse en A/B/C.
+  // Si hay datos viejos y la Lista A todavía está vacía, se trasladan para no perderlos.
+  try{
+    const legacy=localStorage.getItem(SEL_LEGACY_KEY);
+    if(legacy&&selLists.a.size===0){
+      const arr=JSON.parse(legacy);
+      if(arr&&arr.length){ selLists.a=new Set(arr); selSave("a"); }
+      localStorage.removeItem(SEL_LEGACY_KEY);
+    }
+  }catch(e){}
 }
 function selSave(id){
   try{ localStorage.setItem(SEL_LIST_DEFS[id].key, JSON.stringify([...selLists[id]])); }catch(e){}
