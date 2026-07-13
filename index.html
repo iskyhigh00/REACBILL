@@ -293,11 +293,12 @@ button.btn.sec{
 button.btn.sec:hover{border-color:var(--border2);background:var(--panel3);box-shadow:none}
 button.btn.sm{padding:4px 10px;font-size:11px}
 .selBtn{
-  width:20px;height:20px;min-width:20px;border-radius:50%;border:1px solid #2ecc71;
-  background:transparent;color:#2ecc71;cursor:pointer;font-size:12px;line-height:1;
+  width:18px;height:18px;min-width:18px;border-radius:50%;border:1px solid var(--tsc,#2ecc71);
+  background:transparent;color:var(--tsc,#2ecc71);cursor:pointer;font-size:11px;line-height:1;
   padding:0;display:inline-flex;align-items:center;justify-content:center;font-weight:700;
 }
-.selBtn.on{background:#2ecc71;color:#04210f}
+.selBtn.on{background:var(--tsc,#2ecc71);color:#04210f}
+.selBtnGroup{display:inline-flex;gap:3px;align-items:center}
 .selBadge{background:#2ecc71;color:#04210f;border-radius:10px;padding:0 6px;font-size:10px;font-weight:700;margin-left:4px}
 .tarjSelBtn{
   width:20px;height:20px;min-width:20px;border-radius:50%;border:1px solid var(--tsc,#e67e22);
@@ -471,7 +472,7 @@ canvas{max-height:320px}
 
 <script>
 /* ===== REACBILL v1.8.19-main ===== */
-const VERSION = "1.9.8-main";
+const VERSION = "1.9.9-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
 const ARCHIVE_KEY = "reacbill_archive_v1";
@@ -1476,7 +1477,7 @@ function renderSectores(){
         const colL="min-width:70px;flex:0 0 70px;text-align:left;white-space:normal";
         const colW="min-width:110px;flex:1 0 110px;text-align:right;white-space:normal";
         let machGrid=`<div style="display:flex;gap:0;padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);border-bottom:1px solid var(--border)">
-          <div style="min-width:24px;flex:0 0 24px"></div>
+          <div style="min-width:76px;flex:0 0 76px"></div>
           <div style="${colL}">MDA</div>
           <div style="${colL};min-width:90px;flex:0 0 90px">Modelo</div>
           <div style="${colL}">Firm</div>
@@ -1491,7 +1492,7 @@ function renderSectores(){
             hist+=`<div style="${colW}${m&&m.pct>0?"":";color:var(--muted)"}">${m&&m.pct>0?`<span class="${pctClass(m.pct)}" style="padding:1px 5px;border-radius:4px">${fmtP(m.pct)}</span><br><span class="muted" style="font-size:10px">${fmtN(m.total)}</span>`:"—"}</div>`;
           }
           machGrid+=`<div style="display:flex;gap:0;padding:5px 8px;border-bottom:1px solid var(--border);align-items:center">
-            <div style="min-width:24px;flex:0 0 24px">${selBtn(mda)}</div>
+            <div style="min-width:76px;flex:0 0 76px">${selBtn(mda)}</div>
             <div style="${colL}"><b>${mda}</b></div>
             <div style="${colL};min-width:90px;flex:0 0 90px">${ms.modelo||"—"}</div>
             <div style="${colL};font-size:10px">${ms.firm||"—"}</div>
@@ -1555,12 +1556,12 @@ function secAddIsla(prefix){
   for(const [mda,ms] of Object.entries(state.master)){
     if(islaPrefix(ms.isla||"")!==prefix)continue;
     if(selModelo&&(ms.modelo||"")!==selModelo)continue;
-    if(!selMaquinas.has(mda)){ selMaquinas.add(mda); n++; }
+    if(!selLists.a.has(mda)){ selLists.a.add(mda); n++; }
   }
-  selSave(); updateSelBadge();
+  selSave("a"); updateSelBadge();
   if(activeTab==="lista")renderLista();
   const msg=document.getElementById("secAddMsg");
-  if(msg){ msg.textContent=`✓ ${n} máquina${n!==1?"s":""} de la isla ${prefix} agregada${n!==1?"s":""} a la lista.`; setTimeout(()=>{if(msg)msg.textContent="";},2500); }
+  if(msg){ msg.textContent=`✓ ${n} máquina${n!==1?"s":""} de la isla ${prefix} agregada${n!==1?"s":""} a la Lista A.`; setTimeout(()=>{if(msg)msg.textContent="";},2500); }
 }
 
 // ---------- Tendencias ----------
@@ -2540,33 +2541,46 @@ let intSectorExclude=new Set();
 // ---------- Lista de máquinas seleccionadas (bitácora) ----------
 // Botón + presente en cualquier tabla de máquinas; agrega el MDA a esta lista,
 // que persiste entre pestañas y recargas (localStorage) hasta exportarla o vaciarla.
-const SEL_KEY="reacbill_sel_v1";
-let selMaquinas=new Set();
+// ---------- Lista general: 3 listas independientes (A/B/C), misma lógica que Tarjetas ----------
+// Cada máquina tiene 3 botones de colores distintos (uno por lista); se puede
+// agregar la misma máquina a varias listas a la vez. Cada lista es exportable/copiable
+// y se puede vaciar por separado.
+const SEL_LIST_DEFS={
+  a:{label:"Lista A", icon:"🅰️", color:"#2ecc71", key:"reacbill_selA_v1"},
+  b:{label:"Lista B", icon:"🅱️", color:"#3b82f6", key:"reacbill_selB_v1"},
+  c:{label:"Lista C", icon:"🇨", color:"#a855f7", key:"reacbill_selC_v1"}
+};
+let selLists={a:new Set(), b:new Set(), c:new Set()};
 function selLoad(){
-  try{ const raw=localStorage.getItem(SEL_KEY); if(raw) selMaquinas=new Set(JSON.parse(raw)); }catch(e){}
+  for(const id in SEL_LIST_DEFS){
+    try{ const raw=localStorage.getItem(SEL_LIST_DEFS[id].key); if(raw) selLists[id]=new Set(JSON.parse(raw)); }catch(e){}
+  }
 }
-function selSave(){
-  try{ localStorage.setItem(SEL_KEY, JSON.stringify([...selMaquinas])); }catch(e){}
+function selSave(id){
+  try{ localStorage.setItem(SEL_LIST_DEFS[id].key, JSON.stringify([...selLists[id]])); }catch(e){}
 }
 function selBtn(mda){
-  const on=selMaquinas.has(mda);
-  return `<button class="selBtn ${on?'on':''}" data-selmda="${mda}" onclick="event.stopPropagation();selToggle('${mda}')" title="${on?'Quitar de la lista':'Agregar a la lista'}">${on?'✓':'+'}</button>`;
+  return `<span class="selBtnGroup">${Object.keys(SEL_LIST_DEFS).map(id=>{
+    const def=SEL_LIST_DEFS[id], on=selLists[id].has(mda);
+    return `<button class="selBtn ${on?'on':''}" style="--tsc:${def.color}" data-sellist="${id}" data-selmda="${mda}" onclick="event.stopPropagation();selToggle('${id}','${mda}')" title="${on?'Quitar de '+def.label:'Agregar a '+def.label}">${on?'✓':'+'}</button>`;
+  }).join("")}</span>`;
 }
-function selToggle(mda){
-  selMaquinas.has(mda)?selMaquinas.delete(mda):selMaquinas.add(mda);
-  selSave();
-  document.querySelectorAll(`[data-selmda="${mda}"]`).forEach(b=>{
-    const on=selMaquinas.has(mda);
+function selToggle(id,mda){
+  selLists[id].has(mda)?selLists[id].delete(mda):selLists[id].add(mda);
+  selSave(id);
+  document.querySelectorAll(`[data-sellist="${id}"][data-selmda="${mda}"]`).forEach(b=>{
+    const on=selLists[id].has(mda);
     b.classList.toggle("on",on);
     b.textContent=on?"✓":"+";
-    b.title=on?"Quitar de la lista":"Agregar a la lista";
+    b.title=on?"Quitar de "+SEL_LIST_DEFS[id].label:"Agregar a "+SEL_LIST_DEFS[id].label;
   });
   updateSelBadge();
   if(activeTab==="lista")renderLista();
 }
 function updateSelBadge(){
   const b=document.getElementById("nb-lista");
-  if(b)b.innerHTML=`📋 Lista${selMaquinas.size?`<span class="selBadge">${selMaquinas.size}</span>`:""}`;
+  const total=selLists.a.size+selLists.b.size+selLists.c.size;
+  if(b)b.innerHTML=`📋 Lista${total?`<span class="selBadge">${total}</span>`:""}`;
 }
 function selLastCalcRows(){
   if(!state.weekOrder.length)return {};
@@ -2574,61 +2588,65 @@ function selLastCalcRows(){
   const pm={}; for(const m of calcs[lastD].rows) pm[m.mda]=m;
   return pm;
 }
-function selRows(){
+function selRows(id){
   const pm=selLastCalcRows();
-  return [...selMaquinas].map(mda=>{
+  return [...selLists[id]].map(mda=>{
     const ms=state.master[mda]||{}, p=pm[mda];
     return {mda, isla:ms.isla||"—", modelmaq:ms.modelmaq||"—", modelo:ms.modelo||"—", firm:ms.firm||"—",
       pctTxt:(p&&p.pct>0)?fmtP(p.pct):"—", pctRaw:(p&&p.pct>0)?p.pct:null};
   }).sort((a,b)=>esCollator.compare(b.isla,a.isla));
 }
-function renderLista(){
-  const el=document.getElementById("tab-lista"); if(!el)return;
-  const rows=selRows();
+function selListCardHtml(id){
+  const def=SEL_LIST_DEFS[id];
+  const rows=selRows(id);
   if(!rows.length){
-    el.innerHTML='<div class="card muted">Lista vacía. Agregá máquinas con el botón verde "+" en cualquier vista.</div>';
-    return;
+    return `<div class="card muted" style="margin-bottom:12px">${def.label}: lista vacía. Agregá máquinas con el botón "+" (color ${def.color}) en cualquier vista.</div>`;
   }
   const body=rows.map(r=>`<tr>
     <td class="left"><b>${r.mda}</b></td><td class="left">${r.isla}</td>
     <td class="left">${r.modelmaq}</td><td class="left">${r.modelo}</td>
     <td class="left" style="font-size:11px">${r.firm}</td>
     <td class="${r.pctRaw!=null?pctClass(r.pctRaw):''}">${r.pctTxt}</td>
-    <td><button class="btn sm danger" onclick="selToggle('${r.mda}')">✕</button></td>
+    <td><button class="btn sm danger" onclick="selToggle('${id}','${r.mda}')">✕</button></td>
   </tr>`).join("");
-  el.innerHTML=`<div class="card"><h2>📋 Lista de máquinas (${rows.length})</h2>
-    <p class="hint" style="margin-bottom:10px">Agregadas con el botón "+" en cualquier vista. Se mantiene aunque cambies de pestaña o recargues la página.</p>
+  return `<div class="card" style="margin-bottom:12px">
+    <h2 style="color:${def.color}">${def.icon} ${def.label} (${rows.length})</h2>
+    <p class="hint" style="margin-bottom:10px">Agregadas con el botón "+" de color ${def.color} en cualquier vista. Se mantiene aunque cambies de pestaña o recargues la página.</p>
     <div class="row" style="margin-bottom:10px">
-      <button class="btn sec sm" onclick="selCopiar()">📋 Copiar tabla</button>
-      <button class="btn sec sm" onclick="selExportarCSV()">⬇ Exportar CSV</button>
-      <button class="btn danger sm" onclick="selVaciar()">✕ Vaciar lista</button>
+      <button class="btn sec sm" onclick="selCopiar('${id}')">📋 Copiar tabla</button>
+      <button class="btn sec sm" onclick="selExportarCSV('${id}')">⬇ Exportar CSV</button>
+      <button class="btn danger sm" onclick="selVaciar('${id}')">✕ Vaciar lista</button>
     </div>
-    <div class="tblWrap"><table id="tblSelLista">
+    <div class="tblWrap"><table id="tblSelLista_${id}">
       <thead><tr><th class="left">MDA</th><th class="left">ISLA</th><th class="left">MODELO MÁQUINA</th>
         <th class="left">MODELO BILLETERO</th><th class="left">FIRMWARE</th><th>ÚLTIMO %</th><th></th></tr></thead>
       <tbody>${body}</tbody></table></div></div>`;
 }
-function selVaciar(){
-  if(!confirm("¿Vaciar la lista completa?"))return;
-  selMaquinas.clear(); selSave(); updateSelBadge(); renderLista();
+function renderLista(){
+  const el=document.getElementById("tab-lista"); if(!el)return;
+  el.innerHTML=selListCardHtml("a")+selListCardHtml("b")+selListCardHtml("c");
 }
-function selToText(){
+function selVaciar(id){
+  if(!confirm(`¿Vaciar la "${SEL_LIST_DEFS[id].label}"?`))return;
+  selLists[id].clear(); selSave(id); updateSelBadge(); renderLista();
+}
+function selToText(id){
   let txt="MDA\tISLA\tMODELO MÁQUINA\tMODELO BILLETERO\tFIRMWARE\tÚLTIMO %\n";
-  for(const r of selRows()) txt+=`${r.mda}\t${r.isla}\t${r.modelmaq}\t${r.modelo}\t${r.firm}\t${r.pctTxt}\n`;
+  for(const r of selRows(id)) txt+=`${r.mda}\t${r.isla}\t${r.modelmaq}\t${r.modelo}\t${r.firm}\t${r.pctTxt}\n`;
   return txt;
 }
-function selCopiar(){
-  navigator.clipboard.writeText(selToText())
+function selCopiar(id){
+  navigator.clipboard.writeText(selToText(id))
     .then(()=>alert("Copiado al portapapeles."))
     .catch(()=>alert("No se pudo copiar."));
 }
-function selExportarCSV(){
+function selExportarCSV(id){
   let csv="MDA;ISLA;MODELO MAQUINA;MODELO BILLETERO;FIRMWARE;ULTIMO %\n";
-  for(const r of selRows()) csv+=`${r.mda};${r.isla};${r.modelmaq};${r.modelo};${r.firm};${r.pctTxt}\n`;
+  for(const r of selRows(id)) csv+=`${r.mda};${r.isla};${r.modelmaq};${r.modelo};${r.firm};${r.pctTxt}\n`;
   const blob=new Blob([csv],{type:"text/csv"});
   const a=document.createElement("a");
   a.href=URL.createObjectURL(blob);
-  a.download=`reacbill_lista_${new Date().toISOString().slice(0,10)}.csv`;
+  a.download=`reacbill_${SEL_LIST_DEFS[id].label.toLowerCase().replace(/\s+/g,"_")}_${new Date().toISOString().slice(0,10)}.csv`;
   a.click();
 }
 
