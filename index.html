@@ -493,7 +493,7 @@ canvas{max-height:320px}
 
 <script>
 /* ===== REACBILL v1.8.19-main ===== */
-const VERSION = "1.9.13-main";
+const VERSION = "1.9.14-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
 const ARCHIVE_KEY = "reacbill_archive_v1";
@@ -1418,6 +1418,8 @@ function renderRanking(){
 
 // ---------- Sectores ----------
 let secSummaryData=[], secSummaryDate="";
+let secFlatOpen=false;
+function secToggleFlat(){ secFlatOpen=!secFlatOpen; renderSectores(); }
 function secCopiarResumen(){
   let txt=`Vista por sectores — semana ${secSummaryDate}\n`;
   txt+="SECTOR\t% PROM.\tISLAS\tMÁQUINAS\tALERTAS\n";
@@ -1550,7 +1552,45 @@ function renderSectores(){
           <th class="sortable" title="Total de billetes procesados en la última semana">Total bill.</th>
           <th class="sortable" title="Variación del % de aceptación respecto a la semana anterior (positivo = mejoró)">Δ%</th>
           <th class="sortable" title="Número de máquinas con alertas (% bajo el umbral crítico)">Alertas</th>
-        </tr></thead><tbody>${islaRows}</tbody></table></div></div>`;
+        </tr></thead><tbody>${islaRows}</tbody></table></div>
+      <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
+        <button class="btn sec sm" onclick="secToggleFlat()">${secFlatOpen?"▾":"▸"} ${secFlatOpen?"Ocultar":"Ver"} listado completo del sector (sin separar por isla)</button>
+      </div>
+    </div>`;
+    if(secFlatOpen){
+      const allMdas=Object.values(sectorMap[selSector]).flat().sort(esCollator.compare);
+      const wks=state.weekOrder.slice(-4);
+      let flatRows="";
+      for(const mda of allMdas){
+        const ms=state.master[mda]||{};
+        let hist="";
+        for(const d of wks){
+          const m=calcs[d]?.rows.find(r=>r.mda===mda);
+          hist+=m&&m.pct>0
+            ?`<td style="text-align:right"><span class="${pctClass(m.pct)}" style="padding:2px 6px;border-radius:4px">${fmtP(m.pct)}</span><br><span class="muted" style="font-size:10px">${fmtN(m.total)}</span></td>`
+            :`<td class="muted" style="text-align:right">—</td>`;
+        }
+        flatRows+=`<tr>
+          <td>${selBtn(mda)}</td>
+          <td class="left"><b>${mda}</b></td>
+          <td class="left muted">${ms.isla||"—"}</td>
+          <td class="left muted">${ms.modelmaq||"—"}</td>
+          <td class="left muted">${ms.modelo||"—"}</td>
+          <td class="left muted" style="font-size:10px">${ms.firm||"—"}</td>
+          <td class="left muted">${ms.juego||"—"}</td>
+          ${hist}
+        </tr>`;
+      }
+      sectorDetail+=`<div class="card isla-detail"><h2>Sector ${selSector} — listado completo (${allMdas.length} máquinas)</h2>
+        <p class="hint" style="margin-bottom:10px">Todas las máquinas del sector en una sola tabla, sin agrupar por isla. Ordenable por columna.</p>
+        <div class="tblWrap"><table id="tblSecFlat" class="isla-mtable">
+          <thead><tr>
+            <th></th><th class="left sortable">MDA</th><th class="left sortable">Isla</th><th class="left sortable">Modelo máq.</th>
+            <th class="left sortable">Billetero</th><th class="left sortable">Firm</th><th class="left sortable">Juego</th>
+            ${wks.map(d=>`<th class="sortable" style="text-align:right">${fmtKey(d)}</th>`).join("")}
+          </tr></thead>
+          <tbody>${flatRows}</tbody></table></div></div>`;
+    }
   }
   el.innerHTML=`<div class="card"><h2>Vista por sectores</h2>
     <div class="hint" style="margin-bottom:10px">Sector = primer dígito de la ISLA (ej: sector 6 = islas 6xx). Semana analizada: <b>${fmtKeyFull(lastD)}</b></div>
@@ -1580,6 +1620,10 @@ function renderSectores(){
     document.querySelectorAll("#tblSecIslas th.sortable").forEach(th=>th.addEventListener("click",pinDetail));
   }
   reapplySort("tblSecIslas");
+  if(secFlatOpen&&document.getElementById("tblSecFlat")){
+    attachSort("tblSecFlat");
+    reapplySort("tblSecFlat");
+  }
   window.scrollTo(0,scrollY);
   requestAnimationFrame(()=>window.scrollTo(0,scrollY));
 }
