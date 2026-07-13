@@ -13,7 +13,6 @@
 <link rel="icon" href="favicon-32.png" sizes="32x32">
 <link rel="apple-touch-icon" href="icon-192.png">
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3/dist/jszip.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -77,24 +76,15 @@ header h1{
 .ver{color:var(--muted2);font-size:10px;font-weight:400;-webkit-text-fill-color:var(--muted2)}
 
 #statsBar{
-  font-size:11.5px;margin-top:4px;
-  display:flex;flex-wrap:wrap;gap:16px;align-items:center;
+  font-size:11.5px;margin-top:6px;
+  display:flex;flex-wrap:wrap;gap:26px;align-items:baseline;
 }
-#statsBar .sv{font-weight:600;color:var(--accent-hover)}
-#statsBar .sl{color:var(--muted);font-size:10.5px}
-
-#paramsBar{
-  display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;font-size:10.5px;
-}
-#paramsBar span{
-  background:rgba(59,130,246,.08);
-  border:1px solid rgba(59,130,246,.2);
-  border-radius:20px;padding:2px 10px;
-  color:var(--muted);
-  transition:all .2s;
-}
-#paramsBar span:hover{border-color:var(--accent);color:var(--text)}
-#paramsBar b{color:var(--accent-hover);font-weight:600}
+#statsBar .stat{display:flex;flex-direction:column;align-items:flex-start;gap:1px}
+#statsBar .sv{font-weight:700;color:var(--text)}
+#statsBar .sv-big{font-size:30px;font-weight:700;color:var(--accent-hover);letter-spacing:-.5px;line-height:1}
+#statsBar .sv-mid{font-size:19px;font-weight:700;color:var(--text);line-height:1}
+#statsBar .sv-num{font-size:19px;font-weight:700;line-height:1}
+#statsBar .sl{color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;margin-top:2px}
 
 /* ── Nav tabs ── */
 nav{
@@ -484,7 +474,6 @@ canvas{max-height:320px}
     <span id="dataInfo" class="ver" style="color:var(--muted2);font-size:10px"></span>
   </div>
   <div id="statsBar"></div>
-  <div id="paramsBar"></div>
   <nav id="nav"></nav>
   <div id="exportBar" class="exportBar">
     <button class="btn sec sm" onclick="exportActiveTabCopy()">📋 Copiar como tabla</button>
@@ -495,7 +484,7 @@ canvas{max-height:320px}
 
 <script>
 /* ===== REACBILL v1.8.19-main ===== */
-const VERSION = "2.1.1-main";
+const VERSION = "2.2.1-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
 const ARCHIVE_KEY = "reacbill_archive_v1";
@@ -1112,10 +1101,9 @@ async function handleFiles(files){
 // ---------- UI ----------
 const TABS=[
   ["carga","📂 Carga"],["resumen","📊 Resumen"],["fecha","📅 Por Fecha"],
-  ["ranking","🚨 Gravedad"],["sectores","🗺 Sectores"],["tendencias","📈 Tendencias"],
-  ["modelos","🔧 Modelos"],["maquinas","🎰 Máquinas"],
+  ["ranking","🎯 Gravedad"],["sectores","🗺 Sectores"],["maquinas","🎰 Máquinas"],
   ["intercambios","🔄 Intercambios"],
-  ["denominaciones","💵 Denominaciones"],["buscador","🔎 Buscador"],
+  ["buscador","🔎 Buscador"],
   ["tarjetas","💳 Tarjetas"],
   ["lista","📋 Lista"],["admin","⚙️ Admin"]
 ];
@@ -1129,9 +1117,9 @@ function showTab(id){
   document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("active",b.id==="nb-"+id));
   document.querySelectorAll(".tab").forEach(t=>t.classList.toggle("active",t.id==="tab-"+id));
   ({resumen:renderResumen,fecha:renderFecha,ranking:renderRanking,sectores:renderSectores,
-    tendencias:renderTendencias,modelos:renderModelos,maquinas:renderMaquinas,
+    maquinas:renderMaquinas,
     intercambios:renderIntercambios,
-    denominaciones:renderDenos,buscador:renderBuscador,tarjetas:renderTarjetas,
+    buscador:renderBuscador,tarjetas:renderTarjetas,
     lista:renderLista,admin:renderAdmin}[id]||(() => {}))();
 }
 // ---------- Exportar reporte de la pestaña activa (copiar como tabla / imprimir PDF) ----------
@@ -1190,14 +1178,6 @@ function buildShells(){
   dz.ondragleave=()=>dz.classList.remove("over");
   dz.ondrop=e=>{e.preventDefault();dz.classList.remove("over");handleFiles([...e.dataTransfer.files]);};
 }
-function renderParamsBar(){
-  const p=state.params;
-  document.getElementById("paramsBar").innerHTML=
-    `<span>Verde ≥ <b>${(p.thrMid*100).toFixed(0)}%</b></span>
-     <span>Amarillo <b>${(p.thrOk*100).toFixed(0)}–${(p.thrMid*100).toFixed(0)}%</b></span>
-     <span>Alerta &lt; <b>${(p.thrOk*100).toFixed(0)}%</b></span>
-     <span>Crítico &lt; <b>${(p.thrCrit*100).toFixed(0)}%</b> ×<b>${p.multCrit}</b></span>`;
-}
 function renderLoadedInfo(){
   const el=document.getElementById("loadedInfo"); if(!el)return;
   const sb=document.getElementById("statsBar");
@@ -1211,22 +1191,21 @@ function renderLoadedInfo(){
     <span class="muted" style="font-size:11px">${state.weekOrder.map(d=>fmtKeyFull(d)).join("  ·  ")}</span>`;
   document.getElementById("dataInfo").textContent=` · ${state.weekOrder.length} sem · ${allMdas.size} máq`;
   const lastD=state.weekOrder[state.weekOrder.length-1];
-  const lastC=allCalcs()[lastD];
-  const withData=lastC.rows.filter(m=>m.pct>0&&m.total>0);
-  const above=withData.filter(m=>m.pct>=lastC.avgPct).length;
-  const below=withData.filter(m=>m.pct<lastC.avgPct).length;
-  // totales globales semana actual
-  const pctGlobal=lastC.totBill>0?lastC.totAc/lastC.totBill:0;
+  const calcs=allCalcs();
+  const lastC=calcs[lastD];
+  // % real de la última semana, ponderado por volumen
+  const pctWeek=lastC.totBill>0?lastC.totAc/lastC.totBill:0;
+  // % real del último mes: suma ponderada de hasta las últimas 4 semanas cargadas
+  const idx=state.weekOrder.indexOf(lastD);
+  const monthWeeks=state.weekOrder.slice(Math.max(0,idx-3),idx+1);
+  let mAc=0,mTot=0;
+  for(const wd of monthWeeks){ mAc+=calcs[wd].totAc; mTot+=calcs[wd].totBill; }
+  const pctMonth=mTot>0?mAc/mTot:0;
   if(sb) sb.innerHTML=
-    `<span><span class="sv">${fmtP(lastC.avgPct)}</span> <span class="sl">% prom. ${fmtKey(lastD)}</span></span>
-     <span title="Aceptados / Total = % real ponderado por volumen"><span class="sv" style="color:var(--ok)">${fmtN(lastC.totAc)}</span> <span class="sl">aceptados</span></span>
-     <span title="Rechazados"><span class="sv" style="color:var(--crit)">${fmtN(lastC.totRe)}</span> <span class="sl">rechazados</span></span>
-     <span title="% real = aceptados/total ponderado por volumen"><span class="sv" class="${pctClass(pctGlobal)}">${fmtP(pctGlobal)}</span> <span class="sl">% global</span></span>
-     <span><span class="sv" style="color:var(--ok)">↑${above}</span> <span class="sl">sobre prom.</span></span>
-     <span><span class="sv" style="color:var(--crit)">↓${below}</span> <span class="sl">bajo prom.</span></span>
-     <span><span class="sv" style="color:var(--high)">${lastC.rows.filter(m=>m.score>0).length}</span> <span class="sl">con alerta</span></span>
-     ${lastC.avgAdv>0?`<span><span class="sv" style="color:#2ecc71">${fmtP(lastC.avgAdv)}</span> <span class="sl">Advance (${lastC.cntAdv})</span></span>`:""}
-     ${lastC.avgCf>0?`<span><span class="sv" style="color:#f1c40f">${fmtP(lastC.avgCf)}</span> <span class="sl">Cashflow (${lastC.cntCf})</span></span>`:""}`;
+    `<span class="stat"><span class="sv-big">${fmtP(pctWeek)}</span><span class="sl">% semana ${fmtKey(lastD)}</span></span>
+     <span class="stat"><span class="sv-mid">${fmtP(pctMonth)}</span><span class="sl">% prom. último mes</span></span>
+     <span class="stat"><span class="sv-num" style="color:var(--ok)">${fmtN(lastC.totAc)}</span><span class="sl">aceptados</span></span>
+     <span class="stat"><span class="sv-num" style="color:var(--crit)">${fmtN(lastC.totRe)}</span><span class="sl">rechazados</span></span>`;
 }
 
 // ---------- top scrollbar sync ----------
@@ -1664,76 +1643,6 @@ function secIslaToggle(id,prefix){
   if(msg){ msg.textContent=`✓ ${n} máquina${n!==1?"s":""} de la isla ${prefix} ${allIn?"quitada":"agregada"}${n!==1?"s":""} ${allIn?"de":"a"} la ${SEL_LIST_DEFS[id].label}.`; setTimeout(()=>{if(msg)msg.textContent="";},2500); }
 }
 
-// ---------- Tendencias ----------
-let chTrend=null,chVol=null,chAl=null;
-function renderTendencias(){
-  const el=document.getElementById("tab-tendencias");
-  if(!state.weekOrder.length){el.innerHTML='<div class="card muted">Sin datos.</div>';return;}
-  el.innerHTML=`<div class="grid2">
-    <div class="card"><h2>% aceptación promedio por semana</h2><canvas id="cvTrend"></canvas></div>
-    <div class="card"><h2>Volumen de billetes</h2><canvas id="cvVol"></canvas></div></div>
-    <div class="card" style="margin-top:12px"><h2>Máquinas con alerta</h2><canvas id="cvAl"></canvas></div>`;
-  const calcs=allCalcs(),w=state.weekOrder,lbl=w.map(fmtKey);
-  if(chTrend)chTrend.destroy(); if(chVol)chVol.destroy(); if(chAl)chAl.destroy();
-  Chart.defaults.color="#8fa0c0"; Chart.defaults.borderColor="#2e3b58";
-  chTrend=new Chart(document.getElementById("cvTrend"),{type:"line",
-    data:{labels:lbl,datasets:[
-      {label:"% general",data:w.map(d=>+(calcs[d].avgPct*100).toFixed(2)),borderColor:"#4f8ff7",backgroundColor:"#4f8ff722",fill:true,tension:.3},
-      {label:"Umbral OK",data:w.map(()=>state.params.thrOk*100),borderColor:"#e74c3c",borderDash:[5,4],pointRadius:0}]},
-    options:{scales:{y:{ticks:{callback:v=>v+"%"}}}}});
-  chVol=new Chart(document.getElementById("cvVol"),{type:"bar",
-    data:{labels:lbl,datasets:[
-      {label:"Aceptados",data:w.map(d=>calcs[d].totAc),backgroundColor:"#2ecc71"},
-      {label:"Rechazados",data:w.map(d=>calcs[d].totRe),backgroundColor:"#e74c3c"}]},
-    options:{scales:{x:{stacked:true},y:{stacked:true}}}});
-  chAl=new Chart(document.getElementById("cvAl"),{type:"bar",
-    data:{labels:lbl,datasets:[{label:"Máquinas con alerta",data:w.map(d=>calcs[d].rows.filter(m=>m.score>0).length),backgroundColor:"#e67e22"}]}});
-}
-
-// ---------- Modelos ----------
-function renderModelos(){
-  const el=document.getElementById("tab-modelos");
-  if(!state.weekOrder.length){el.innerHTML='<div class="card muted">Sin datos.</div>';return;}
-  const calcs=allCalcs();
-  const sel=document.getElementById("modSel")?.value;
-  const d=state.weekOrder.includes(sel)?sel:state.weekOrder[state.weekOrder.length-1];
-  const c=calcs[d];
-  const groups={};
-  for(const m of c.rows){
-    const mod=(state.master[m.mda]?.modelo||"(sin dato)").trim()||"(sin dato)";
-    const g=groups[mod]=groups[mod]||{n:0,tot:0,ac:0,re:0,alert:0};
-    g.n++; g.tot+=m.total; g.ac+=m.toAc; g.re+=m.toRe;
-    if(m.score>0)g.alert++;
-  }
-  const rows=Object.entries(groups).sort((a,b)=>b[1].tot-a[1].tot);
-  let body=rows.map(([mod,g])=>`<tr>
-    <td class="left"><b>${mod}</b></td><td>${g.n}</td><td>${fmtN(g.tot)}</td><td>${fmtN(g.re)}</td>
-    <td class="${pctClass(g.tot>0?g.ac/g.tot:0)}">${g.tot>0?fmtP(g.ac/g.tot):"—"}</td>
-    <td>${g.alert}</td></tr>`).join("");
-  const allMods=[...new Set(state.weekOrder.flatMap(d2=>
-    calcs[d2].rows.map(m=>(state.master[m.mda]?.modelo||"(sin dato)").trim()||"(sin dato)")))].sort();
-  const colors=["#2ecc71","#f1c40f","#4f8ff7","#e74c3c","#9b59b6","#1abc9c"];
-  const lbl=state.weekOrder.map(fmtKey);
-  const datasets=allMods.map((mod,i)=>({
-    label:mod,
-    data:state.weekOrder.map(d2=>{
-      const r2=calcs[d2].rows.filter(m=>(state.master[m.mda]?.modelo||"(sin dato)").trim()===mod&&m.total>0);
-      const ac2=r2.reduce((s,m)=>s+m.toAc,0),tot2=r2.reduce((s,m)=>s+m.total,0);
-      return tot2>0?+(ac2/tot2*100).toFixed(2):null;
-    }),
-    borderColor:colors[i%colors.length],tension:.3,spanGaps:true
-  }));
-  el.innerHTML=`<div class="card"><h2>Comparativa por modelo de billetero</h2>
-    <div class="row"><label class="fld">Semana <select id="modSel" onchange="renderModelos()">${state.weekOrder.map(w=>`<option value="${w}" ${w===d?"selected":""}>${fmtKeyFull(w)}</option>`).join("")}</select></label></div>
-    <div class="tblWrap" style="max-height:40vh"><table id="tblMod">
-      <thead><tr><th class="left sortable">Modelo</th><th class="sortable">Máq.</th><th class="sortable">Total</th><th class="sortable">Rechazos</th><th class="sortable">% acep.</th><th class="sortable">Alertas</th></tr></thead>
-      <tbody>${body}</tbody></table></div></div>
-    <div class="card" style="margin-top:12px"><h2>Tendencia % por modelo</h2><canvas id="cvModTrend" style="max-height:280px"></canvas></div>`;
-  attachSort("tblMod");
-  Chart.defaults.color="#8fa0c0"; Chart.defaults.borderColor="#2e3b58";
-  new Chart(document.getElementById("cvModTrend"),{type:"line",data:{labels:lbl,datasets},options:{scales:{y:{ticks:{callback:v=>v+"%"}}}}});
-}
-
 // ---------- Máquinas (por fabricante → modelo → isla → máquinas) ----------
 let maqSelFab="", maqSelJuego="", maqSelGameTitle="";
 function renderMaquinas(){
@@ -1878,32 +1787,6 @@ function maqToggleGame(jue,mmq,fab){
   maqSelFab=fab; maqSelJuego=mmq;
   maqSelGameTitle=maqSelGameTitle===jue?"":jue;
   renderMaquinas();
-}
-
-// ---------- Denominaciones ----------
-function renderDenos(){
-  const el=document.getElementById("tab-denominaciones");
-  if(!state.weekOrder.length){el.innerHTML='<div class="card muted">Sin datos.</div>';return;}
-  const calcs=allCalcs(), w=state.weekOrder;
-  let body="";
-  for(const dn of DENOS){
-    let tr=`<td class="left"><b>$${dn}</b></td>`;
-    for(const d of w){
-      let ac=0,re=0;
-      for(const m of calcs[d].rows){ac+=m.acc[dn]||0;re+=m.rej[dn]||0;}
-      const t=ac+re;
-      tr+=`<td class="${t>0?pctClass(ac/t):''}">${t>0?fmtP(ac/t):"—"}</td><td>${fmtN(t)}</td>`;
-    }
-    body+=`<tr>${tr}</tr>`;
-  }
-  el.innerHTML=`<div class="card"><h2>Aceptación por denominación</h2>
-    <div class="tblWrap"><table id="tblDeno">
-      <thead>
-        <tr><th class="left">Denominación</th>${w.map(d=>`<th colspan="2">${fmtKey(d)}</th>`).join("")}</tr>
-        <tr><th></th>${w.map(()=>`<th class="sortable">%Acep</th><th class="sortable">Intentos</th>`).join("")}</tr>
-      </thead><tbody>${body}</tbody></table></div>
-    <div class="hint">Detecta problemas sistémicos por denominación.</div></div>`;
-  attachSort("tblDeno");
 }
 
 // ---------- Buscador ----------
@@ -2603,7 +2486,7 @@ function saveParams(){
   state.params={thrOk:g("p_thrOk"),thrMid:g("p_thrMid"),thrCrit:g("p_thrCrit"),
     multMid:g("p_multMid"),multCrit:g("p_multCrit"),
     sevMid:g("p_sevMid"),sevHigh:g("p_sevHigh"),sevCrit:g("p_sevCrit")};
-  invalidate(); saveState(); renderParamsBar();
+  invalidate(); saveState();
   document.getElementById("adminMsg").textContent="✓ Guardado.";
 }
 function borrarTodo(){
@@ -2617,7 +2500,7 @@ function borrarTodo(){
 }
 function resetParams(){
   state.params={thrOk:0.85,thrMid:0.90,thrCrit:0.40,multMid:3,multCrit:30,sevMid:10,sevHigh:50,sevCrit:150};
-  invalidate(); saveState(); renderAdmin(); renderParamsBar();
+  invalidate(); saveState(); renderAdmin();
 }
 
 // ---------- Intercambios ----------
@@ -3234,7 +3117,7 @@ function intExportarJSON(){
 
 // ---------- Init ----------
 function renderAll(){
-  renderParamsBar(); renderLoadedInfo();
+  renderLoadedInfo();
   showTab(activeTab);
 }
 (async function(){
