@@ -339,12 +339,13 @@ canvas{max-height:320px}
 .up{color:var(--ok)}.down{color:var(--crit)}
 
 /* ── Pct bar ── */
-.pctbar{
+.pctbar-track{
   display:inline-block;height:6px;
-  border-radius:3px;
+  border-radius:3px;background:var(--panel3);
   vertical-align:middle;margin-left:8px;
-  opacity:.85;
+  overflow:hidden;position:relative;
 }
+.pctbar-fill{display:block;height:100%;border-radius:3px;transition:width .35s ease}
 
 /* ── Levantamiento ── */
 .lev-radio label{margin-right:8px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;font-size:11px}
@@ -378,9 +379,13 @@ canvas{max-height:320px}
   background:var(--panel2);
   border:1px solid var(--border);
   border-radius:var(--r-lg);
-  padding:14px;cursor:pointer;
-  transition:all .2s;
+  padding:16px 14px 14px;cursor:pointer;
+  transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease;
   position:relative;overflow:hidden;
+}
+.sector-card::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:2px;
+  background:var(--sc-accent,var(--accent));opacity:.7;
 }
 .sector-card::after{
   content:'';position:absolute;inset:0;
@@ -389,8 +394,24 @@ canvas{max-height:320px}
 }
 .sector-card:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:var(--shadow)}
 .sector-card:hover::after{opacity:1}
-.sector-card .sc-num{font-size:32px;font-weight:700;letter-spacing:-1px;color:var(--text)}
+.sector-card.active{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset,var(--shadow)}
+.sector-card .sc-num{font-size:30px;font-weight:700;letter-spacing:-1px;color:var(--text);line-height:1.1}
+.sector-card .sc-pct{font-size:15px;font-weight:700;margin:4px 0 2px;letter-spacing:-.2px}
 .sector-card .sc-lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
+
+/* ── Detalle de isla (expansión in-place) ── */
+.isla-detail{animation:islaDetailIn .22s ease}
+@keyframes islaDetailIn{
+  from{opacity:0;transform:translateY(-4px)}
+  to{opacity:1;transform:translateY(0)}
+}
+.isla-detail-hd{font-size:12px;font-weight:600;color:var(--text);margin-bottom:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.isla-detail-hd .muted{font-weight:400}
+.isla-mtable{width:100%;font-size:12px;border-collapse:collapse}
+.isla-mtable th{background:var(--panel3);position:static;font-size:9px;padding:6px 8px}
+.isla-mtable td{padding:6px 8px;border-bottom:1px solid var(--border)}
+.isla-mtable tbody tr:last-child td{border-bottom:none}
+.isla-mtable tbody tr:hover td{background:rgba(59,130,246,.06)}
 
 /* ── Máquinas fab cards ── */
 .fab-card{
@@ -472,7 +493,7 @@ canvas{max-height:320px}
 
 <script>
 /* ===== REACBILL v1.8.19-main ===== */
-const VERSION = "1.9.12-main";
+const VERSION = "1.9.13-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
 const ARCHIVE_KEY = "reacbill_archive_v1";
@@ -675,11 +696,12 @@ function pctClass(p){
   if(p<pr.thrCrit)return"c-cr";if(p<pr.thrOk)return"c-hi";if(p<pr.thrMid)return"c-mid";return"c-ok";
 }
 function pctBar(p,w=60){
-  if(!p||p<=0)return"";
+  if(!p||p<=0)return `<span class="pctbar-track" style="width:${w}px"></span>`;
   const cls=pctClass(p);
   const colors={"c-ok":"var(--ok)","c-mid":"var(--mid)","c-hi":"var(--high)","c-cr":"var(--crit)"};
   const col=colors[cls]||"var(--muted)";
-  return `<span class="pctbar" style="width:${Math.round(p*w)}px;background:${col}"></span>`;
+  const fillPct=Math.max(2,Math.min(100,Math.round(p*100)));
+  return `<span class="pctbar-track" style="width:${w}px"><span class="pctbar-fill" style="width:${fillPct}%;background:${col}"></span></span>`;
 }
 
 // ---------- Sort genérico ----------
@@ -724,7 +746,9 @@ function attachSort(tableId){
       tbl.querySelectorAll("th.sortable").forEach(h=>h.classList.remove("s-asc","s-desc"));
       th.classList.add(dir===1?"s-asc":"s-desc");
       const tbody=tbl.tBodies[0]; if(!tbody)return;
-      const rows=[...tbody.querySelectorAll("tr:not(.no-sort)")];
+      // sólo filas DIRECTAS del tbody: querySelectorAll también atraparía filas de
+      // tablas anidadas (ej. el detalle de isla en Sectores), corrompiéndolas al ordenar
+      const rows=[...tbody.children].filter(tr=>tr.tagName==="TR"&&!tr.classList.contains("no-sort"));
       rows.sort((a,b)=>{
         // use only direct text nodes, ignoring nested elements (e.g. muted spans with volume)
         const cellText=cell=>{
@@ -1405,6 +1429,7 @@ function secCopiarResumen(){
 function renderSectores(){
   const el=document.getElementById("tab-sectores");
   if(!state.weekOrder.length){el.innerHTML='<div class="card muted">Sin datos.</div>';return;}
+  const scrollY=window.scrollY;
   const selSector=document.getElementById("secSel")?.value||"";
   const selIsla=document.getElementById("secIslaSel")?.value||"";
   const selModelo=document.getElementById("secModSel")?.value||"";
@@ -1434,15 +1459,16 @@ function renderSectores(){
   // cards de sectores
   secSummaryData=[]; secSummaryDate=fmtKeyFull(lastD);
   let sectorCards=`<div class="grid3" style="margin-bottom:12px">`;
+  const CLS_COLOR={"c-ok":"var(--ok)","c-mid":"var(--mid)","c-hi":"var(--high)","c-cr":"var(--crit)"};
   for(const sec of sectors){
     const allMdas=Object.values(sectorMap[sec]).flat();
     const st=islaStats(allMdas,lastC);
     const cls=pctClass(st.pct);
-    const active=sec===selSector?"border:2px solid var(--accent)":"";
+    const accent=CLS_COLOR[cls]||"var(--muted)";
     secSummaryData.push({sector:sec, pct:st.pct, islas:Object.keys(sectorMap[sec]).length, maq:allMdas.length, alertas:st.alerts});
-    sectorCards+=`<div class="sector-card" onclick="secSelSector('${sec}')" style="${active}">
-      <div class="sc-num" style="${cls?`color:${cls==='c-ok'?'var(--ok)':cls==='c-mid'?'var(--mid)':cls==='c-hi'?'var(--high)':'var(--crit)'}`:''}">${sec}</div>
-      <div style="font-size:14px;font-weight:600;margin:2px 0">${fmtP(st.pct)}</div>
+    sectorCards+=`<div class="sector-card${sec===selSector?' active':''}" onclick="secSelSector('${sec}')" style="--sc-accent:${accent}">
+      <div class="sc-num" style="color:${accent}">${sec}</div>
+      <div class="sc-pct">${fmtP(st.pct)}</div>
       <div class="sc-lbl">${Object.keys(sectorMap[sec]).length} islas · ${allMdas.length} máq · ${st.alerts} alertas</div>
     </div>`;
   }
@@ -1469,42 +1495,47 @@ function renderSectores(){
         <td class="${trend==null?'':trend>=0?'up':'down'}">${trend==null?"—":(trend>=0?"+":"")+(trend*100).toFixed(1)+"%"}</td>
         <td style="color:${st.alerts>0?'var(--high)':'var(--muted)'}">${st.alerts}</td>
       </tr>`;
-      // fila expandida con el detalle de máquinas, justo debajo de la isla clickeada
-      // (divs en flexbox, no una tabla anidada: evita conflictos con el sticky/overflow de la tabla contenedora)
+      // fila expandida con el detalle de máquinas, en una tabla real (mismas proporciones
+      // que el resto de la app) para que se abra prolijamente hacia abajo, alineada con
+      // la tabla de islas de arriba — nada de columnas angostas "corridas" a la izquierda.
       if(prefix===selIsla){
         const sMdas=mdas.slice().sort(esCollator.compare);
         const wks=state.weekOrder.slice(-4);
-        const colL="min-width:70px;flex:0 0 70px;text-align:left;white-space:normal";
-        const colW="min-width:110px;flex:1 0 110px;text-align:right;white-space:normal";
-        let machGrid=`<div style="display:flex;gap:0;padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);border-bottom:1px solid var(--border)">
-          <div style="min-width:76px;flex:0 0 76px"></div>
-          <div style="${colL}">MDA</div>
-          <div style="${colL};min-width:100px;flex:0 0 100px">Modelo máq.</div>
-          <div style="${colL};min-width:90px;flex:0 0 90px">Billetero</div>
-          <div style="${colL}">Firm</div>
-          <div style="${colL};min-width:90px;flex:1 0 90px">Juego</div>
-          ${wks.map(d=>`<div style="${colW}">${fmtKey(d)}</div>`).join("")}
-        </div>`;
+        let machRows="";
         for(const mda of sMdas){
           const ms=state.master[mda]||{};
           let hist="";
           for(const d of wks){
             const m=calcs[d]?.rows.find(r=>r.mda===mda);
-            hist+=`<div style="${colW}${m&&m.pct>0?"":";color:var(--muted)"}">${m&&m.pct>0?`<span class="${pctClass(m.pct)}" style="padding:1px 5px;border-radius:4px">${fmtP(m.pct)}</span><br><span class="muted" style="font-size:10px">${fmtN(m.total)}</span>`:"—"}</div>`;
+            hist+=m&&m.pct>0
+              ?`<td style="text-align:right"><span class="${pctClass(m.pct)}" style="padding:2px 6px;border-radius:4px">${fmtP(m.pct)}</span><br><span class="muted" style="font-size:10px">${fmtN(m.total)}</span></td>`
+              :`<td class="muted" style="text-align:right">—</td>`;
           }
-          machGrid+=`<div style="display:flex;gap:0;padding:5px 8px;border-bottom:1px solid var(--border);align-items:center">
-            <div style="min-width:76px;flex:0 0 76px">${selBtn(mda)}</div>
-            <div style="${colL}"><b>${mda}</b></div>
-            <div style="${colL};min-width:100px;flex:0 0 100px">${ms.modelmaq||"—"}</div>
-            <div style="${colL};min-width:90px;flex:0 0 90px">${ms.modelo||"—"}</div>
-            <div style="${colL};font-size:10px">${ms.firm||"—"}</div>
-            <div style="${colL};min-width:90px;flex:1 0 90px">${ms.juego||"—"}</div>
-            ${hist}</div>`;
+          machRows+=`<tr>
+            <td>${selBtn(mda)}</td>
+            <td class="left"><b>${mda}</b></td>
+            <td class="left muted">${ms.modelmaq||"—"}</td>
+            <td class="left muted">${ms.modelo||"—"}</td>
+            <td class="left muted" style="font-size:10px">${ms.firm||"—"}</td>
+            <td class="left muted">${ms.juego||"—"}</td>
+            ${hist}
+          </tr>`;
         }
         const islaS=islaStats(mdas,lastC);
-        islaRows+=`<tr class="no-sort"><td colspan="8" style="padding:10px;background:var(--bg2,#0d1626)">
-          <div style="font-size:13px;font-weight:600;margin-bottom:8px">Isla ${selIsla} — ${mdas.length} máquinas · ${fmtP(islaS.pct)} prom. · ${islaS.alerts} alertas</div>
-          <div style="overflow-x:auto">${machGrid}</div></td></tr>`;
+        islaRows+=`<tr class="no-sort"><td colspan="8" style="padding:0;background:var(--bg2,#0d1626)">
+          <div class="isla-detail" style="padding:12px">
+            <div class="isla-detail-hd">
+              <span style="color:var(--accent)">▾</span> Isla ${selIsla}
+              <span class="muted">· ${mdas.length} máquinas · ${fmtP(islaS.pct)} prom. · ${islaS.alerts} alertas</span>
+            </div>
+            <div class="tblWrap" style="overflow-y:visible"><table class="isla-mtable">
+              <thead><tr>
+                <th></th><th class="left">MDA</th><th class="left">Modelo máq.</th><th class="left">Billetero</th>
+                <th class="left">Firm</th><th class="left">Juego</th>
+                ${wks.map(d=>`<th style="text-align:right">${fmtKey(d)}</th>`).join("")}
+              </tr></thead>
+              <tbody>${machRows}</tbody></table></div>
+          </div></td></tr>`;
       }
     }
     sectorDetail=`<div class="card"><h2>Sector ${selSector} — islas</h2>
@@ -1549,6 +1580,8 @@ function renderSectores(){
     document.querySelectorAll("#tblSecIslas th.sortable").forEach(th=>th.addEventListener("click",pinDetail));
   }
   reapplySort("tblSecIslas");
+  window.scrollTo(0,scrollY);
+  requestAnimationFrame(()=>window.scrollTo(0,scrollY));
 }
 function secSelSector(s){ document.getElementById("secSel").value=s; document.getElementById("secIslaSel").value=""; renderSectores(); }
 function secSelIsla(p){ const el=document.getElementById("secIslaSel"); el.value=(el.value===p)?"":p; renderSectores(); }
