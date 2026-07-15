@@ -484,7 +484,7 @@ canvas{max-height:320px}
 
 <script>
 /* ===== REACBILL v1.8.19-main ===== */
-const VERSION = "2.2.1-main";
+const VERSION = "2.2.2-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
 const ARCHIVE_KEY = "reacbill_archive_v1";
@@ -1121,6 +1121,7 @@ function showTab(id){
     intercambios:renderIntercambios,
     buscador:renderBuscador,tarjetas:renderTarjetas,
     lista:renderLista,admin:renderAdmin}[id]||(() => {}))();
+  updateStatsBar();
 }
 // ---------- Exportar reporte de la pestaña activa (copiar como tabla / imprimir PDF) ----------
 function exportActiveTabPrint(){
@@ -1190,18 +1191,39 @@ function renderLoadedInfo(){
   el.innerHTML=`<b>${state.weekOrder.length}</b> semanas · <b>${allMdas.size}</b> máquinas · <b>${withLoc}</b> con ubicación<br>
     <span class="muted" style="font-size:11px">${state.weekOrder.map(d=>fmtKeyFull(d)).join("  ·  ")}</span>`;
   document.getElementById("dataInfo").textContent=` · ${state.weekOrder.length} sem · ${allMdas.size} máq`;
+  updateStatsBar();
+}
+// Barra de estadísticas del header: billetes por defecto, o lectura de tarjetas
+// cuando la pestaña activa es Tarjetas — mismo formato (% semana grande, % prom.
+// último mes más chico, total aceptado/rechazado), pero con el dato que corresponda.
+function updateStatsBar(){
+  const sb=document.getElementById("statsBar"); if(!sb)return;
+  if(!state.weekOrder.length){ sb.innerHTML=""; return; }
   const lastD=state.weekOrder[state.weekOrder.length-1];
   const calcs=allCalcs();
+  const idx=state.weekOrder.indexOf(lastD);
+  const monthWeeks=state.weekOrder.slice(Math.max(0,idx-3),idx+1);
+  if(activeTab==="tarjetas"){
+    const lastAcRe=calcs[lastD].rows.reduce((s,m)=>{s.ac+=m.tarjAc||0;s.re+=m.tarjRe||0;return s;},{ac:0,re:0});
+    const pctWeek=(lastAcRe.ac+lastAcRe.re)>0?lastAcRe.ac/(lastAcRe.ac+lastAcRe.re):0;
+    let mAc=0,mRe=0;
+    for(const wd of monthWeeks) for(const m of calcs[wd].rows){ mAc+=m.tarjAc||0; mRe+=m.tarjRe||0; }
+    const pctMonth=(mAc+mRe)>0?mAc/(mAc+mRe):0;
+    sb.innerHTML=
+      `<span class="stat"><span class="sv-big">${fmtP(pctWeek)}</span><span class="sl">% tarjeta semana ${fmtKey(lastD)}</span></span>
+       <span class="stat"><span class="sv-mid">${fmtP(pctMonth)}</span><span class="sl">% prom. último mes</span></span>
+       <span class="stat"><span class="sv-num" style="color:var(--ok)">${fmtN(lastAcRe.ac)}</span><span class="sl">tarj. aceptadas</span></span>
+       <span class="stat"><span class="sv-num" style="color:var(--crit)">${fmtN(lastAcRe.re)}</span><span class="sl">tarj. rechazadas</span></span>`;
+    return;
+  }
   const lastC=calcs[lastD];
   // % real de la última semana, ponderado por volumen
   const pctWeek=lastC.totBill>0?lastC.totAc/lastC.totBill:0;
   // % real del último mes: suma ponderada de hasta las últimas 4 semanas cargadas
-  const idx=state.weekOrder.indexOf(lastD);
-  const monthWeeks=state.weekOrder.slice(Math.max(0,idx-3),idx+1);
   let mAc=0,mTot=0;
   for(const wd of monthWeeks){ mAc+=calcs[wd].totAc; mTot+=calcs[wd].totBill; }
   const pctMonth=mTot>0?mAc/mTot:0;
-  if(sb) sb.innerHTML=
+  sb.innerHTML=
     `<span class="stat"><span class="sv-big">${fmtP(pctWeek)}</span><span class="sl">% semana ${fmtKey(lastD)}</span></span>
      <span class="stat"><span class="sv-mid">${fmtP(pctMonth)}</span><span class="sl">% prom. último mes</span></span>
      <span class="stat"><span class="sv-num" style="color:var(--ok)">${fmtN(lastC.totAc)}</span><span class="sl">aceptados</span></span>
