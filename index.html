@@ -484,7 +484,7 @@ canvas{max-height:320px}
 
 <script>
 /* ===== REACBILL v1.8.19-main ===== */
-const VERSION = "2.2.2-main";
+const VERSION = "2.2.3-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
 const ARCHIVE_KEY = "reacbill_archive_v1";
@@ -558,11 +558,19 @@ async function loadState(){
       const rq=db.transaction("kv").objectStore("kv").get(LS_KEY);
       rq.onsuccess=()=>{
         if(rq.result){ const s=JSON.parse(rq.result); state={...state,...s,params:{...state.params,...s.params}}; }
+        migrateIslaFormat();
         res();
       };
       rq.onerror=()=>res();
     });
   }catch(e){}
+}
+// Migración: la posición se guardaba como "NNN-NN" (con guión); ahora se trabaja
+// siempre como dígitos puros "NNNNN". Normaliza los datos ya cargados una sola vez.
+function migrateIslaFormat(){
+  for(const ms of Object.values(state.master)){
+    if(ms.isla&&ms.isla.includes("-")) ms.isla=normIsla(ms.isla);
+  }
 }
 
 // ---------- Archivo de semanas antiguas ----------
@@ -621,7 +629,14 @@ function intExportarArchivo(){
 }
 
 // ---------- Helpers isla/sector ----------
-function islaPrefix(isla){ return isla?isla.split("-")[0]:""; }
+// La posición se trabaja siempre como dígitos puros (ej "64101"), sin guión,
+// sin importar el formato en que venga en el archivo origen (con o sin "-").
+function normIsla(s){ return String(s??"").replace(/[^0-9]/g,""); }
+function islaPrefix(isla){
+  if(!isla)return"";
+  const s=normIsla(isla);
+  return s.length>2?s.slice(0,-2):s;
+}
 function islaSector(isla){ const p=islaPrefix(isla); return p?p[0]:""; }
 
 // ---------- Cálculos ----------
@@ -772,8 +787,7 @@ function reapplySort(tableId){
 
 // ---------- Parseo ----------
 function fmtLocname(loc){
-  const s=String(loc).trim();
-  return s.length>2?s.slice(0,s.length-2)+"-"+s.slice(-2):s;
+  return normIsla(loc);
 }
 function getLoc(mda){ const m=state.master[mda]; if(!m)return""; return m.isla||(m.locname?fmtLocname(m.locname):""); }
 function getMod(mda){ return (state.master[mda]?.modelo||"").trim(); }
@@ -888,7 +902,7 @@ function parseSeguimientoModelos(ws){
     const row=arr[r]; if(!row)continue;
     const mda=String(row[0]??"").trim(); if(!mda||!/^\d+$/.test(mda))continue;
     const fab=String(row[1]??"").trim(), mod=String(row[2]??"").trim();
-    const firm=String(row[3]??"").trim(), isla=String(row[4]??"").trim();
+    const firm=String(row[3]??"").trim(), isla=normIsla(row[4]);
     state.master[mda]={...(state.master[mda]||{}),
       fabricante:fab||state.master[mda]?.fabricante||"",
       modelo:mod||state.master[mda]?.modelo||"",
@@ -1886,8 +1900,8 @@ function renderBuscador(focusField){
     <div class="grid2">
       <label class="fld">Buscar por MDA (número de máquina)
         <input id="busMDA" placeholder="Ej: 100020" value="${busMDAVal}" oninput="busOnInput('mda',this.value)" style="cursor:text;margin-top:4px"></label>
-      <label class="fld">Buscar por ISLA (ej: 103 busca todas las 103-xx)
-        <input id="busIsla" placeholder="Ej: 103 o 202-08" value="${busIslaVal}" oninput="busOnInput('isla',this.value)" style="cursor:text;margin-top:4px"></label>
+      <label class="fld">Buscar por ISLA (ej: 103 busca todas las posiciones que empiezan con 103)
+        <input id="busIsla" placeholder="Ej: 103 o 20208" value="${busIslaVal}" oninput="busOnInput('isla',this.value)" style="cursor:text;margin-top:4px"></label>
     </div></div>${resMDA}${resIsla}`;
   const fid=focusField==="isla"?"busIsla":"busMDA";
   const inp=document.getElementById(fid);
@@ -2416,7 +2430,7 @@ function machSave(){
     if(!state.master[mda])continue;
     const edits=machPendingEdits[mda];
     for(const f in edits){
-      state.master[mda][f]=(edits[f]||"").trim();
+      state.master[mda][f]=f==="isla"?normIsla(edits[f]):(edits[f]||"").trim();
       if(f==="modelo")state.master[mda].modeloFuente="manual";
     }
   }
