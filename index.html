@@ -484,7 +484,7 @@ canvas{max-height:320px}
 
 <script>
 /* ===== REACBILL v1.8.19-main ===== */
-const VERSION = "2.2.3-main";
+const VERSION = "2.2.4-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
 const ARCHIVE_KEY = "reacbill_archive_v1";
@@ -1453,8 +1453,15 @@ function renderSectores(){
   const selIsla=document.getElementById("secIslaSel")?.value||"";
   const selModelo=document.getElementById("secModSel")?.value||"";
   const calcs=allCalcs();
-  const lastD=state.weekOrder[state.weekOrder.length-1];
+  // semana "activa": por defecto la última cargada, pero se puede retroceder
+  // hasta 3 semanas para comparar (selector + flechas ◀ ▶)
+  const weekOptions=state.weekOrder.slice(-4);
+  const selWeek=document.getElementById("secWeekSel")?.value;
+  const lastD=weekOptions.includes(selWeek)?selWeek:state.weekOrder[state.weekOrder.length-1];
   const lastC=calcs[lastD];
+  const dIdx=state.weekOrder.indexOf(lastD);
+  const prevD=dIdx>0?state.weekOrder[dIdx-1]:null;
+  const prevCAll=prevD?calcs[prevD]:null;
   // agrupar por sector → isla_prefix → máquinas (filtrando por modelo de billetero si corresponde)
   const sectorMap={};
   for(const [mda,ms] of Object.entries(state.master)){
@@ -1484,10 +1491,14 @@ function renderSectores(){
     const st=islaStats(allMdas,lastC);
     const cls=pctClass(st.pct);
     const accent=CLS_COLOR[cls]||"var(--muted)";
+    const prevSt=prevCAll?islaStats(allMdas,prevCAll):null;
+    const trend=prevSt&&prevSt.pct>0?st.pct-prevSt.pct:null;
+    const trendHtml=trend==null?"":
+      `<span class="${trend>=0?'up':'down'}" style="font-size:11px;font-weight:700;margin-left:6px">${trend>=0?"▲":"▼"} ${Math.abs(trend*100).toFixed(1)}%</span>`;
     secSummaryData.push({sector:sec, pct:st.pct, islas:Object.keys(sectorMap[sec]).length, maq:allMdas.length, alertas:st.alerts});
     sectorCards+=`<div class="sector-card${sec===selSector?' active':''}" onclick="secSelSector('${sec}')" style="--sc-accent:${accent}">
       <div class="sc-num" style="color:${accent}">${sec}</div>
-      <div class="sc-pct">${fmtP(st.pct)}</div>
+      <div class="sc-pct">${fmtP(st.pct)}${trendHtml}</div>
       <div class="sc-lbl">${Object.keys(sectorMap[sec]).length} islas · ${allMdas.length} máq · ${st.alerts} alertas</div>
     </div>`;
   }
@@ -1501,7 +1512,7 @@ function renderSectores(){
     for(const prefix of islas){
       const mdas=sectorMap[selSector][prefix];
       const st=islaStats(mdas,lastC);
-      const prev=state.weekOrder.length>=2?islaStats(mdas,calcs[state.weekOrder[state.weekOrder.length-2]]):null;
+      const prev=prevCAll?islaStats(mdas,prevCAll):null;
       const trend=prev&&prev.pct>0?st.pct-prev.pct:null;
       const active=prefix===selIsla?"background:var(--accent);color:#fff;font-weight:700":"";
       islaRows+=`<tr data-isla="${prefix}" style="cursor:pointer;${active}" onclick="secSelIsla('${prefix}')">
@@ -1609,9 +1620,17 @@ function renderSectores(){
           <tbody>${flatRows}</tbody></table></div></div>`;
     }
   }
+  const wIdx=weekOptions.indexOf(lastD);
   el.innerHTML=`<div class="card"><h2>Vista por sectores</h2>
-    <div class="hint" style="margin-bottom:10px">Sector = primer dígito de la ISLA (ej: sector 6 = islas 6xx). Semana analizada: <b>${fmtKeyFull(lastD)}</b></div>
+    <div class="hint" style="margin-bottom:10px">Sector = primer dígito de la ISLA (ej: sector 6 = islas 6xx).${prevD?` Comparado con ${fmtKeyFull(prevD)}.`:""}</div>
     <div class="row" style="margin-bottom:10px;align-items:flex-end">
+      <label class="fld">Semana
+        <div style="display:flex;align-items:center;gap:4px">
+          <button class="btn sec sm" style="padding:4px 8px" onclick="secShiftWeek(-1)" ${wIdx<=0?"disabled":""} title="Semana anterior">◀</button>
+          <select id="secWeekSel" onchange="renderSectores()">${weekOptions.map(w=>`<option value="${w}" ${w===lastD?"selected":""}>${fmtKeyFull(w)}</option>`).join("")}</select>
+          <button class="btn sec sm" style="padding:4px 8px" onclick="secShiftWeek(1)" ${wIdx>=weekOptions.length-1?"disabled":""} title="Semana siguiente">▶</button>
+        </div>
+      </label>
       <label class="fld">Modelo billetero <select id="secModSel" onchange="renderSectores()">
         <option value="" ${selModelo===""?"selected":""}>Todas</option>
         <option value="Advance" ${selModelo==="Advance"?"selected":""}>Advance</option>
@@ -1643,6 +1662,14 @@ function renderSectores(){
   }
   window.scrollTo(0,scrollY);
   requestAnimationFrame(()=>window.scrollTo(0,scrollY));
+}
+function secShiftWeek(delta){
+  const sel=document.getElementById("secWeekSel"); if(!sel)return;
+  const opts=[...sel.options].map(o=>o.value);
+  const i=opts.indexOf(sel.value)+delta;
+  if(i<0||i>=opts.length)return;
+  sel.value=opts[i];
+  renderSectores();
 }
 function secSelSector(s){ document.getElementById("secSel").value=s; document.getElementById("secIslaSel").value=""; renderSectores(); }
 function secSelIsla(p){ const el=document.getElementById("secIslaSel"); el.value=(el.value===p)?"":p; renderSectores(); }
