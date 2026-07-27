@@ -1264,3 +1264,564 @@ Tu tarea es replicar el comportamiento **exacto** descrito en este documento. Co
 - **Los bugs de la §8 son bugs, no especificación.** No los "documentes como comportamiento correcto" ni los repliques deliberadamente si tu tarea es construir una versión sana; pero **tampoco los corrijas por tu cuenta si tu tarea es replicar fielmente**. Si no está claro cuál de las dos cosas se te pide, **pregunta antes de decidir**.
 - **Ante cualquier ambigüedad o insuficiencia de este documento al momento de implementar, pregunta antes de asumir.** No rellenes huecos con tu criterio. La §8.3 lista las preguntas que yo mismo no pude responder leyendo el código; si te topás con alguna de ellas, o con una nueva, **escalá la pregunta en vez de inventar una respuesta plausible**.
 - **Si detectas una contradicción entre este documento y el código fuente original, manda el código fuente**, y reportá la discrepancia.
+
+---
+
+# ANEXO A — Diseño visual, geometría y textos de UI
+
+> **Alcance de este anexo.** Complementa las secciones 1–9 para que el documento sea autosuficiente también en apariencia y microcopy.
+>
+> **Se OMITE deliberadamente la paleta de colores** (el bloque `:root` de variables cromáticas y los valores hexadecimales/rgba). Quien reconstruya debe aportar su propia paleta. Las reglas de abajo **conservan las referencias `var(--x)` tal como están en el código**, para que se vea *dónde* se aplica cada rol de color sin fijar cuál es.
+>
+> Donde un color cumple una función y no es decorativo (estados de porcentaje, colores de cada lista, Advance/Cashflow), esa función ya está documentada en §3.3, §4.2 y §5.8 como **dato**, no como estilo.
+
+## A.1 Sistema de geometría
+
+Variables no cromáticas del `:root` (estas SÍ se incluyen: son geometría, no paleta):
+
+```css
+--r:8px; --r-sm:5px; --r-lg:12px;                 /* radios */
+--shadow-sm:0 1px 3px rgba(0,0,0,.4);
+--shadow:0 4px 16px rgba(0,0,0,.5);
+--shadow-lg:0 8px 32px rgba(0,0,0,.6);            /* profundidad, negro con alfa */
+```
+
+Uso de los radios: `--r-lg` (12px) en tarjetas, KPIs, dropzone, sector-card, fab-card; `--r` (8px) en `.tblWrap` y `.param-block`; `--r-sm` (5px) en inputs, selects y botones; `4px` fijo en `.med-inp`.
+
+## A.2 Reset, tipografía base y scrollbars
+
+```css
+*{box-sizing:border-box;margin:0;padding:0}
+
+body{
+  font:13px/1.5 'Inter',system-ui,sans-serif;
+  cursor:default;
+  -webkit-font-smoothing:antialiased;
+  background-attachment:fixed;
+  /* dos radial-gradients decorativos: elipse 80%x60% en 50% -20%, y 60%x40% en 80% 110% */
+}
+
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{border-radius:4px}
+*{scrollbar-width:thin}                            /* Firefox */
+```
+
+Fuente: **Inter** (Google Fonts, pesos 300/400/500/600/700, `display=swap`), con fallback `system-ui, sans-serif`.
+
+## A.3 Header
+
+```css
+header{
+  position:sticky; top:0; z-index:50;
+  backdrop-filter:blur(20px) saturate(180%);
+  -webkit-backdrop-filter:blur(20px) saturate(180%);
+  border-bottom:1px solid var(--border);
+  padding:10px 20px 0;
+  box-shadow:0 1px 0 rgba(<accent>,.1), var(--shadow);
+}
+header h1{
+  font-size:15px; font-weight:700; letter-spacing:.5px;
+  -webkit-background-clip:text; background-clip:text;   /* título con degradado */
+  -webkit-text-fill-color:transparent;
+  display:inline-block; margin-right:8px;
+}
+.ver{font-size:10px; font-weight:400}
+```
+
+Estructura del header, en orden: fila flex (`gap:10px`, `align-items:center`) con `<img src="logo.png">` de **`height:34px;width:auto`**, el `<h1>` con el `<span id="verSpan">`, y `<span id="dataInfo">` (10px); luego `#statsBar`, luego `<nav id="nav">`, y por último `#exportBar`.
+
+### Barra de estadísticas
+
+```css
+#statsBar{font-size:11.5px; margin-top:6px; display:flex; flex-wrap:wrap; gap:26px; align-items:baseline}
+#statsBar .stat{display:flex; flex-direction:column; align-items:flex-start; gap:1px}
+#statsBar .sv{font-weight:700}
+#statsBar .sv-big{font-size:30px; font-weight:700; letter-spacing:-.5px; line-height:1}
+#statsBar .sv-mid{font-size:19px; font-weight:700; line-height:1}
+#statsBar .sv-num{font-size:19px; font-weight:700; line-height:1}
+#statsBar .sl{font-size:10.5px; text-transform:uppercase; letter-spacing:.4px; margin-top:2px}
+```
+La jerarquía visual es deliberada: la métrica principal a **30px**, las otras tres a **19px**, y todas las etiquetas a 10.5px en mayúsculas.
+
+## A.4 Navegación por pestañas
+
+```css
+nav{
+  display:flex; flex-wrap:nowrap; gap:0; margin-top:10px;
+  overflow-x:auto; overflow-y:hidden;
+  scrollbar-width:none; -ms-overflow-style:none;
+  border-bottom:none; padding-bottom:0;
+}
+nav::-webkit-scrollbar{display:none}               /* scroll horizontal sin barra visible */
+nav button{
+  background:transparent; border:none;
+  border-bottom:2px solid transparent; border-radius:0;
+  padding:7px 14px; cursor:pointer;
+  font:11.5px/1 'Inter',sans-serif; font-weight:500;
+  white-space:nowrap; letter-spacing:.2px;
+  transition:color .2s, border-color .2s;
+}
+nav button:hover{border-bottom-color:var(--border2)}
+nav button.active{border-bottom-color:var(--accent); font-weight:600}
+```
+Patrón: pestañas subrayadas, **sin fondo**, con scroll horizontal invisible cuando no caben (clave en móvil: son 11 pestañas).
+
+```css
+main{padding:18px 20px}
+.tab{display:none}
+.tab.active{display:block}
+.exportBar{display:flex; gap:8px; padding:6px 0 2px}
+```
+
+## A.5 Tarjetas y KPIs
+
+```css
+.card{
+  border:1px solid var(--border); border-radius:var(--r-lg);
+  padding:16px 18px; margin-bottom:14px;
+  box-shadow:var(--shadow-sm); transition:border-color .2s;
+}
+.card h2{
+  font-size:12px; font-weight:600; margin-bottom:12px;
+  text-transform:uppercase; letter-spacing:.8px;
+  display:flex; align-items:center; gap:7px;
+}
+.card h2::before{                                   /* barrita vertical antes del título */
+  content:''; display:inline-block;
+  width:3px; height:13px; border-radius:2px;
+  background:linear-gradient(180deg,var(--accent),var(--accent2));
+}
+```
+
+```css
+.kpis{display:flex; flex-wrap:wrap; gap:12px}
+.kpi{
+  border:1px solid var(--border); border-radius:var(--r-lg);
+  padding:14px 18px; min-width:120px;
+  position:relative; overflow:hidden;
+  transition:all .2s; box-shadow:var(--shadow-sm);
+}
+.kpi::before{                                       /* línea superior de 2px */
+  content:''; position:absolute; top:0; left:0; right:0; height:2px;
+  background:linear-gradient(90deg,var(--accent),var(--accent2)); opacity:.6;
+}
+.kpi:hover{transform:translateY(-1px); box-shadow:var(--shadow)}
+.kpi .v{font-size:22px; font-weight:700; letter-spacing:-.5px}
+.kpi .l{font-size:10px; margin-top:2px; font-weight:500; text-transform:uppercase; letter-spacing:.5px}
+```
+
+## A.6 Tablas — el componente más importante
+
+```css
+table{border-collapse:collapse; font-size:11px; width:100%}
+
+th,td{
+  border:none; border-bottom:1px solid var(--border);
+  padding:6px 8px;
+  text-align:right;                                 /* alineación por defecto: DERECHA */
+  white-space:nowrap;
+}
+th{
+  position:sticky; top:0; z-index:3;                /* encabezado fijo al hacer scroll */
+  user-select:none;
+  font-size:10px; font-weight:600;
+  text-transform:uppercase; letter-spacing:.5px;
+  padding:8px 8px;
+}
+th:first-child{border-radius:var(--r-sm) 0 0 0}
+th:last-child{border-radius:0 var(--r-sm) 0 0}
+td.left,th.left{text-align:left}                    /* se opta explícitamente a la izquierda */
+
+.tblWrap{overflow:auto; border:1px solid var(--border); border-radius:var(--r)}
+tbody tr{transition:background .1s}
+tbody tr:hover td{background:<acento translúcido ~6%>}
+tbody tr:last-child td{border-bottom:none}
+```
+
+**Regla de oro:** los números van a la derecha por defecto; los textos (MDA, isla, modelo, juego) llevan `class="left"` explícito.
+
+### Columnas fijas (sticky) — sólo en Resumen
+
+```css
+.s1{position:sticky; left:0px;   z-index:4; min-width:76px; width:76px}
+.s2{position:sticky; left:76px;  z-index:4; min-width:70px; width:70px}
+.s3{position:sticky; left:146px; z-index:4; min-width:82px; width:82px}
+.s4{position:sticky; left:228px; z-index:4; min-width:58px; width:58px}
+thead .s1,thead .s2,thead .s3,thead .s4{z-index:6}
+tbody tr:hover .s1,…{background:<acento translúcido ~6%>}   /* mantiene el hover al congelarse */
+```
+Los `left` son **acumulativos y deben coincidir exactamente** con los anchos: 0 → 76 → 76+70=146 → 146+82=228. Cambiar un ancho obliga a recalcular los siguientes.
+
+### Indicadores de ordenamiento
+
+```css
+th.sortable{cursor:pointer}
+th.sortable:hover{background:<acento translúcido ~10%>}
+th.s-asc::after {content:" ↑"; font-size:9px}
+th.s-desc::after{content:" ↓"; font-size:9px}
+```
+
+### Scrollbar superior espejo (Resumen)
+
+```css
+.tbl-scroll-top{overflow-x:auto; overflow-y:hidden; border:1px solid var(--border);
+                border-bottom:none; border-radius:var(--r) var(--r) 0 0}
+.tbl-scroll-top>div{height:6px}
+.tbl-scroll-top+.tblWrap{border-radius:0 0 var(--r) var(--r)}
+```
+Los radios se reparten para que el scroller y la tabla se vean como una sola pieza.
+
+### Tabla anidada del detalle de isla
+
+```css
+.isla-mtable{width:100%; font-size:12px; border-collapse:collapse}
+.isla-mtable th{position:static; font-size:9px; padding:6px 8px}   /* anula el sticky heredado */
+.isla-mtable td{padding:6px 8px; border-bottom:1px solid var(--border)}
+.isla-mtable tbody tr:last-child td{border-bottom:none}
+.isla-mtable tbody tr:hover td{background:<acento translúcido ~6%>}
+```
+`position:static` en el `th` es **necesario**: sin él, el sticky heredado de `th` global hace que el encabezado anidado flote mal dentro de la fila expandida.
+
+## A.7 Badges
+
+```css
+.badge{
+  display:inline-flex; align-items:center;
+  border-radius:20px; padding:2px 8px;
+  font-size:10px; font-weight:600; letter-spacing:.3px;
+}
+.b-ok,.b-mid,.b-hi,.b-cr{ /* fondo del color de estado al 15% + borde 1px del mismo al 30% */ }
+```
+Las cuatro variantes se aplican dinámicamente como `class="badge b-${sc}"` con `sc ∈ {ok,mid,hi,cr}`; además `b-mid` se usa literalmente para el badge `imp` del Editor de máquinas.
+
+## A.8 Formularios
+
+```css
+input,select{
+  border:1px solid var(--border); border-radius:var(--r-sm);
+  padding:6px 10px; font:13px 'Inter',sans-serif;
+  transition:border-color .15s, box-shadow .15s; outline:none;
+}
+input:focus,select:focus{border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-glow)}
+select{cursor:pointer}
+input[type=file]{cursor:pointer; padding:5px 8px}
+input[type=radio],input[type=checkbox]{cursor:pointer; width:auto; accent-color:var(--accent)}
+
+label.fld{display:flex; flex-direction:column; gap:3px; font-size:11px; font-weight:500}
+```
+`label.fld` es el patrón estándar: etiqueta chica arriba, control abajo. Varias veces se le sobreescribe `flex-direction:row` inline para checkboxes.
+
+**Input compacto del Editor de máquinas:**
+```css
+.med-inp{border:1px solid var(--border); border-radius:4px; padding:3px 6px; font-size:11px;
+         transition:border-color .15s}
+.med-inp:focus{border-color:var(--accent); outline:none; box-shadow:0 0 0 2px var(--accent-glow)}
+```
+Anchos por columna aplicados inline: isla 62px, fabricante 80, modelmaq 90, juego 140, modelo `<select>` 80, firm `<select>` 52, área 40, deno 50.
+
+## A.9 Botones
+
+```css
+button.btn{
+  border:none; border-radius:var(--r-sm);
+  padding:7px 15px; cursor:pointer;
+  font:12px/1 'Inter',sans-serif; font-weight:600; letter-spacing:.2px;
+  transition:all .15s;
+}
+button.btn:hover{transform:translateY(-1px); filter:brightness(1.1)}
+button.btn:active{transform:translateY(0); filter:brightness(.95)}
+button.btn.sec{border:1px solid var(--border); box-shadow:none}   /* variante secundaria, plana */
+button.btn.sec:hover{box-shadow:none}
+button.btn.sm{padding:4px 10px; font-size:11px}
+```
+Tres variantes: primaria (degradado + sombra), `.danger` (degradado rojo) y `.sec` (plana con borde). El modificador `.sm` se combina con cualquiera.
+
+### Botones circulares de lista
+
+```css
+.selBtn{                                            /* listas generales A/B/C */
+  width:18px; height:18px; min-width:18px;
+  border-radius:50%; border:1.5px solid var(--tsc);
+  background:rgba(<bg>,.55);                        /* fondo de la app, semitransparente */
+  cursor:pointer; font-size:11px; line-height:1; padding:0;
+  display:inline-flex; align-items:center; justify-content:center; font-weight:700;
+  box-shadow:0 0 0 1px rgba(255,255,255,.08);
+}
+.selBtn.on{box-shadow:0 0 0 1px rgba(0,0,0,.25)}
+.selBtnGroup{display:inline-flex; gap:3px; align-items:center}
+
+.tarjSelBtn{ /* idéntico pero 20px y font-size:12px */ }
+```
+**Detalle importante:** el color de cada lista se inyecta **inline por botón** como `style="--tsc:#xxxxxx"`. El fondo oscuro semitransparente y el anillo blanco al 8% existen para que el botón siga siendo legible **sobre la fila de isla seleccionada**, que tiene fondo de acento sólido.
+
+```css
+.selBadge{border-radius:10px; padding:0 6px; font-size:10px; font-weight:700; margin-left:4px}
+```
+
+## A.10 Layout auxiliar
+
+```css
+.row{display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:10px}
+.hint{font-size:11px; margin-top:4px; font-style:italic}
+.grid2{display:grid; grid-template-columns:1fr 1fr; gap:14px}
+.grid3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px}
+@media(max-width:900px){ .grid2,.grid3{grid-template-columns:1fr} }
+```
+**Único breakpoint de toda la app: 900px.** Por debajo, las grillas de 2 y 3 columnas colapsan a una. No hay más adaptaciones responsive: el resto se resuelve con `flex-wrap` y scroll horizontal.
+
+## A.11 Dropzone (pestaña Carga)
+
+```css
+#dropzone{
+  border:2px dashed var(--border); border-radius:var(--r-lg);
+  padding:32px 20px; text-align:center; cursor:pointer;
+  transition:all .2s;
+}
+#dropzone:hover,#dropzone.over{
+  border-color:var(--accent);
+  box-shadow:0 0 0 4px var(--accent-glow);
+}
+```
+La clase `.over` se agrega en `dragover` y se quita en `dragleave`/`drop`, dando el mismo realce que el hover.
+
+## A.12 Barra de porcentaje
+
+```css
+.pctbar-track{
+  display:inline-block; height:6px; border-radius:3px;
+  vertical-align:middle; margin-left:8px;
+  overflow:hidden; position:relative;
+}
+.pctbar-fill{display:block; height:100%; border-radius:3px; transition:width .35s ease}
+```
+El ancho del track se fija inline (50px en Sectores); el relleno se anima al cambiar de semana.
+
+## A.13 Tarjetas de sector
+
+```css
+.sector-card{
+  border:1px solid var(--border); border-radius:var(--r-lg);
+  padding:16px 14px 14px;                            /* más padding arriba por la barra superior */
+  cursor:pointer; position:relative; overflow:hidden;
+  transition:transform .18s ease, border-color .18s ease, box-shadow .18s ease;
+}
+.sector-card::before{                                /* barra superior de 2px, color del estado */
+  content:''; position:absolute; top:0; left:0; right:0; height:2px;
+  background:var(--sc-accent,var(--accent)); opacity:.7;
+}
+.sector-card::after{                                 /* velo diagonal que aparece al pasar el mouse */
+  content:''; position:absolute; inset:0;
+  background:linear-gradient(135deg,rgba(<accent>,.05),transparent);
+  opacity:0; transition:opacity .2s;
+}
+.sector-card:hover{transform:translateY(-2px); box-shadow:var(--shadow)}
+.sector-card:hover::after{opacity:1}
+.sector-card.active{box-shadow:0 0 0 1px var(--accent) inset, var(--shadow)}
+
+.sector-card .sc-num{font-size:30px; font-weight:700; letter-spacing:-1px; line-height:1.1}
+.sector-card .sc-pct{font-size:15px; font-weight:700; margin:4px 0 2px; letter-spacing:-.2px}
+.sector-card .sc-lbl{font-size:10px; text-transform:uppercase; letter-spacing:.5px; margin-top:2px}
+```
+`--sc-accent` se inyecta inline por tarjeta según el estado del porcentaje. El estado activo usa un **anillo interior** (`inset`), no un borde más grueso, para no descuadrar el layout.
+
+## A.14 Expansión del detalle de isla
+
+```css
+.isla-detail{animation:islaDetailIn .22s ease}
+@keyframes islaDetailIn{
+  from{opacity:0; transform:translateY(-4px)}
+  to  {opacity:1; transform:translateY(0)}
+}
+.isla-detail-hd{
+  font-size:12px; font-weight:600; margin-bottom:8px;
+  display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+}
+.isla-detail-hd .muted{font-weight:400}
+```
+Animación corta (220 ms) y sutil (4px), pensada para que la expansión no se sienta un salto.
+
+## A.15 Tarjetas de agrupación (Máquinas y Tarjetas)
+
+```css
+.fab-card{
+  border:1px solid var(--border); border-radius:var(--r-lg);
+  padding:14px; transition:border-color .2s;
+}
+.fab-card h3{font-size:11px; margin-bottom:8px; font-weight:600;
+             text-transform:uppercase; letter-spacing:.5px}
+```
+Los subniveles anidados llevan `margin-left:16px` inline. El `<h3>` está definido pero **el JS actual no lo emite** (usa `<span>` con estilos inline).
+
+## A.16 Levantamiento y parámetros (Admin)
+
+```css
+.lev-radio label{margin-right:8px; cursor:pointer; display:inline-flex; align-items:center;
+                 gap:4px; font-size:11px}
+
+.param-block{
+  border:1px solid var(--border); border-radius:var(--r);
+  padding:14px 16px; margin-bottom:10px; transition:border-color .2s;
+}
+.param-block .param-title{font-weight:600; font-size:12px; margin-bottom:5px}
+.param-block .param-desc {font-size:11px; line-height:1.6; margin-bottom:8px}
+.param-block .param-input{display:flex; align-items:center; gap:10px}
+.param-block input{width:90px}
+```
+`line-height:1.6` en las descripciones: son textos largos y necesitan respiro.
+
+## A.17 Inventario de transiciones y animaciones
+
+| Elemento | Propiedad | Duración / curva |
+|---|---|---|
+| `.card`, `.kpi`, `.fab-card`, `.param-block` | `border-color` / `all` | `.2s` |
+| `nav button` | `color`, `border-color` | `.2s` |
+| `button.btn` | `all` | `.15s` |
+| `input`, `select`, `.med-inp` | `border-color`, `box-shadow` | `.15s` |
+| `tbody tr` | `background` | `.1s` |
+| `.sector-card` | `transform`, `border-color`, `box-shadow` | `.18s ease` |
+| `.sector-card::after` | `opacity` | `.2s` |
+| `#dropzone` | `all` | `.2s` |
+| `.pctbar-fill` | `width` | `.35s ease` |
+| `.isla-detail` | `@keyframes islaDetailIn` | `.22s ease` |
+
+**No hay ninguna otra animación.** Nada de spinners, skeletons ni toasts: los mensajes se muestran como texto plano que a veces se auto-borra con `setTimeout`.
+
+## A.18 Impresión
+
+Ya descrito en §5.14. Regla completa:
+
+```css
+@media print{
+  body *{visibility:hidden}
+  .tab.active, .tab.active *{visibility:visible}
+  .tab.active{position:absolute; left:0; top:0; width:100%}
+  header, nav, .exportBar, button, select, input, .selBtn, .tarjSelBtn{display:none !important}
+}
+```
+Técnica: `visibility:hidden` en todo + `visible` en la pestaña activa (conserva el espacio pero no pinta), y `position:absolute` para que la pestaña arranque arriba de la hoja.
+
+## A.19 CSS muerto (definido, nunca usado)
+
+Verificado buscando cada selector en el HTML y en todo el JS generador:
+
+| Selector | Estado |
+|---|---|
+| `.section-title` (y su `::after`) | **Nunca usado.** |
+| `.chip` / `.chip:hover` / `.chip.active` | **Nunca usado.** Los "chips" reales de Intercambios se hacen con `button.btn.sm`. |
+| `.empty`, `.empty svg`, `.empty-icon` | **Nunca usado.** Los estados vacíos usan `<div class="card muted">`. |
+| `canvas{max-height:320px}` | **Residuo** de Chart.js; no queda ningún `<canvas>`. |
+
+`.b-ok`, `.b-hi`, `.b-cr` **NO son código muerto**: se aplican vía `class="badge b-${sc}"`.
+
+## A.20 Inventario de textos de UI
+
+### Placeholders
+| Campo | Texto |
+|---|---|
+| Buscador MDA | `Ej: 100020` |
+| Buscador ISLA | `Ej: 103 o 20208` |
+| Firmware (corrección masiva) | `Ej: 403` |
+| Nota de intercambio | `Ej: Intervención preventiva sector 3` |
+| Filtro de Resumen | `Filtrar MDA / ISLA / Modelo` |
+| Filtro del Editor de máquinas | `Filtrar por MDA, isla, juego, fabricante…` (con puntos suspensivos tipográficos `…`) |
+| Modelo de máquina (Levantamiento) | `Modelo` |
+
+### Tooltips (`title`)
+| Elemento | Texto |
+|---|---|
+| ISLA (tabla de islas) | `Código de isla (3 dígitos)` |
+| Máq. | `Número de máquinas en la isla` |
+| % prom. | `Promedio de % de aceptación de billetes en la última semana` |
+| Barra | `Barra visual del % de aceptación (verde=bueno, rojo=malo)` |
+| Total bill. | `Total de billetes procesados en la última semana` |
+| Δ% | `Variación del % de aceptación respecto a la semana anterior (positivo = mejoró)` |
+| Alertas | `Número de máquinas con alertas (% bajo el umbral crítico)` |
+| ◀ / ▶ | `Semana anterior` / `Semana siguiente` |
+| Checkbox promedio 4 semanas | `Promedia % y volumen de las últimas 4 semanas disponibles para mayor robustez. Si solo hay una semana, usa ese dato igual.` |
+| Badge `imp` | `Modelo cargado automáticamente desde un Excel importado, nunca confirmado manualmente. Revisa que sea correcto y vuelve a guardar para marcarlo como verificado.` |
+| Exportar JSON (Levantamiento) | `Descarga un JSON con todos los datos de las máquinas (juego, isla, modelo, firmware, fabricante)` |
+| Botones de lista | `Agregar a {label}` / `Quitar de {label}` (dinámico) |
+| Botones de isla completa | `Agregar isla a {label}` / `Quitar isla de {label}` (dinámico) |
+
+### Diálogos nativos
+| Función | Texto |
+|---|---|
+| `borrarTodo` (prompt) | `Ingresa la clave para borrar todos los datos:` |
+| `borrarTodo` (clave errónea) | `Clave incorrecta.` |
+| `borrarTodo` (confirm) | `¿Confirmas que quieres borrar TODOS los datos?` |
+| `selVaciar` | `¿Vaciar la "{label}"?` |
+| `tarjListVaciar` | `¿Vaciar la lista "{label}"?` |
+| `intEliminar` | `¿Eliminar este registro del historial?` |
+| Copiar OK (texto) | `Copiado al portapapeles.` |
+| Copiar OK (tabla) | `Copiado al portapapeles (como tabla).` |
+| Copiar error | `No se pudo copiar.` |
+| Exportar tab sin tablas | `Esta pestaña no tiene tablas para copiar.` |
+| Exportar tab inexistente | `No hay nada que copiar.` |
+| Exportar archivo vacío | `No hay semanas archivadas.` |
+
+### Textos largos — pestaña Carga
+
+Dropzone:
+> `Arrastra aquí archivos Excel semanales, la planilla histórica, el archivo **cn** de ubicaciones o el **reacbill_master.json**`
+> `Puedes subir varios a la vez · Excel, ZIP, cn, JSON` *(en `<small>`)*
+
+Ayuda (5 viñetas, con `<b>` y `<code>` como se indica):
+> • **Planillas semanales**: la fecha se lee del nombre (YYYY-MM-DD o DD-MM-YYYY).
+> • **Seguimiento_Auto.xlsx**: importa todas las semanas + maestro de una vez.
+> • **Archivo cn**: cualquier archivo con columnas `SMDBID;LOCNAME` separadas por `;`.
+> • **Planilla de referencia**: Excel con columnas Machine ID, Position, Title Game, Manufacturer, Cabinet Model, Deno, etc. → actualiza todos los datos maestros.
+> • **reacbill_master.json**: exportado desde Admin → restaura datos de máquinas y el historial de intercambios (cifrado).
+
+### Textos largos — Admin
+
+Fórmula de gravedad:
+> La **fórmula de gravedad** cuantifica cuánto afecta un billetero al negocio:
+> `Puntaje = Total × (1 + log₁₀(Total)) × ((UmbralOK − %) / UmbralOK) × (Total / PromedioTotal) × Multiplicador`
+> A mayor volumen y menor aceptación → mayor puntaje. El multiplicador amplifica casos extremos.
+
+Los 6 bloques de parámetros (título + descripción + sufijo del input):
+
+| Título | Descripción | Sufijo |
+|---|---|---|
+| `% mínimo sin alerta (UmbralOK)` | `Si la aceptación es mayor o igual a este valor, el billetero no genera alerta ni puntaje de gravedad. Es el umbral de "todo bien". Valor típico: 85%. Por debajo de este porcentaje el billetero empieza a acumular puntaje.` | `Ej: 0.85 = 85%` |
+| `% zona amarilla / medio (UmbralMedio)` | `Por encima de este umbral la celda aparece verde (óptimo). Entre UmbralOK y este valor aparece amarilla (aceptable pero bajo). Valor típico: 90%. Define la banda "aceptable" entre 85-90%.` | `Ej: 0.90 = 90%` |
+| `% zona crítica (UmbralCrítico)` | `Si la aceptación cae por debajo de este valor, se aplica el multiplicador máximo (×Crítico). Indica un billetero con problemas graves que requiere intervención urgente. Valor típico: 40%.` | `Ej: 0.40 = 40%` |
+| `Multiplicador zona media (×Medio)` | `Factor que amplifica el puntaje cuando el billetero está en alerta pero no en zona crítica (entre UmbralCrítico y UmbralOK). Aumenta la visibilidad de problemas moderados. Valor típico: 3.` | `Sin dimensiones (factor)` |
+| `Multiplicador zona crítica (×Crítico)` | `Factor que amplifica fuertemente el puntaje cuando la aceptación está por debajo del UmbralCrítico. Garantiza que los casos más graves escalen al tope del ranking incluso con poco volumen. Valor típico: 30.` | `Sin dimensiones (factor)` |
+| `Cortes del badge de gravedad` | `Rangos de puntaje para clasificar el badge: **Medio** (amarillo): puntaje ≥ este valor. **Alto** (naranja): puntaje ≥ este valor. **Urgente** (rojo): puntaje ≥ este valor. Los rangos dependen de tus datos; ajusta según la distribución observada.` | labels `Medio ≥`, `Alto ≥`, `Urgente ≥` (inputs de 70px) |
+
+Otros textos de Admin:
+- Editor de máquinas: `El badge [imp] indica un modelo de billetero cargado automáticamente desde un Excel importado que nunca fue revisado/confirmado a mano. Verifica esos casos y presiona "Guardar cambios" para marcarlos como confirmados.`
+- Levantamiento: `Asigna el modelo (Advance/Cashflow) a las máquinas de cada isla. Selecciona la isla (por prefijo), usa los botones de lote o cambia individualmente.`
+- Corrección masiva: `Filtrá por sector, fabricante y/o modelo de máquina (al menos uno), elegí qué campo(s) actualizar y aplicá a todas las coincidencias de una vez.`
+- Archivo: `Para mantener la app rápida, las semanas de más de 3 meses se archivan automáticamente y se quitan del estado activo. Podés exportarlas a JSON en cualquier momento; nunca se borran.`
+
+### Textos largos — otras pestañas
+
+- **Resumen:** `Click en % o Total para ordenar por semana` · `· mostrando últimos 3 meses (N semana(s) más antigua(s) oculta(s))`
+- **Sectores:** `Sector = primer dígito de la ISLA (ej: sector 6 = islas 6xx).` + `Comparado con DD/MM/YYYY.` (condicional) · botón `▸/▾ Ver|Ocultar listado completo del sector (sin separar por isla)` · `Todas las máquinas del sector en una sola tabla, sin agrupar por isla. Ordenable por columna.`
+- **Tarjetas:** `Independiente del modelo de billetero (Advance/Cashflow). La tabla de máquinas muestra el % de cada una de las últimas semanas cargadas (hasta 4), no un promedio.`
+- **Intercambios:** `**Fórmula:** Ganancia = (% billetero bueno − % billetero malo) × (volumen alto − volumen bajo)` / `Llevar un billetero de alto rendimiento a una posición de alto flujo maximiza los billetes aceptados globalmente.` · `⚠ App abierta en modo online — el historial no se guarda.` / `✓ Modo local — historial cifrado y guardado.` · encabezados de panel: `**Origen** — fabricante(s) del billetero bueno`, `**Destino** — fabricante(s) del billetero malo (IGT solo con IGT)`, `**Origen** — sector(es) de donde sacar el billetero bueno`, `**Destino** — sector(es) donde colocarlo`, `**Nunca sacar billeteros de estos sectores** (se respeta sin importar el filtro de Origen)` · `Ganancia estimada = billetes extra aceptados por semana si el billetero bueno ocupa la posición de alto flujo.` · vacío: `Sin sugerencias con estos filtros.` / `Sin historial`
+- **Listas:** vacía ⇒ `{label}: lista vacía. Agregá máquinas con el botón "+" (color #xxxxxx) en cualquier vista.` (en Tarjetas: `…en la tabla de abajo.`) · `Agregadas con el botón "+" de color #xxxxxx en cualquier vista. Se mantiene aunque cambies de pestaña o recargues la página.` · `Mostrando las últimas 3 agregadas de N. Copiar/Exportar incluye la lista completa.`
+- **Estado vacío general:** `Sin datos.` · Carga: `Sin datos. Sube archivos.` · Tarjetas: `Sin datos de lectura de tarjetas para esta semana.`
+
+> **Nota:** los mensajes de lista muestran el **código hexadecimal crudo** del color (ej. `(color #xxxxxx)` → se imprime el hex literal) en vez de un nombre legible. Está señalado en §8 como comportamiento actual, no como intención confirmada.
+
+### Emojis usados (parte de la identidad visual)
+
+Pestañas: `📂 Carga`, `📊 Resumen`, `📅 Por Fecha`, `🎯 Gravedad`, `🗺 Sectores`, `🎰 Máquinas`, `🔄 Intercambios`, `🔎 Buscador`, `💳 Tarjetas`, `📋 Lista`, `⚙️ Admin`.
+Listas: `🅰️` `🅱️` `🇨` (generales) y `🚫` `🅱️` `🇨` (Tarjetas).
+Acciones: `📋` copiar, `⬇` exportar, `✕` vaciar/quitar, `💾` guardar, `🖨️` imprimir, `⚠` alerta, `✓` confirmado, `⇄` intercambio, `▶`/`▼`/`▸`/`▾` expandir, `◀`/`▶` navegar semanas, `▲`/`▼` tendencia, `‹`/`›` paginar.
+
+## A.21 Assets binarios (no reconstruibles desde este documento)
+
+| Archivo | Especificación |
+|---|---|
+| `logo.png` | 1024×1536 px, RGBA. Se muestra en el header a `height:34px`. **Debe aportarse aparte.** |
+| `icon-192.png` | 192×192, `purpose:"any"` |
+| `icon-512.png` | 512×512, `purpose:"any"` |
+| `icon-512-maskable.png` | 512×512, `purpose:"maskable"` — el logo va **más chico** (más margen) para respetar la zona segura del recorte |
+| `favicon-32.png` | 32×32, referenciado como `<link rel="icon" sizes="32x32">` |
+
+Los cuatro íconos se generaron a partir de `logo.png` centrado sobre fondo sólido del color de fondo de la app, con padding del **12%** (los `any` y el favicon) y del **22%** (el maskable).
