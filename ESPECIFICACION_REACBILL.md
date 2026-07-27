@@ -1825,3 +1825,514 @@ Acciones: `📋` copiar, `⬇` exportar, `✕` vaciar/quitar, `💾` guardar, `�
 | `favicon-32.png` | 32×32, referenciado como `<link rel="icon" sizes="32x32">` |
 
 Los cuatro íconos se generaron a partir de `logo.png` centrado sobre fondo sólido del color de fondo de la app, con padding del **12%** (los `any` y el favicon) y del **22%** (el maskable).
+
+---
+
+# ANEXO B — Inventario exhaustivo de código
+
+> **Propósito.** Las secciones 1–9 describen *comportamiento*; el Anexo A describe *apariencia*. Este anexo cierra el último hueco: la **superficie exacta del código** — cada función con su firma, cada variable global, el cableado de eventos y los archivos auxiliares verbatim.
+>
+> Se incluye para que quien reconstruya pueda **verificar cobertura**: si implementó todo lo de esta lista, no le falta nada. Los números entre corchetes son la línea dentro del bloque `<script>` (que empieza en la línea 486 del archivo).
+
+## B.1 Inventario completo de funciones (146)
+
+### Detección de entorno y ofuscación
+
+| # | Firma | Qué hace |
+|---|---|---|
+| [22] | `isLocal()` | `true` si `file:` / `localhost` / `127.0.0.1`. Gobierna la persistencia del historial (§2.7). |
+| [28] | `xorEnc(str)` | XOR con `_K` + `btoa(unescape(encodeURIComponent(...)))`. |
+| [29] | `xorDec(enc)` | Inverso; **devuelve `"[]"` ante cualquier excepción**. |
+
+### Persistencia
+
+| # | Firma | Qué hace |
+|---|---|---|
+| [56] | `idb()` | Abre IndexedDB `"reacbill"` v2; crea el store `"kv"` en `onupgradeneeded` dentro de `try/catch`. Devuelve Promise. |
+| [61] | `async saveState()` | `put(JSON.stringify(state), LS_KEY)`. |
+| [69] | `async loadState()` | Lee `LS_KEY`, hace merge preservando `params` por defecto, y llama `migrateIslaFormat()`. Todo en `try/catch`. |
+| [85] | `migrateIslaFormat()` | Normaliza `isla` con guión a dígitos puros. **No persiste** (§8.1f). |
+| [32] | `async saveHistory()` | **No-op si `!isLocal()`**. Guarda `swapHistory` cifrado. |
+| [41] | `async loadHistory()` | **No-op si `!isLocal()`**. |
+| [98] | `async loadArchiveMeta()` | Lee `ARCHIVE_KEY` a `archivedWeeks`/`archivedWeekOrder`. |
+| [111] | `async saveArchive()` | Guarda `{weeks,weekOrder}` del archivo. |
+| [121] | `async archiveOldWeeks(months=3)` | Mueve semanas anteriores al corte fuera de `state.weeks`. Devuelve `true` si archivó. |
+| [137] | `intExportarArchivo()` | Descarga `reacbill_archivo_YYYY-MM-DD.json`; `alert` si no hay nada. |
+
+### Helpers de isla/sector
+
+| # | Firma | Qué hace |
+|---|---|---|
+| [149] | `normIsla(s)` | Deja sólo dígitos. |
+| [150] | `islaPrefix(isla)` | Quita los 2 últimos dígitos (si `length>2`). |
+| [155] | `islaSector(isla)` | Primer dígito del prefijo. |
+| [304] | `fmtLocname(loc)` | Alias de `normIsla`. |
+| [307] | `getLoc(mda)` | `master.isla` o, si falta, `fmtLocname(locname)`. `""` si no existe la máquina. |
+| [308] | `getMod(mda)` | `master.modelo` con `trim()`. |
+| [309] | `getFirm(mda)` | `master.firm` con `trim()`. |
+
+### Cálculo
+
+| # | Firma | Qué hace |
+|---|---|---|
+| [158] | `weekCalc(week,params)` | **El motor.** Ver §5.2 para las fórmulas exactas. |
+| [198] | `sevClass(sc,p)` | `"ok"\|"mid"\|"hi"\|"cr"`. |
+| [202] | `allCalcs()` | Memoiza en `calcCache` el `weekCalc` de todas las semanas. |
+| [208] | `invalidate()` | `calcCache=null`. **Obligatorio tras mutar `weeks`/`master`/`params`.** |
+| — | `avg(a)` *(arrow)* | Promedio aritmético; `0` si el array está vacío. |
+
+### Formato y presentación
+
+| # | Firma | Qué hace |
+|---|---|---|
+| — | `fmtP(v)` `fmtN(v)` `fmt1(v)` *(arrows)* | Ver §4.1. |
+| [214] | `pctClass(p)` | Clase de color por umbral. |
+| [219] | `pctBar(p,w=60)` | Track + fill; clamp 2–100%. |
+| [317] | `fmtKey(k)` | `YYYY-MM-DD` → `DD-MM`. |
+| [318] | `fmtKeyFull(k)` | `YYYY-MM-DD` → `DD/MM/YYYY`. |
+| [310] | `dateKeyFromName(name)` | 3 estrategias; fallback = nombre cortado a 10 chars. |
+| [319] | `sortWeeks()` | Reordena `state.weekOrder` con `localeCompare`. |
+| [323] | `weeksCutoffKey(months)` | Clave de corte N meses antes de la última semana. `null` si hay ≤1 semana. |
+| [334] | `visibleWeeks()` | Semanas de los últimos **3 meses**. Sólo lo usan Resumen y Buscador. |
+
+### Ordenamiento genérico
+
+| # | Firma | Qué hace |
+|---|---|---|
+| [230] | `thColIndex(th)` | Índice real considerando `colspan`/`rowspan`. |
+| [248] | `sortVal(s)` | Texto → número (5 estrategias, §4.5). |
+| [258] | `attachSort(tableId)` | Engancha click; **salta los `th` con `onclick`**; **sólo filas hijas directas**, excluye `.no-sort`. |
+| [294] | `reapplySort(tableId)` | Restaura el orden invirtiendo `dir` y disparando `click()`. |
+
+### Parseo / importación
+
+| # | Firma | Qué hace |
+|---|---|---|
+| [340] | `parseCnText(text)` | CSV `;`/TAB con `SMDBID`+`LOCNAME`. Descarta `loc==="err"`. |
+| [358] | `parseDataSheet(ws)` | Hoja semanal. Detección de columnas por regex (§5.1.2). Devuelve `{rows}` o `null`. |
+| [394] | `parseContadores(ws)` | Hoja `Contadores`. **Pisa `fabricante`/`juego` con `""`** si faltan (§8.1g). |
+| [413] | `parseSeguimientoModelos(ws)` | Hoja `Seguimiento`. **Empieza en la fila 4**, columnas por posición fija 0–4. |
+| [432] | `parseMasterReference(wb)` | Busca hoja con `MACHINE ID`+`MANUFACTURER`. Devuelve en la primera con `n>0`. |
+| [472] | `parseTipoBilletero(wb)` | Busca hoja con `MAQUINA`+`BILLETERO`. Mapea a `Advance`/`Cashflow`. |
+| [505] | `async handleFiles(files)` | **Orquestador.** Ruteo ZIP/JSON/cn/Excel (§5.1). |
+| [2027] | `importMasterJSON(payload)` | Acepta array o `{master,hist}`. Merge `nuevo\|\|anterior`; historial por `id`. |
+| [2020] | `exportMasterJSON()` | Descarga `reacbill_master.json`. |
+
+### Shell de UI
+
+| # | Firma | Qué hace |
+|---|---|---|
+| [640] | `buildNav()` | Genera los 11 botones de nav. |
+| [644] | `showTab(id)` | Cambia pestaña, despacha el render y **siempre** llama `updateStatsBar()`. |
+| [683] | `buildShells()` | Crea los 11 divs `.tab` y el HTML fijo de Carga; cablea el dropzone. |
+| [711] | `renderLoadedInfo()` | Resumen de datos cargados + `#dataInfo`. |
+| [728] | `updateStatsBar()` | 4 métricas del header; **rama especial si `activeTab==="tarjetas"`**. Usa siempre la última semana. |
+| [763] | `syncTopScroll(topId,wrapId,tblId)` | Scrollbar espejo bidireccional con bandera `skip`. |
+| [656] | `exportActiveTabPrint()` | `window.print()`. |
+| [659] | `exportActiveTabCopy()` | Clona, quita controles, copia `text/html`+`text/plain`. |
+| [2697] | `renderAll()` | `renderLoadedInfo()` + `showTab(activeTab)`. |
+
+### Resumen
+
+| # | Firma | Qué hace |
+|---|---|---|
+| [775] | `resSort(wk,field)` | Sort por semana/campo. Dir inicial: `1` para `pct`, `-1` para `tot`. |
+| [780] | `renderResumen()` | Shell de la pestaña. |
+| [795] | `renderResBody()` | Matriz máquina×semana, encabezado de 2 filas, columnas sticky. |
+| [844] | `resApplyFilter()` | Oculta filas por `data-search` **sin re-renderizar**. |
+
+### Por Fecha / Gravedad
+
+| # | Firma | Qué hace |
+|---|---|---|
+| [854] | `renderFecha()` | Detalle semanal: 6 KPIs + tabla con 6+6 denominaciones. |
+| [902] | `renderRanking()` | Ranking por puntaje; sólo `score>0`; filtro Advance/Cashflow; Δ% vs semana previa. **Tiene desalineamiento de columnas (§8.1a).** |
+
+### Sectores
+
+| # | Firma | Qué hace |
+|---|---|---|
+| [954] | `secToggleFlat()` | Alterna el listado plano del sector. |
+| [955] | `secCopiarResumen()` | Copia el resumen de sectores como texto TAB. |
+| [963] | `renderSectores()` | Vista principal. Captura/restaura scroll. |
+| [994] | `islaStats(mdas,c)` *(anidada)* | `{pct,tot,alerts,n}` **ponderado**, sólo filas con `total>0`. |
+| [1181] | `secShiftWeek(delta)` | Mueve el selector de semana ±1 sin envolver. |
+| [1189] | `secSelSector(s)` | Selecciona sector y **limpia la isla**. |
+| [1190] | `secSelIsla(p)` | Alterna isla (si ya estaba, la deselecciona). |
+| [1191] | `secIslaMdas(prefix)` | Máquinas de la isla respetando el filtro de modelo. |
+| [1201] | `secIslaBtnGroup(prefix)` | 3 botones; `on` sólo si **todas** están en la lista. |
+| [1209] | `secIslaToggle(id,prefix)` | Agrega/quita la isla completa. Mensaje que se borra a los **2500 ms**. |
+
+### Máquinas
+
+| # | Firma | Qué hace |
+|---|---|---|
+| [1226] | `renderMaquinas()` | Árbol fabricante→modelo→juego→isla. Sólo máquinas con `total>0`. |
+| [1353] | `maqToggleFab(fab)` | Abre/cierra fabricante; limpia niveles inferiores. |
+| [1358] | `maqToggleJuego(mmq,fab)` | Nivel 2 (**modelo de máquina**, pese al nombre). |
+| [1364] | `maqToggleGame(jue,mmq,fab)` | Nivel 3 (juego). |
+
+### Buscador
+
+| # | Firma | Qué hace |
+|---|---|---|
+| [1372] | `busOnInput(field,val)` | Campos mutuamente excluyentes. |
+| [1377] | `renderBuscador(focusField)` | Busca por MDA (máx **20**) o por isla; restaura foco y cursor al final. |
+
+### Tarjetas
+
+| # | Firma | Qué hace |
+|---|---|---|
+| [1456] | `tarjFiltLoad()` | Carga `groupBy`/`subBy` de localStorage. |
+| [1462] | `tarjFiltSave()` | Persiste ambos. |
+| [1466] | `tarjKeyFor(level,ms)` | Clave de agrupación por nivel. |
+| [1474] | `tarjEsc(s)` | Escapa `\` y `'` para los `onclick`. |
+| [1478] | `tarjLastWeeks(d,n=4)` | Hasta 4 semanas terminando en `d`. |
+| [1482] | `tarjWeeksData(weeks)` | `{mda:{fecha:{pct,ac,re}}}`, omite sin actividad. |
+| [1496] | `tarjRenderLevel(rows,levels,path,weeks,wmap)` | **Recursiva.** Insignias por semana **ponderadas**. |
+| [1534] | `tarjRenderMachTable(rows,path,weeks,wmap)` | Tabla hoja; usa `pctTarj` del Excel (§8.1c). |
+| [1563] | `renderTarjetas()` | Orquesta; restaura scroll; `attachSort`+`reapplySort` diferidos. |
+| [1601] | `tarjToggle(path)` | Alterna un nodo en `tarjOpenPaths`. |
+
+### Admin
+
+| # | Firma | Qué hace |
+|---|---|---|
+| [1607] | `renderAdmin()` | 5 tarjetas; llama a `renderLevTable`, `renderBulkEditCard`, `renderMachEditorRows`. |
+| [1718] | `renderBulkEditCard()` | Corrección masiva; recalcula modelos según sector+fabricante. |
+| [1785] | `bulkEditApply()` | Aplica a todas las coincidencias; guarda. |
+| [1813] | `renderLevTable()` | Levantamiento por isla; radios + selects. |
+| [1871] | `machGetFiltered()` | Filtra y ordena **en memoria**, sin tocar el DOM. |
+| [1890] | `machSortClick(col)` | Alterna dirección; re-renderiza la página. |
+| [1895] | `machGoPage(p)` | Cambia de página. |
+| [1896] | `machEdit(mda,f,v)` | Guarda en `machPendingEdits` (no en el estado). |
+| [1904] | `renderMachEditorRows()` | Construye **sólo** la página actual (200 filas). |
+| [1966] | `machApplyFilter()` | Página a 0 + re-render. |
+| [1970] | `machSave()` | Vuelca pendientes; `normIsla` en `isla`; `modeloFuente="manual"`. **2000 ms**. |
+| [1984] | `levAllAdm(mod)` | Marca todos los radios visibles (**sólo DOM**). |
+| [1987] | `levSelAdm(mod)` | Sólo las filas tildadas. |
+| [1994] | `levChkNone()` | Tilda las máquinas sin modelo. |
+| [2001] | `levToggleAll(masterChk)` | Tilda/destilda todo. |
+| [2004] | `levGuardarAdm()` | Persiste radios + firm + modelmaq. **2000 ms**. |
+| [2062] | `saveParams()` | Lee los 8 inputs con `Number()`, **sin validar**. |
+| [2070] | `borrarTodo()` | Clave `MMDD` + `confirm`. No borra params/listas/historial/archivo. |
+| [2079] | `resetParams()` | Restaura los 8 defaults. |
+
+### Listas generales (A/B/C)
+
+| # | Firma | Qué hace |
+|---|---|---|
+| [2125] | `selLoad()` | Carga las 3 + **migración legacy** (§5.12). |
+| [2140] | `selSave(id)` | Persiste una lista. |
+| [2143] | `selBtn(mda)` | Genera los 3 botones con `--tsc` inline. |
+| [2149] | `selToggle(id,mda)` | Alterna y **parchea el DOM sin re-render** (salvo en la pestaña Lista). |
+| [2161] | `updateSelBadge()` | Badge con la **suma de las 3** listas. |
+| [2166] | `selLastCalcRows()` | Mapa `{mda:CalcRow}` de la **última** semana. |
+| [2172] | `selRows(id)` | Filas ordenadas por **isla descendente**. |
+| [2180] | `selListCardHtml(id)` | Tarjeta de una lista. |
+| [2206] | `renderLista()` | Concatena las 3 tarjetas. |
+| [2210] | `selVaciar(id)` | `confirm` + vaciar. |
+| [2214] | `selToText(id)` | TSV con 6 columnas. |
+| [2219] | `selCopiar(id)` | Copia el TSV. |
+| [2224] | `selExportarCSV(id)` | CSV `;`, nombre `reacbill_{label}_{fecha}.csv`. |
+
+### Listas de Tarjetas (rechazo/B/C)
+
+| # | Firma | Qué hace |
+|---|---|---|
+| [2244] | `tarjListsLoad()` | Carga las 3 (sin migración legacy). |
+| [2249] | `tarjListSave(id)` | Persiste una. |
+| [2252] | `tarjListBtnHtml(id,mda)` | Botón de 20px. |
+| [2256] | `tarjListToggle(id,mda)` | Parchea el DOM y **re-renderiza Tarjetas** si es la pestaña activa. |
+| [2267] | `tarjListRowData(mda,pm,weeks,wmap)` | Fila con `weekCells[]`. |
+| [2279] | `tarjListRows(id)` | **Completa**, ordenada por isla desc. Siempre última semana (§8.1d). |
+| [2290] | `tarjListRecentRows(id,n)` | `slice(-n).reverse()` — últimas agregadas. |
+| [2298] | `tarjListToggleExpand(id)` | Colapsa/expande (no persiste). |
+| [2302] | `tarjListHtml(id)` | Tarjeta; muestra **máx. 3 filas**. |
+| [2338] | `tarjListVaciar(id)` | `confirm` + vaciar. |
+| [2342] | `tarjListToText(id)` | TSV con columnas de semana dinámicas. |
+| [2349] | `tarjListCopiar(id)` | Copia el TSV. |
+| [2354] | `tarjListExportarCSV(id)` | CSV `;`. |
+
+### Intercambios
+
+| # | Firma | Qué hace |
+|---|---|---|
+| [2369] | `swapFabOk(fabA,fabB)` | IGT sólo con IGT. |
+| [2375] | `buildAvgRows(calcs,d)` | Promedio de hasta 4 semanas con `Math.round`. |
+| [2394] | `calcSwaps(rows)` | **10 filtros en orden** + greedy, tope **50** (§5.9). |
+| [2448] | `renderIntercambios()` | Vista completa; guarda `window._lastSwaps`. |
+| [2473] | `fabPanelHtml(allFabs,selectedSet,otherSet,side)` *(anidada)* | Chips de fabricante; los incompatibles quedan **sin `onclick`**. |
+| [2493] | `sectorPanelHtml(selectedSet,side)` *(anidada)* | Chips de sector. |
+| [2619] | `intRegistrar(i)` | Formulario desde `window._lastSwaps[i]` + `scrollIntoView`. |
+| [2647] | `async intConfirmar(s)` | Inserta con `id:Date.now()` y guarda. |
+| [2658] | `intToggleFab(side,fab)` | Alterna fabricante. |
+| [2663] | `intResetFab(side)` | Limpia un panel. |
+| [2668] | `intSectorSet(side)` | Devuelve el Set (`left`/`right`/`exclude`). |
+| [2671] | `intToggleSector(side,sec)` | Alterna sector. |
+| [2676] | `intResetSector(side)` | Limpia. |
+| [2681] | `async intEliminar(id)` | `confirm` + filtra por `id`. |
+| [2688] | `intExportarJSON()` | Descarga el historial. |
+
+## B.2 Inventario completo de variables globales (45)
+
+### Constantes
+
+```js
+const VERSION="2.2.4-main";          // mostrada en #verSpan con prefijo "v"
+const LS_KEY="reacbill_v1";
+const HIST_KEY="reacbill_hist_v1";
+const ARCHIVE_KEY="reacbill_archive_v1";
+const TARJFILT_KEY="reacbill_tarjfilt_v1";   // ← filtros de agrupación de Tarjetas
+const SEL_LEGACY_KEY="reacbill_sel_v1";
+const _K="REACBILL_SWAP_2026";
+const esCollator=new Intl.Collator("es",{numeric:true});
+const DENOS=["20000","10000","5000","2000","1000","SIN_DENO"];
+const SEVLBL={ok:"OK",mid:"Medio",hi:"Alto",cr:"Urgente"};
+const TABS=[...];                    // 11 pares [id,label]
+const TARJ_LBL={isla,sector,modelmaq,ninguna};
+const SEL_LIST_DEFS={a,b,c};
+const TARJ_LIST_DEFS={rechazo,b,c};
+const RESTRICTED_BRANDS=new Set(["IGT"]);
+const MACH_PAGE_SIZE=200;
+const sortStates={};                 // {tableId:{col,dir}} — mutado, declarado const
+```
+
+### Estado mutable
+
+```js
+let state={weeks,weekOrder,master,params};
+let swapHistory=[];
+let calcCache=null;
+let archivedWeeks={}, archivedWeekOrder=[];
+let activeTab="carga";
+
+// Resumen
+let resSortState=null, resFiltroVal="";
+
+// Sectores
+let secSummaryData=[], secSummaryDate="", secFlatOpen=false;
+
+// Máquinas
+let maqSelFab="", maqSelJuego="", maqSelGameTitle="";
+
+// Buscador
+let busMDAVal="", busIslaVal="";     // ← mutuamente excluyentes
+
+// Tarjetas
+let tarjGroupBy="sector", tarjSubBy="isla",
+    tarjOpenPaths=new Set(), tarjSortTables=[];
+let tarjLists={rechazo,b,c}, tarjListsExpanded={rechazo:false,b:false,c:false};
+
+// Listas generales
+let selLists={a:new Set(),b:new Set(),c:new Set()};
+
+// Editor de máquinas (Admin)
+let machEditFilter="", machEditPage=0, machPendingEdits={},
+    machSortCol="mda", machSortDir=1,
+    machEditAllMdas=[];              // ← snapshot de Object.entries(state.master) ordenado
+
+// Intercambios
+let intFiltroModA="", intFiltroModB="", intFiltroMinVol=0,
+    intFabLeft=new Set(), intFabRight=new Set(),
+    intUsarPromedio=false, intPendiente=null;        // intPendiente: MUERTA (§8.2)
+let intSectorLeft=new Set(), intSectorRight=new Set(), intSectorExclude=new Set();
+```
+
+### Estado en el DOM (no en variables)
+
+Estos valores viven **sólo en el HTML** y se releen en cada render — si se re-renderiza sin preservarlos, se pierden:
+
+| Elemento | Pestaña | Qué guarda |
+|---|---|---|
+| `#secSel` (hidden) | Sectores | Sector seleccionado |
+| `#secIslaSel` (hidden) | Sectores | Isla expandida |
+| `#secWeekSel` / `#secModSel` | Sectores | Semana / filtro de modelo |
+| `#fechaSel` / `#rankSel` / `#rankModeloSel` | Por Fecha / Gravedad | Semana / filtro |
+| `#maqSel` / `#tarjSel` / `#intSel` | Máquinas / Tarjetas / Intercambios | Semana |
+| `#tarjGroupSel` / `#tarjSubSel` | Tarjetas | Agrupación (además se persiste) |
+| `#levIslaAdm` | Admin | Isla del Levantamiento |
+| `#bulkSecSel` / `#bulkFabSel` / `#bulkModmaqSel` / `#bulkModeloSel` / `#bulkChkModelo` / `#bulkChkFirm` / `#bulkFirmVal` | Admin | Filtros y campos de corrección masiva |
+| `#intModA` / `#intModB` / `#intMinVol` / `#intPromedio` | Intercambios | Filtros |
+| `window._lastSwaps` | Intercambios | Array de sugerencias del último render (lo lee `intRegistrar`) |
+
+## B.3 Cableado de eventos — inventario completo
+
+La app usa **tres mecanismos** y sólo tres:
+
+**1. Atributos `onclick`/`onchange`/`oninput` inline** — el mecanismo dominante. Todos los controles generados por template literals. **Requiere scope global** (§2.1).
+
+**2. Asignación de propiedad `on*`** — 8 casos, todos en elementos persistentes:
+```js
+[705] dz.onclick      = ()=>fi.click();
+[706] fi.onchange     = ()=>handleFiles([...fi.files]);
+[707] dz.ondragover   = e=>{e.preventDefault(); dz.classList.add("over");};
+[708] dz.ondragleave  = ()=>dz.classList.remove("over");
+[709] dz.ondrop       = e=>{e.preventDefault(); dz.classList.remove("over"); handleFiles([...e.dataTransfer.files]);};
+[768] top.onscroll    = ...   // scrollbar espejo
+[769] wrap.onscroll   = ...
+[1943] tbody.oninput = tbody.onchange = e=>{...}   // handler DELEGADO del Editor de máquinas
+```
+
+**3. `addEventListener`** — sólo 3 casos:
+```js
+[262]  th.addEventListener("click", ...)      // dentro de attachSort
+[1171] th.addEventListener("click", pinDetail) // re-ancla la fila .no-sort en Sectores
+[2717] window.addEventListener("load", ...)   // registro del service worker
+```
+
+**Consecuencia a respetar:** como `attachSort` usa `addEventListener` y el HTML se reconstruye entero en cada render, **hay que volver a llamar `attachSort()` después de cada render**; si no, la tabla queda sin ordenamiento. Por eso todos los `renderX()` terminan llamándolo.
+
+### Temporizadores (`setTimeout`) — los 5 que existen
+
+| Línea | Delay | Propósito |
+|---|---|---|
+| [1221] | **2500 ms** | Borra el mensaje de `#secAddMsg` (Sectores). |
+| [1438] | **0 ms** | Difiere `attachSort` de las tablas de isla del Buscador (esperar a que el HTML esté en el DOM). |
+| [1597] | **0 ms** | Difiere `attachSort`+`reapplySort` de cada tabla de Tarjetas. |
+| [1982] | **2000 ms** | Tras `machSave()`, restaura la tabla vía `machApplyFilter()`. |
+| [2018] | **2000 ms** | Borra `"✓ Guardado."` del Levantamiento. |
+
+**No hay `setInterval`, ni debounce, ni autosave por temporizador.** Todo guardado es explícito.
+
+## B.4 `<head>` exacto
+
+```html
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>REACBILL — Seguimiento Billeteros</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#080c14">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="REACBILL">
+<link rel="icon" href="favicon-32.png" sizes="32x32">
+<link rel="apple-touch-icon" href="icon-192.png">
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3/dist/jszip.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+```
+*(`theme-color` es el único valor cromático que aparece aquí; es requisito del manifiesto PWA.)*
+
+Estructura del `<body>`: `<header>` (logo + h1 + dataInfo, `#statsBar`, `<nav id="nav">`, `#exportBar`), `<main id="main">`, `<script>`.
+
+## B.5 `sw.js` — verbatim
+
+```js
+const CACHE = "reacbill-shell-v1";
+const SHELL = ["./","./index.html","./manifest.json","./icon-192.png","./icon-512.png"];
+
+self.addEventListener("install", e => {
+  e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)));
+  self.skipWaiting();
+});
+
+self.addEventListener("activate", e => {
+  e.waitUntil(caches.keys().then(keys =>
+    Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))));
+  self.clients.claim();
+});
+
+self.addEventListener("fetch", e => {
+  const req = e.request;
+  // Navegación/HTML: RED PRIMERO (para no quedar pegado en una versión vieja)
+  if (req.mode === "navigate" || (req.method === "GET" && req.url.includes("index.html"))) {
+    e.respondWith(
+      fetch(req).then(res => { caches.open(CACHE).then(c => c.put(req, res.clone())); return res; })
+      .catch(() => caches.match(req).then(r => r || caches.match("./index.html"))));
+    return;
+  }
+  // Resto: CACHE PRIMERO, red de respaldo
+  if (req.method === "GET") {
+    e.respondWith(caches.match(req).then(cached =>
+      cached || fetch(req).then(res => {
+        if (res.ok) caches.open(CACHE).then(c => c.put(req, res.clone()));
+        return res;
+      }).catch(() => cached)));
+  }
+});
+```
+
+**Al cambiar el shell hay que cambiar el nombre de la caché** (`reacbill-shell-v1` → `-v2`), porque `activate` borra sólo las que no coincidan con el nombre actual.
+
+## B.6 `manifest.json` — verbatim
+
+```json
+{
+  "name": "REACBILL",
+  "short_name": "REACBILL",
+  "description": "Seguimiento de billeteros de máquinas",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#080c14",
+  "theme_color": "#080c14",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
+```
+
+> **Nota sobre el color en este bloque:** `background_color` y `theme_color` son los **únicos valores cromáticos que este documento sí fija**, pese a la regla de omitir la paleta. Son requisito del manifiesto PWA (definen el fondo de la pantalla de arranque y el tinte de la barra del sistema) y deben coincidir con el fondo real de la app. Si se adopta otra paleta, hay que cambiarlos aquí, en el `<meta name="theme-color">` del `<head>` y en el fondo con que se generan los íconos.
+
+## B.7 Formato del archivo `cn` (muestra incluida en el repo)
+
+CSV separado por `;`, 23 columnas. Encabezado real:
+
+```
+A;LOCNAME;SMDBID;Manuf.;Credits;DENOMINACION;Total-In;Total-Out;Games Played;Handpay;JP Meter;Bill-In;CLI;CLO;JUEGO;Audit;EGM IF;TI - TO;CI;CO;CLI - CLO;CTC;HO
+```
+
+Ejemplo de fila válida:
+```
+1;10301;  100383;ATRONIC;690; 5.00;28494724;...;TREASURE HUNT;-30;230;...
+```
+
+**El parser sólo usa `SMDBID` y `LOCNAME`**; el resto de columnas se ignora. Nótese que `SMDBID` viene con **espacios a la izquierda** (`"  100383"`) — de ahí el `trim()`. Las filas con `LOCNAME` vacío o `err` se descartan (el archivo de muestra tiene 2 de esas).
+
+## B.8 Estructura DOM por pestaña (orden de tarjetas)
+
+| Pestaña | Contenido, en orden |
+|---|---|
+| **Carga** | `.card` "Carga de archivos" (dropzone + input oculto + ayuda + `#uplog`) → `.card` "Datos cargados" (`#loadedInfo` + botón Borrar todo) |
+| **Resumen** | `.card` única: filtro + hint + `#resTopScroll` + `#resTblWrap` |
+| **Por Fecha** | `.card` única: selector + `.kpis` (6) + tabla |
+| **Gravedad** | `.card` única: 2 selectores + `.kpis` (3) + tabla |
+| **Sectores** | `.card` "Vista por sectores" (hint + controles + `.grid3` de sector-cards + 2 hidden) → `.card` "Sector N — islas" (`#secAddMsg` + tabla + botón de listado plano) → *[opcional]* `.card` "listado completo" |
+| **Máquinas** | `.card` única: selector + N `.fab-card` anidadas |
+| **Intercambios** | `.card` "Optimizador" (hint + fila de filtros + 2 paneles fabricante + 2 paneles sector + 1 panel exclusión + tabla) → `#intFormWrap` (vacío o formulario) → `.card` "Historial" |
+| **Buscador** | `.card` "Buscador" (`.grid2` con 2 inputs) → N `.card` de resultados MDA → N `.card` de resultados isla |
+| **Tarjetas** | `.card` "Lectura de tarjetas" (hint + 3 selectores) → 3 `.card` de listas (rechazo, b, c) → `.card` con el árbol agrupado |
+| **Lista** | 3 `.card`, una por lista (a, b, c) |
+| **Admin** | `#levCard` → `#bulkEditCard` → `.card` "Parámetros de gravedad" → `.card` "Editor de máquinas" → `.card` "Archivo de semanas antiguas" |
+
+## B.9 Checklist de verificación para el reconstructor
+
+Marcar cada punto contra la implementación:
+
+- [ ] 11 pestañas en el orden de `TABS`; arranque en `resumen` si hay datos, si no `carga`.
+- [ ] `weekCalc` reproduce §5.2 **incluida la precedencia de `pctBill` sobre el % calculado**.
+- [ ] `avgPct` es promedio **aritmético**; el header, sectores, islas y Máquinas son **ponderados**.
+- [ ] Las 6 denominaciones de `DENOS` en orden, para sumar y para renderizar.
+- [ ] Los 6 parsers, con sus condiciones de rechazo y su orden de intento en `handleFiles`.
+- [ ] Inferencia de año `if(mm > mesActual) yr--` en hojas `dd-mm`.
+- [ ] Archivado a 3 meses; `visibleWeeks()` a 3 meses; ventanas de 4 semanas donde corresponde.
+- [ ] `attachSort` con filas hijas directas y exclusión de `.no-sort`; `reapplySort` con la inversión de `dir`.
+- [ ] Las 4 columnas sticky con offsets 0/76/146/228.
+- [ ] Los 10 filtros de `calcSwaps` **en orden**, greedy con `usedA`/`usedB` separados, tope 50.
+- [ ] `swapFabOk`: IGT sólo con IGT.
+- [ ] 2 familias de listas × 3 listas, con claves de localStorage distintas.
+- [ ] Migración `reacbill_sel_v1` → Lista A **sólo si A está vacía**.
+- [ ] Migración de isla con guión → dígitos puros.
+- [ ] Persistencia del historial **condicionada a `isLocal()`**.
+- [ ] Clave `MMDD` en Borrar todo; no borra params/listas/historial/archivo.
+- [ ] Restauración de scroll doble en Sectores y Tarjetas.
+- [ ] Los 5 `setTimeout` con sus delays exactos.
+- [ ] Service worker: red-primero para HTML, cache-primero para el resto.
+- [ ] `invalidate()` tras **toda** mutación de `weeks`/`master`/`params`.
