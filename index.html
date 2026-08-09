@@ -484,7 +484,7 @@ canvas{max-height:320px}
 
 <script>
 /* ===== REACBILL v1.8.19-main ===== */
-const VERSION = "2.2.8-main";
+const VERSION = "2.2.9-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
 const ARCHIVE_KEY = "reacbill_archive_v1";
@@ -2666,6 +2666,18 @@ const MACH_PAGE_SIZE=200;
 let machPendingEdits={}; // {mda:{campo:valor}} — ediciones aún no guardadas, sobreviven el cambio de página/filtro
 let machSortCol="mda", machSortDir=1;
 let intFiltroModA="", intFiltroModB="", intFiltroMinVol=0, intFabLeft=new Set(), intFabRight=new Set(), intUsarPromedio=false, intPendiente=null;
+// Filtro de isla destino: sólo sugiere mover billeteros hacia esa isla. Dentro de
+// esa isla se puede destickear a mano las máquinas que ya tienen buena aceptación
+// (para no sugerir reemplazarlas aunque entren en el filtro).
+let intIslaDestino="", intIslaDestinoExcluded=new Set();
+function intToggleIslaMachine(mda){
+  intIslaDestinoExcluded.has(mda)?intIslaDestinoExcluded.delete(mda):intIslaDestinoExcluded.add(mda);
+  renderIntercambios();
+}
+function intLimpiarIslaDestino(){
+  intIslaDestino=""; intIslaDestinoExcluded.clear();
+  renderIntercambios();
+}
 // Checkboxes de selección de sugerencias de intercambio, para copiar sólo las tildadas.
 // Clave = "mdaA_mdaB"; no persiste entre recargas (se reinicia con cada sesión).
 let intSwapChecked=new Set();
@@ -2993,6 +3005,11 @@ function calcSwaps(rows){
       // filtro sector: dirección importa (origen=A, destino=B)
       const secB=islaSector(msB.isla||"");
       if(intSectorRight.size>0&&!intSectorRight.has(secB))continue;
+      // filtro isla destino: sólo posiciones dentro de esa isla, salvo las destickeadas a mano
+      if(intIslaDestino){
+        if(islaPrefix(msB.isla||"")!==intIslaDestino)continue;
+        if(intIslaDestinoExcluded.has(B.mda))continue;
+      }
       // filtro fabricante: IGT↔IGT, resto libre
       if(!swapFabOk(msA.fabricante||"",msB.fabricante||""))continue;
       // filtro fabricante manual (dos paneles): dirección importa, igual que el de sector —
@@ -3036,6 +3053,7 @@ function renderIntercambios(){
   intFiltroModB=document.getElementById("intModB")?.value||"";
   intFiltroMinVol=parseInt(document.getElementById("intMinVol")?.value||"0")||0;
   intUsarPromedio=document.getElementById("intPromedio")?.checked??intUsarPromedio;
+  intIslaDestino=normIsla(document.getElementById("intIslaDestino")?.value||"");
 
   // Calcular todas las combinaciones de fabricante posibles (sin filtro fab) para mostrar chips
   const allFabs=[...new Set(Object.values(state.master).map(m=>m.fabricante||"").filter(Boolean))].sort();
@@ -3086,6 +3104,27 @@ function renderIntercambios(){
   const swapRows=useAvg?buildAvgRows(calcs,d):calcs[d].rows;
   const nAvgWeeks=useAvg?Math.min(4,state.weekOrder.indexOf(d)+1):1;
   const swaps=calcSwaps(swapRows);
+
+  // panel de máquinas dentro de la isla destino elegida, para destickear a mano
+  // las que ya tienen buena aceptación
+  let islaPanel="";
+  if(intIslaDestino){
+    const rowMap={}; for(const r of swapRows) rowMap[r.mda]=r;
+    const islaMachines=Object.keys(state.master).filter(mda=>islaPrefix(state.master[mda].isla||"")===intIslaDestino);
+    islaPanel=`<div style="background:var(--panel2);border-radius:8px;padding:10px;margin-bottom:12px">
+      <div class="hint" style="margin-bottom:6px"><b>Máquinas en isla ${intIslaDestino}</b> — destickeá las que ya tienen buena aceptación
+        <button class="btn sm sec" style="margin-left:8px" onclick="intLimpiarIslaDestino()">✕ Limpiar isla</button>
+      </div>
+      ${islaMachines.length?islaMachines.map(mda=>{
+        const r=rowMap[mda], pct=r?r.pct:null;
+        const on=!intIslaDestinoExcluded.has(mda);
+        return `<label style="display:inline-flex;align-items:center;gap:4px;margin:3px 12px 3px 0">
+          <input type="checkbox" ${on?"checked":""} onchange="intToggleIslaMachine('${mda}')">
+          <b>${mda}</b> ${pct!=null?`<span class="${pctClass(pct)}">${fmtP(pct)}</span>`:'<span class="muted">—</span>'}
+        </label>`;
+      }).join(""):'<span class="muted">Ninguna máquina en esa isla.</span>'}
+    </div>`;
+  }
   let tbody="";
   swaps.forEach((s,i)=>{
     const key=swapKey(s);
@@ -3136,11 +3175,13 @@ function renderIntercambios(){
         ${mods.map(m=>`<option value="${m}" ${m===intFiltroModB?"selected":""}>${m}</option>`).join("")}
       </select></label>
       <label class="fld">Flujo mín. destino <input id="intMinVol" type="number" min="0" step="50" value="${intFiltroMinVol}" oninput="renderIntercambios()" style="width:90px"></label>
+      <label class="fld">Isla destino <input id="intIslaDestino" type="text" placeholder="Ej: 641" value="${intIslaDestino}" oninput="renderIntercambios()" style="width:90px"></label>
       <label class="fld" style="align-items:center;gap:6px">
         <input type="checkbox" id="intPromedio" onchange="renderIntercambios()" ${intUsarPromedio?"checked":""}> Promedio 4 semanas
         ${useAvg?`<span class="muted">(usando ${nAvgWeeks} sem.)</span>`:""}
       </label>
     </div>
+    ${islaPanel}
     <div style="display:flex;gap:16px;margin-bottom:12px">
       <div style="flex:1;background:var(--panel2);border-radius:8px;padding:10px">
         <div class="hint" style="margin-bottom:6px"><b>Origen</b></div>
