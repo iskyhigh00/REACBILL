@@ -484,7 +484,7 @@ canvas{max-height:320px}
 
 <script>
 /* ===== REACBILL v1.8.19-main ===== */
-const VERSION = "2.2.4-main";
+const VERSION = "2.2.5-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
 const ARCHIVE_KEY = "reacbill_archive_v1";
@@ -1142,6 +1142,7 @@ function exportActiveTabPrint(){
   window.print();
 }
 function exportActiveTabCopy(){
+  if(activeTab==="intercambios"){ intercambiosCopiarSeleccion(); return; }
   const el=document.getElementById("tab-"+activeTab);
   if(!el){alert("No hay nada que copiar.");return;}
   const clone=el.cloneNode(true);
@@ -1172,13 +1173,6 @@ function buildShells(){
       <div id="dropzone">Arrastra aquí archivos Excel semanales, la planilla histórica, el archivo <b>cn</b> de ubicaciones o el <b>reacbill_master.json</b><br>
         <small style="color:var(--muted)">Puedes subir varios a la vez · Excel, ZIP, cn, JSON</small></div>
       <input type="file" id="fileInput" multiple style="display:none">
-      <div class="hint" style="margin-top:8px">
-        • <b>Planillas semanales</b>: la fecha se lee del nombre (YYYY-MM-DD o DD-MM-YYYY).<br>
-        • <b>Seguimiento_Auto.xlsx</b>: importa todas las semanas + maestro de una vez.<br>
-        • <b>Archivo cn</b>: cualquier archivo con columnas <code>SMDBID;LOCNAME</code> separadas por <code>;</code>.<br>
-        • <b>Planilla de referencia</b>: Excel con columnas Machine ID, Position, Title Game, Manufacturer, Cabinet Model, Deno, etc. → actualiza todos los datos maestros.<br>
-        • <b>reacbill_master.json</b>: exportado desde Admin → restaura datos de máquinas y el historial de intercambios (cifrado).
-      </div>
       <div id="uplog" class="hint" style="margin-top:8px"></div>
     </div>
     <div class="card"><h2>Datos cargados</h2><div id="loadedInfo"></div>
@@ -1270,8 +1264,7 @@ function renderResumen(){
     <div class="row">
       <input id="resFiltro" placeholder="Filtrar MDA / ISLA / Modelo" value="${resFiltroVal.replace(/"/g,'&quot;')}"
         oninput="resFiltroVal=this.value;resApplyFilter();" style="width:280px;cursor:text">
-      <span class="hint">Click en % o Total para ordenar por semana</span>
-      ${hidden>0?`<span class="hint">· mostrando últimos 3 meses (${hidden} semana${hidden===1?"":"s"} más antigua${hidden===1?"":"s"} oculta${hidden===1?"":"s"})</span>`:""}
+      ${hidden>0?`<span class="hint">${hidden} semana${hidden===1?"":"s"} más antigua${hidden===1?"":"s"} oculta${hidden===1?"":"s"}</span>`:""}
     </div>
     <div id="resTopScroll" class="tbl-scroll-top"><div></div></div>
     <div class="tblWrap" id="resTblWrap" style="max-height:75vh"></div></div>`;
@@ -1573,13 +1566,13 @@ function renderSectores(){
       <div class="tblWrap" style="overflow-y:visible"><table id="tblSecIslas">
         <thead><tr>
           <th></th>
-          <th class="left sortable" title="Código de isla (3 dígitos)">ISLA</th>
-          <th class="sortable" title="Número de máquinas en la isla">Máq.</th>
-          <th class="sortable" title="Promedio de % de aceptación de billetes en la última semana">% prom.</th>
-          <th title="Barra visual del % de aceptación (verde=bueno, rojo=malo)">Barra</th>
-          <th class="sortable" title="Total de billetes procesados en la última semana">Total bill.</th>
-          <th class="sortable" title="Variación del % de aceptación respecto a la semana anterior (positivo = mejoró)">Δ%</th>
-          <th class="sortable" title="Número de máquinas con alertas (% bajo el umbral crítico)">Alertas</th>
+          <th class="left sortable">ISLA</th>
+          <th class="sortable">Máq.</th>
+          <th class="sortable">% prom.</th>
+          <th>Barra</th>
+          <th class="sortable">Total bill.</th>
+          <th class="sortable">Δ%</th>
+          <th class="sortable">Alertas</th>
         </tr></thead><tbody>${islaRows}</tbody></table></div>
       <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
         <button class="btn sec sm" onclick="secToggleFlat()">${secFlatOpen?"▾":"▸"} ${secFlatOpen?"Ocultar":"Ver"} listado completo del sector (sin separar por isla)</button>
@@ -1610,7 +1603,6 @@ function renderSectores(){
         </tr>`;
       }
       sectorDetail+=`<div class="card isla-detail"><h2>Sector ${selSector} — listado completo (${allMdas.length} máquinas)</h2>
-        <p class="hint" style="margin-bottom:10px">Todas las máquinas del sector en una sola tabla, sin agrupar por isla. Ordenable por columna.</p>
         <div class="tblWrap"><table id="tblSecFlat" class="isla-mtable">
           <thead><tr>
             <th></th><th class="left sortable">MDA</th><th class="left sortable">Isla</th><th class="left sortable">Modelo máq.</th>
@@ -1622,7 +1614,7 @@ function renderSectores(){
   }
   const wIdx=weekOptions.indexOf(lastD);
   el.innerHTML=`<div class="card"><h2>Vista por sectores</h2>
-    <div class="hint" style="margin-bottom:10px">Sector = primer dígito de la ISLA (ej: sector 6 = islas 6xx).${prevD?` Comparado con ${fmtKeyFull(prevD)}.`:""}</div>
+    ${prevD?`<div class="hint" style="margin-bottom:10px">Comparado con ${fmtKeyFull(prevD)}.</div>`:""}
     <div class="row" style="margin-bottom:10px;align-items:flex-end">
       <label class="fld">Semana
         <div style="display:flex;align-items:center;gap:4px">
@@ -1915,7 +1907,6 @@ function renderBuscador(focusField){
         machRows+=`<tr><td>${selBtn(mda)}</td><td class="left"><b>${mda}</b></td><td class="left">${getLoc(mda)}</td><td class="left">${ms.modelo||"—"}</td><td class="left" style="font-size:10px">${ms.firm||"—"}</td>${hist}</tr>`;
       }
       resIsla+=`<div class="card"><h2>Isla ${prefix} — ${mdas.length} máquinas</h2>
-        <div class="hint" style="margin-bottom:6px">Promedio de la isla por semana:</div>
         <div class="tblWrap" style="max-height:60px;margin-bottom:8px"><table><thead><tr>${histHead}</tr></thead><tbody><tr>${histBody}</tr></tbody></table></div>
         <div class="tblWrap" style="max-height:260px"><table id="tblIsla_${prefix}">
           <thead><tr><th></th><th class="left sortable">MDA</th><th class="left sortable">ISLA</th><th class="left sortable">Modelo</th><th class="left sortable">Firm</th>${visibleWeeks().map(d=>`<th class="sortable">${fmtKey(d)}</th>`).join("")}</tr></thead>
@@ -2065,7 +2056,6 @@ function renderTarjetas(){
   const subOptions=["isla","sector","modelmaq","ninguna"].filter(o=>o==="ninguna"||o!==groupBy)
     .map(o=>`<option value="${o}" ${subBy===o?"selected":""}>${TARJ_LBL[o]}</option>`).join("");
   el.innerHTML=`<div class="card"><h2>💳 Lectura de tarjetas</h2>
-    <p class="hint" style="margin-bottom:10px">Independiente del modelo de billetero (Advance/Cashflow). La tabla de máquinas muestra el % de cada una de las últimas semanas cargadas (hasta 4), no un promedio.</p>
     <div class="row">
       <label class="fld">Semana <select id="tarjSel" onchange="renderTarjetas()">${state.weekOrder.map(w=>`<option value="${w}" ${w===d?"selected":""}>${fmtKeyFull(w)}</option>`).join("")}</select></label>
       <label class="fld">Agrupar por <select id="tarjGroupSel" onchange="renderTarjetas()">
@@ -2111,42 +2101,34 @@ function renderAdmin(){
 
   <div class="card"><h2>Parámetros de gravedad</h2>
     <p class="hint" style="margin-bottom:12px">
-      La <b>fórmula de gravedad</b> cuantifica cuánto afecta un billetero al negocio:<br>
-      <code>Puntaje = Total × (1 + log₁₀(Total)) × ((UmbralOK − %) / UmbralOK) × (Total / PromedioTotal) × Multiplicador</code><br>
-      A mayor volumen y menor aceptación → mayor puntaje. El multiplicador amplifica casos extremos.
+      <code>Puntaje = Total × (1 + log₁₀(Total)) × ((UmbralOK − %) / UmbralOK) × (Total / PromedioTotal) × Multiplicador</code>
     </p>
     <div class="grid2">
       <div>
         <div class="param-block">
           <div class="param-title">% mínimo sin alerta (UmbralOK)</div>
-          <div class="param-desc">Si la aceptación es mayor o igual a este valor, el billetero no genera alerta ni puntaje de gravedad. Es el umbral de "todo bien". Valor típico: 85%. Por debajo de este porcentaje el billetero empieza a acumular puntaje.</div>
           <div class="param-input"><input id="p_thrOk" type="number" step="0.01" min="0" max="1" value="${p.thrOk}"> <span class="muted">Ej: 0.85 = 85%</span></div>
         </div>
         <div class="param-block">
           <div class="param-title">% zona amarilla / medio (UmbralMedio)</div>
-          <div class="param-desc">Por encima de este umbral la celda aparece verde (óptimo). Entre UmbralOK y este valor aparece amarilla (aceptable pero bajo). Valor típico: 90%. Define la banda "aceptable" entre 85-90%.</div>
           <div class="param-input"><input id="p_thrMid" type="number" step="0.01" min="0" max="1" value="${p.thrMid}"> <span class="muted">Ej: 0.90 = 90%</span></div>
         </div>
         <div class="param-block">
           <div class="param-title">% zona crítica (UmbralCrítico)</div>
-          <div class="param-desc">Si la aceptación cae por debajo de este valor, se aplica el multiplicador máximo (×Crítico). Indica un billetero con problemas graves que requiere intervención urgente. Valor típico: 40%.</div>
           <div class="param-input"><input id="p_thrCrit" type="number" step="0.01" min="0" max="1" value="${p.thrCrit}"> <span class="muted">Ej: 0.40 = 40%</span></div>
         </div>
       </div>
       <div>
         <div class="param-block">
           <div class="param-title">Multiplicador zona media (×Medio)</div>
-          <div class="param-desc">Factor que amplifica el puntaje cuando el billetero está en alerta pero no en zona crítica (entre UmbralCrítico y UmbralOK). Aumenta la visibilidad de problemas moderados. Valor típico: 3.</div>
           <div class="param-input"><input id="p_multMid" type="number" step="1" min="1" value="${p.multMid}"> <span class="muted">Sin dimensiones (factor)</span></div>
         </div>
         <div class="param-block">
           <div class="param-title">Multiplicador zona crítica (×Crítico)</div>
-          <div class="param-desc">Factor que amplifica fuertemente el puntaje cuando la aceptación está por debajo del UmbralCrítico. Garantiza que los casos más graves escalen al tope del ranking incluso con poco volumen. Valor típico: 30.</div>
           <div class="param-input"><input id="p_multCrit" type="number" step="1" min="1" value="${p.multCrit}"> <span class="muted">Sin dimensiones (factor)</span></div>
         </div>
         <div class="param-block">
           <div class="param-title">Cortes del badge de gravedad</div>
-          <div class="param-desc">Rangos de puntaje para clasificar el badge: <b>Medio</b> (amarillo): puntaje ≥ este valor. <b>Alto</b> (naranja): puntaje ≥ este valor. <b>Urgente</b> (rojo): puntaje ≥ este valor. Los rangos dependen de tus datos; ajusta según la distribución observada.</div>
           <div class="param-input" style="flex-wrap:wrap;gap:12px">
             <label class="fld">Medio ≥ <input id="p_sevMid" type="number" step="1" value="${p.sevMid}" style="width:70px"></label>
             <label class="fld">Alto ≥ <input id="p_sevHigh" type="number" step="1" value="${p.sevHigh}" style="width:70px"></label>
@@ -2163,7 +2145,6 @@ function renderAdmin(){
   </div>
 
   <div class="card"><h2>Editor de máquinas</h2>
-    <p class="hint" style="margin-bottom:8px">El badge <span class="badge b-mid">imp</span> indica un modelo de billetero cargado automáticamente desde un Excel importado que nunca fue revisado/confirmado a mano. Verifica esos casos y presiona "Guardar cambios" para marcarlos como confirmados.</p>
     <div class="row" style="margin-bottom:8px">
       <input id="machFiltInp" type="text" placeholder="Filtrar por MDA, isla, juego, fabricante…"
         value="${machEditFilter}" oninput="machEditFilter=this.value;machApplyFilter()"
@@ -2190,7 +2171,6 @@ function renderAdmin(){
   </div>
 
   <div class="card"><h2>Archivo de semanas antiguas</h2>
-    <p class="hint">Para mantener la app rápida, las semanas de más de 3 meses se archivan automáticamente y se quitan del estado activo. Podés exportarlas a JSON en cualquier momento; nunca se borran.</p>
     <p>${archivedWeekOrder.length} semana(s) archivada(s)${archivedWeekOrder.length?` (${archivedWeekOrder[0]} a ${archivedWeekOrder[archivedWeekOrder.length-1]})`:''}</p>
     <div class="row"><button class="btn sec sm" onclick="intExportarArchivo()">⬇ Exportar archivo JSON</button></div>
   </div>`;
@@ -2230,7 +2210,6 @@ function renderBulkEditCard(){
   const modOpts=`<option value="">Todos los modelos (${modsFiltered.length})</option>`
     +modsFiltered.map(m=>`<option value="${m}" ${m===selMod?"selected":""}>${m}</option>`).join("");
   card.innerHTML=`<h2>Corrección masiva de modelo billetero / firmware</h2>
-    <p class="hint" style="margin-bottom:12px">Filtrá por sector, fabricante y/o modelo de máquina (al menos uno), elegí qué campo(s) actualizar y aplicá a todas las coincidencias de una vez.</p>
     <div class="row" style="align-items:flex-end;gap:12px;flex-wrap:wrap">
       <label class="fld">Sector
         <select id="bulkSecSel" onchange="renderBulkEditCard()"><option value="">— todos —</option>${secOpts}</select>
@@ -2326,7 +2305,6 @@ function renderLevTable(){
   }
   const levIslaOpts=allIslasPrefixes.map(i=>`<option value="${i}" ${i===levIsla?"selected":""}>${i}</option>`).join("");
   card.innerHTML=`<h2>Levantamiento de modelos de billetero</h2>
-    <p class="hint" style="margin-bottom:10px">Asigna el modelo (Advance/Cashflow) a las máquinas de cada isla. Selecciona la isla (por prefijo), usa los botones de lote o cambia individualmente.</p>
     <div class="row">
       <label class="fld">Isla (prefijo) <select id="levIslaAdm" onchange="renderLevTable()">${levIslaOpts}</select></label>
       <span class="hint" style="margin-top:0">${levMachines.length} máquinas · <b>${cntAdv}</b> Advance · <b>${cntCf}</b> Cashflow · <b style="color:var(--high)">${cntNone}</b> sin asignar</span>
@@ -2338,7 +2316,7 @@ function renderLevTable(){
       <button class="btn sec sm" onclick="levSelAdm('Cashflow')">Seleccionadas → Cashflow</button>
       <button class="btn sec sm" onclick="levChkNone()">Marcar sin modelo</button>
       <button class="btn sm" onclick="levGuardarAdm()">💾 Guardar</button>
-      <button class="btn sec sm" onclick="exportMasterJSON()" title="Descarga un JSON con todos los datos de las máquinas (juego, isla, modelo, firmware, fabricante)">⬇ Exportar JSON</button>
+      <button class="btn sec sm" onclick="exportMasterJSON()">⬇ Exportar JSON</button>
       <span id="levMsgAdm" class="hint" style="margin-top:0"></span>
     </div>
     <div class="tblWrap" style="max-height:40vh"><table id="tblLevAdm">
@@ -2411,7 +2389,7 @@ function renderMachEditorRows(){
     const modEmpty=!selMod?"background:var(--crit-bg,#3a1a1a);border-color:var(--high)":"";
     const firmEmpty=!selFirm?"background:var(--crit-bg,#3a1a1a);border-color:var(--high)":"";
     const noVerif=selMod&&ms.modeloFuente==="import"&&edits.modelo===undefined;
-    const modTag=noVerif?` <span class="badge b-mid" title="Modelo cargado automáticamente desde un Excel importado, nunca confirmado manualmente. Revisa que sea correcto y vuelve a guardar para marcarlo como verificado.">imp</span>`:"";
+    const modTag=noVerif?` <span class="badge b-mid">imp</span>`:"";
     html+=`<tr>
       <td data-sort="${mda}" class="left" style="font-weight:700">${mda}</td>
       ${val("isla",62)}
@@ -2586,6 +2564,27 @@ const MACH_PAGE_SIZE=200;
 let machPendingEdits={}; // {mda:{campo:valor}} — ediciones aún no guardadas, sobreviven el cambio de página/filtro
 let machSortCol="mda", machSortDir=1;
 let intFiltroModA="", intFiltroModB="", intFiltroMinVol=0, intFabLeft=new Set(), intFabRight=new Set(), intUsarPromedio=false, intPendiente=null;
+// Checkboxes de selección de sugerencias de intercambio, para copiar sólo las tildadas.
+// Clave = "mdaA_mdaB"; no persiste entre recargas (se reinicia con cada sesión).
+let intSwapChecked=new Set();
+function swapKey(s){ return s.mdaA+"_"+s.mdaB; }
+function toggleSwapChk(key){
+  intSwapChecked.has(key)?intSwapChecked.delete(key):intSwapChecked.add(key);
+}
+// "Copiar como tabla" en Intercambios: en vez de copiar la tabla HTML, arma una
+// línea de instrucción por cada sugerencia tildada (o todas, si no hay ninguna
+// tildada): "MDA {mdaA} pasa a {posición de B}" — el billetero que hoy está en
+// la máquina mdaA se traslada físicamente a la posición donde está mdaB.
+function intercambiosCopiarSeleccion(){
+  const swaps=window._lastSwaps||[];
+  if(!swaps.length){ alert("No hay sugerencias para copiar."); return; }
+  const chosen=intSwapChecked.size ? swaps.filter(s=>intSwapChecked.has(swapKey(s))) : swaps;
+  if(!chosen.length){ alert("No hay sugerencias para copiar."); return; }
+  const text=chosen.map(s=>`MDA ${s.mdaA} pasa a ${getLoc(s.mdaB)}`).join("\n");
+  navigator.clipboard.writeText(text)
+    .then(()=>alert(`Copiado al portapapeles (${chosen.length} intercambio${chosen.length!==1?"s":""}).`))
+    .catch(()=>alert("No se pudo copiar."));
+}
 // Sectores: origen = sector del billetero bueno (A), destino = sector de la posición problema (B).
 // A diferencia del panel de fabricante (compatibilidad simétrica), acá la dirección importa:
 // "origen sector 1, destino sector 6" sólo sugiere mover DE 1 HACIA 6, no al revés.
@@ -2677,7 +2676,6 @@ function selListCardHtml(id){
   </tr>`).join("");
   return `<div class="card" style="margin-bottom:12px">
     <h2 style="color:${def.color}">${def.icon} ${def.label} (${rows.length})</h2>
-    <p class="hint" style="margin-bottom:10px">Agregadas con el botón "+" de color ${def.color} en cualquier vista. Se mantiene aunque cambies de pestaña o recargues la página.</p>
     <div class="row" style="margin-bottom:10px">
       <button class="btn sec sm" onclick="selCopiar('${id}')">📋 Copiar tabla</button>
       <button class="btn sec sm" onclick="selExportarCSV('${id}')">⬇ Exportar CSV</button>
@@ -2803,15 +2801,13 @@ function tarjListHtml(id){
     tableHtml=`<div class="tblWrap"><table id="tblTarjList_${id}">
       <thead><tr><th class="left">MDA</th><th class="left">ISLA</th><th class="left">MODELO MÁQUINA</th>
         <th>TARJ. ACEPTADAS</th><th>TARJ. RECHAZADAS</th>${weekHead}<th></th></tr></thead>
-      <tbody>${body}</tbody></table></div>
-      ${total>3?`<p class="hint" style="margin-top:6px">Mostrando las últimas 3 agregadas de ${total}. Copiar/Exportar incluye la lista completa.</p>`:""}`;
+      <tbody>${body}</tbody></table></div>`;
   }
   return `<div class="card" style="margin-bottom:12px">
     <div style="display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none" onclick="tarjListToggleExpand('${id}')">
       <span style="font-size:13px;color:var(--accent)">${tarjListsExpanded[id]?"▼":"▶"}</span>
       <h2 style="margin:0;border:none;padding:0;color:${def.color}">${def.icon} ${def.label} (${total})</h2>
     </div>
-    <p class="hint" style="margin:6px 0 10px">Agregadas con el botón "+" de color ${def.color} de esta pestaña. Persiste entre pestañas y recargas.</p>
     <div class="row" style="margin-bottom:10px">
       <button class="btn sec sm" onclick="event.stopPropagation();tarjListCopiar('${id}')">📋 Copiar tabla (todas)</button>
       <button class="btn sec sm" onclick="event.stopPropagation();tarjListExportarCSV('${id}')">⬇ Exportar CSV (todas)</button>
@@ -2966,7 +2962,7 @@ function renderIntercambios(){
       const sel=selectedSet.has(f);
       const ok=compat(f);
       const dim=!ok&&!sel?"opacity:.3;cursor:not-allowed":"";
-      return `<button class="btn sm ${sel?'':'sec'}" style="margin:2px;${dim}" onclick="${ok||sel?`intToggleFab('${side}','${f}')`:''}"\ntitle="${!ok?'Incompatible con la selección actual':''}">${f}</button>`;
+      return `<button class="btn sm ${sel?'':'sec'}" style="margin:2px;${dim}" onclick="${ok||sel?`intToggleFab('${side}','${f}')`:''}">${f}</button>`;
     }).join("");
     return chips+(selectedSet.size>0?reset:"");
   }
@@ -2993,8 +2989,9 @@ function renderIntercambios(){
   const swaps=calcSwaps(swapRows);
   let tbody="";
   swaps.forEach((s,i)=>{
-    const sameF=s.fabA===s.fabB;
+    const key=swapKey(s);
     tbody+=`<tr>
+      <td><input type="checkbox" class="swapChk" onchange="toggleSwapChk('${key}')" ${intSwapChecked.has(key)?"checked":""}></td>
       <td style="color:var(--accent);font-weight:700">${i+1}</td>
       <td class="left"><b>${s.mdaA}</b><br><span class="muted">${s.locA}</span></td>
       <td class="left" style="font-size:10px">${s.fabA}<br>${s.modA} ${s.firmA}</td>
@@ -3026,9 +3023,8 @@ function renderIntercambios(){
   el.innerHTML=`
   <div class="card"><h2>Optimizador de intercambios</h2>
     <p class="hint" style="margin-bottom:10px">
-      <b>Fórmula:</b> Ganancia = (% billetero bueno − % billetero malo) × (volumen alto − volumen bajo)<br>
-      Llevar un billetero de alto rendimiento a una posición de alto flujo maximiza los billetes aceptados globalmente.<br>
-      ${!isLoc?'<span style="color:var(--high)">⚠ App abierta en modo online — el historial no se guarda.</span>':'<span style="color:var(--ok)">✓ Modo local — historial cifrado y guardado.</span>'}
+      <code>Ganancia = (%A − %B) × (FlujoB − FlujoA)</code><br>
+      ${!isLoc?'<span style="color:var(--high)">⚠ Modo online — el historial no se guarda.</span>':'<span style="color:var(--ok)">✓ Modo local — historial guardado.</span>'}
     </p>
     <div class="row">
       <label class="fld">Semana <select id="intSel" onchange="renderIntercambios()">${state.weekOrder.map(w=>`<option value="${w}" ${w===d?"selected":""}>${fmtKeyFull(w)}</option>`).join("")}</select></label>
@@ -3041,52 +3037,51 @@ function renderIntercambios(){
         ${mods.map(m=>`<option value="${m}" ${m===intFiltroModB?"selected":""}>${m}</option>`).join("")}
       </select></label>
       <label class="fld">Flujo mín. destino <input id="intMinVol" type="number" min="0" step="50" value="${intFiltroMinVol}" oninput="renderIntercambios()" style="width:90px"></label>
-      <label class="fld" style="align-items:center;gap:6px" title="Promedia % y volumen de las últimas 4 semanas disponibles para mayor robustez. Si solo hay una semana, usa ese dato igual.">
+      <label class="fld" style="align-items:center;gap:6px">
         <input type="checkbox" id="intPromedio" onchange="renderIntercambios()" ${intUsarPromedio?"checked":""}> Promedio 4 semanas
         ${useAvg?`<span class="muted">(usando ${nAvgWeeks} sem.)</span>`:""}
       </label>
     </div>
     <div style="display:flex;gap:16px;margin-bottom:12px">
       <div style="flex:1;background:var(--panel2);border-radius:8px;padding:10px">
-        <div class="hint" style="margin-bottom:6px"><b>Origen</b> — fabricante(s) del billetero bueno</div>
+        <div class="hint" style="margin-bottom:6px"><b>Origen</b></div>
         ${leftPanel}
       </div>
       <div style="display:flex;align-items:center;font-size:20px;color:var(--accent)">⇄</div>
       <div style="flex:1;background:var(--panel2);border-radius:8px;padding:10px">
-        <div class="hint" style="margin-bottom:6px"><b>Destino</b> — fabricante(s) del billetero malo <span style="color:var(--high);font-size:10px">(IGT solo con IGT)</span></div>
+        <div class="hint" style="margin-bottom:6px"><b>Destino</b></div>
         ${rightPanel}
       </div>
     </div>
     <div style="display:flex;gap:16px;margin-bottom:12px">
       <div style="flex:1;background:var(--panel2);border-radius:8px;padding:10px">
-        <div class="hint" style="margin-bottom:6px"><b>Origen</b> — sector(es) de donde sacar el billetero bueno</div>
+        <div class="hint" style="margin-bottom:6px"><b>Origen</b></div>
         ${sectorLeftPanel}
       </div>
       <div style="display:flex;align-items:center;font-size:20px;color:var(--accent)">⇄</div>
       <div style="flex:1;background:var(--panel2);border-radius:8px;padding:10px">
-        <div class="hint" style="margin-bottom:6px"><b>Destino</b> — sector(es) donde colocarlo</div>
+        <div class="hint" style="margin-bottom:6px"><b>Destino</b></div>
         ${sectorRightPanel}
       </div>
     </div>
     <div style="background:var(--panel2);border-radius:8px;padding:10px;margin-bottom:12px">
-      <div class="hint" style="margin-bottom:6px"><b>Nunca sacar billeteros de estos sectores</b> <span style="font-size:10px">(se respeta sin importar el filtro de Origen)</span></div>
+      <div class="hint" style="margin-bottom:6px"><b>Excluir sectores</b></div>
       ${sectorExcludePanel}
     </div>
     <div class="tblWrap" style="max-height:55vh"><table id="tblSwaps">
       <thead><tr>
-        <th>#</th>
+        <th></th><th>#</th>
         <th class="left">Billetero A (bueno)</th><th class="left">Modelo/Firm</th><th class="sortable">%A</th><th class="sortable">Flujo A</th>
         <th></th>
         <th class="left">Posición B (problema)</th><th class="left">Modelo/Firm</th><th class="sortable">%B</th><th class="sortable">Flujo B</th>
         <th class="sortable">Ganancia est.</th><th></th>
-      </tr></thead><tbody>${tbody||`<tr><td colspan="12" class="muted" style="text-align:center;padding:12px">Sin sugerencias con estos filtros.</td></tr>`}</tbody>
+      </tr></thead><tbody>${tbody||`<tr><td colspan="13" class="muted" style="text-align:center;padding:12px">Sin sugerencias con estos filtros.</td></tr>`}</tbody>
     </table></div>
-    <p class="hint" style="margin-top:6px">Ganancia estimada = billetes extra aceptados por semana si el billetero bueno ocupa la posición de alto flujo.</p>
   </div>
 
   <div id="intFormWrap"></div>
 
-  <div class="card"><h2>Historial de intercambios ${!isLoc?'<span style="color:var(--high);font-size:11px">(sólo lectura — sin persistencia online)</span>':''}</h2>
+  <div class="card"><h2>Historial de intercambios ${!isLoc?'<span style="color:var(--high);font-size:11px">(sólo lectura)</span>':''}</h2>
     <div class="tblWrap" style="max-height:40vh"><table id="tblHist">
       <thead><tr>
         <th class="sortable">Fecha</th><th class="left sortable">Billetero A</th><th class="left sortable">Posición B</th>
@@ -3107,12 +3102,12 @@ function intRegistrar(i){
   <div class="card" style="border-color:var(--accent)"><h2>Registrar intercambio</h2>
     <div class="grid2" style="margin-bottom:10px">
       <div>
-        <div class="hint">Billetero que se <b>mueve</b> (bueno, bajo flujo)</div>
+        <div class="hint"><b>Origen</b></div>
         <div style="margin-top:4px"><b>${s.mdaA}</b> — ${s.locA} — ${s.modA} — Firm: ${s.firmA}</div>
         <div style="color:var(--ok)">${fmtP(s.pctA)} · ${fmtN(s.totA)} bills/semana</div>
       </div>
       <div>
-        <div class="hint">Posición <b>destino</b> (mala, alto flujo)</div>
+        <div class="hint"><b>Destino</b></div>
         <div style="margin-top:4px"><b>${s.mdaB}</b> — ${s.locB} — ${s.modB} — Firm: ${s.firmB}</div>
         <div style="color:var(--crit)">${fmtP(s.pctB)} · ${fmtN(s.totB)} bills/semana</div>
       </div>
