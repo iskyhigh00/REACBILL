@@ -484,7 +484,7 @@ canvas{max-height:320px}
 
 <script>
 /* ===== REACBILL v1.8.19-main ===== */
-const VERSION = "2.3.2-main";
+const VERSION = "2.3.3-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
 const ARCHIVE_KEY = "reacbill_archive_v1";
@@ -2095,8 +2095,6 @@ function renderAdmin(){
   const allMdas=Object.entries(state.master).sort(([a],[b])=>esCollator.compare(a,b));
 
   el.innerHTML=`
-  <div class="card" id="levCard"></div>
-
   <div class="card" id="bulkEditCard"></div>
 
   <div class="card" id="crossCard"></div>
@@ -2152,6 +2150,7 @@ function renderAdmin(){
         value="${machEditFilter}" oninput="machEditFilter=this.value;machApplyFilter()"
         style="flex:1;max-width:320px">
       <button class="btn sm" onclick="machSave()">💾 Guardar cambios</button>
+      <button class="btn sec sm" onclick="exportMasterJSON()">⬇ Exportar JSON</button>
       <span id="machMsg" class="hint" style="margin-top:0">${allMdas.length} máquinas</span>
       <span class="hint" style="margin-top:0">· <b style="color:var(--mid)">${allMdas.filter(([,ms])=>ms.modelo&&ms.modeloFuente==="import").length}</b> sin verificar</span>
     </div>
@@ -2176,21 +2175,26 @@ function renderAdmin(){
     <p>${archivedWeekOrder.length} semana(s) archivada(s)${archivedWeekOrder.length?` (${archivedWeekOrder[0]} a ${archivedWeekOrder[archivedWeekOrder.length-1]})`:''}</p>
     <div class="row"><button class="btn sec sm" onclick="intExportarArchivo()">⬇ Exportar archivo JSON</button></div>
   </div>`;
-  renderLevTable();
   renderBulkEditCard();
   renderCrossCard();
   machEditAllMdas=allMdas;
   renderMachEditorRows();
 }
-// ---------- Edición masiva por sector / fabricante / modelo de máquina ----------
+// ---------- Edición masiva por isla / sector / fabricante / modelo de máquina ----------
+// Único punto para aplicar modelo de billetero / firmware a muchas máquinas a la
+// vez (reemplaza lo que antes eran dos herramientas separadas — "Levantamiento
+// por isla" y "Corrección masiva" — ahora es una sola con más filtros).
 function renderBulkEditCard(){
   const card=document.getElementById("bulkEditCard"); if(!card)return;
+  const islas=[...new Set(Object.values(state.master).map(m=>islaPrefix(m.isla||"")).filter(Boolean))].sort();
   const sectors=[...new Set(Object.values(state.master).map(m=>islaSector(m.isla||"")).filter(Boolean))].sort();
   const fabs=[...new Set(Object.values(state.master).map(m=>m.fabricante||"").filter(Boolean))].sort();
+  const selIsla=document.getElementById("bulkIslaSel")?.value||"";
   const selSec=document.getElementById("bulkSecSel")?.value||"";
   const selFab=document.getElementById("bulkFabSel")?.value||"";
-  // modelos de máquina filtrados por sector y/o fabricante ya elegidos
+  // modelos de máquina filtrados por lo ya elegido
   const modsFiltered=[...new Set(Object.values(state.master).filter(m=>{
+    if(selIsla&&islaPrefix(m.isla||"")!==selIsla)return false;
     if(selSec&&islaSector(m.isla||"")!==selSec)return false;
     if(selFab&&(m.fabricante||"")!==selFab)return false;
     return true;
@@ -2201,19 +2205,24 @@ function renderBulkEditCard(){
   const chkModelo=document.getElementById("bulkChkModelo")?.checked!==false;
   const chkFirm=document.getElementById("bulkChkFirm")?.checked||false;
   const firmVal=document.getElementById("bulkFirmVal")?.value??"";
-  const hasFilter=selSec||selFab;
+  const hasFilter=selIsla||selSec||selFab;
   const count=Object.values(state.master).filter(m=>{
+    if(selIsla&&islaPrefix(m.isla||"")!==selIsla)return false;
     if(selSec&&islaSector(m.isla||"")!==selSec)return false;
     if(selFab&&(m.fabricante||"")!==selFab)return false;
     if(selMod&&(m.modelmaq||"")!==selMod)return false;
     return true;
   }).length;
+  const islaOpts=islas.map(i=>`<option value="${i}" ${i===selIsla?"selected":""}>${i}</option>`).join("");
   const secOpts=sectors.map(s=>`<option value="${s}" ${s===selSec?"selected":""}>Sector ${s}</option>`).join("");
   const fabOpts=fabs.map(f=>`<option value="${f}" ${f===selFab?"selected":""}>${f}</option>`).join("");
   const modOpts=`<option value="">Todos los modelos (${modsFiltered.length})</option>`
     +modsFiltered.map(m=>`<option value="${m}" ${m===selMod?"selected":""}>${m}</option>`).join("");
-  card.innerHTML=`<h2>Corrección masiva de modelo billetero / firmware</h2>
+  card.innerHTML=`<h2>Corrección masiva de billeteros</h2>
     <div class="row" style="align-items:flex-end;gap:12px;flex-wrap:wrap">
+      <label class="fld">Isla
+        <select id="bulkIslaSel" onchange="renderBulkEditCard()"><option value="">— todas —</option>${islaOpts}</select>
+      </label>
       <label class="fld">Sector
         <select id="bulkSecSel" onchange="renderBulkEditCard()"><option value="">— todos —</option>${secOpts}</select>
       </label>
@@ -2250,6 +2259,7 @@ function renderBulkEditCard(){
     <p id="bulkMsg" class="hint" style="margin-top:8px"></p>`;
 }
 function bulkEditApply(){
+  const isla=document.getElementById("bulkIslaSel")?.value||"";
   const sec=document.getElementById("bulkSecSel")?.value||"";
   const fab=document.getElementById("bulkFabSel")?.value||"";
   const modmaq=document.getElementById("bulkModmaqSel")?.value||"";
@@ -2257,9 +2267,10 @@ function bulkEditApply(){
   const chkFirm=document.getElementById("bulkChkFirm")?.checked||false;
   const modelo=document.getElementById("bulkModeloSel")?.value;
   const firmVal=(document.getElementById("bulkFirmVal")?.value||"").trim();
-  if((!sec&&!fab)||(!chkModelo&&!chkFirm))return;
+  if((!isla&&!sec&&!fab)||(!chkModelo&&!chkFirm))return;
   let cnt=0;
   for(const ms of Object.values(state.master)){
+    if(isla&&islaPrefix(ms.isla||"")!==isla)continue;
     if(sec&&islaSector(ms.isla||"")!==sec)continue;
     if(fab&&(ms.fabricante||"")!==fab)continue;
     if(modmaq&&(ms.modelmaq||"")!==modmaq)continue;
@@ -2268,7 +2279,7 @@ function bulkEditApply(){
     cnt++;
   }
   invalidate(); saveState();
-  const parts=[sec?"Sector "+sec:"",fab,modmaq].filter(Boolean).join(" › ");
+  const parts=[isla?"Isla "+isla:"",sec?"Sector "+sec:"",fab,modmaq].filter(Boolean).join(" › ");
   const changed=[chkModelo?`modelo="${modelo||"(desconocido)"}"`:"",chkFirm?`firmware="${firmVal||"(vacío)"}"`:""].filter(Boolean).join(", ");
   const msg=document.getElementById("bulkMsg");
   if(msg){ msg.textContent=`✓ ${cnt} máquina${cnt!==1?"s":""} actualizada${cnt!==1?"s":""}: ${changed} (${parts}).`; }
@@ -2429,62 +2440,6 @@ function crossExportar(){
   a.click();
 }
 
-// Reconstruye sólo la tarjeta de Levantamiento (acotada a la isla elegida),
-// sin tocar el Editor de máquinas completo — evita reconstruir miles de
-// filas sólo por cambiar de isla en este selector.
-function renderLevTable(){
-  const card=document.getElementById("levCard"); if(!card)return;
-  const allIslasPrefixes=[...new Set(Object.values(state.master).map(m=>islaPrefix(m.isla||"")).filter(Boolean))].sort();
-  const storedLevIsla=document.getElementById("levIslaAdm")?.value||"";
-  const levIsla=allIslasPrefixes.includes(storedLevIsla)?storedLevIsla:(allIslasPrefixes[0]||"");
-  const levMachines=Object.entries(state.master).filter(([,ms])=>islaPrefix(ms.isla||"")===levIsla)
-    .sort(([a],[b])=>esCollator.compare(a,b));
-  const cntAdv=levMachines.filter(([,ms])=>ms.modelo==="Advance").length;
-  const cntCf=levMachines.filter(([,ms])=>ms.modelo==="Cashflow").length;
-  const cntNone=levMachines.filter(([,ms])=>!ms.modelo).length;
-  let levRows="";
-  for(const [mda,ms] of levMachines){
-    const mod=ms.modelo||"";
-    const firm=ms.firm||"";
-    const firmOpts=[["","—"],["403","403"],["255","255"]].map(
-      ([v,l])=>`<option value="${v}" ${firm===v?"selected":""}>${l}</option>`).join("");
-    levRows+=`<tr>
-      <td><input type="checkbox" class="lev-chk" data-mda="${mda}"></td>
-      <td class="left"><b>${mda}</b></td>
-      <td class="left">${ms.isla||""}</td>
-      <td class="left"><input id="modelmaq_${mda}" type="text" value="${ms.modelmaq||""}" placeholder="Modelo" style="width:90px;font-size:11px;padding:2px;background:var(--panel);border:1px solid var(--border);color:var(--fg);border-radius:4px"></td>
-      <td class="left">${ms.juego||"—"}</td>
-      <td class="left"><select id="firm_${mda}" style="font-size:11px;padding:2px">${firmOpts}</select></td>
-      <td class="left lev-radio">
-        <label><input type="radio" name="lev_${mda}" value="Advance" ${mod==="Advance"?"checked":""}> Advance</label>
-        <label><input type="radio" name="lev_${mda}" value="Cashflow" ${mod==="Cashflow"?"checked":""}> Cashflow</label>
-        <label><input type="radio" name="lev_${mda}" value="" ${!mod?"checked":""}> —</label>
-      </td></tr>`;
-  }
-  const levIslaOpts=allIslasPrefixes.map(i=>`<option value="${i}" ${i===levIsla?"selected":""}>${i}</option>`).join("");
-  card.innerHTML=`<h2>Levantamiento de modelos de billetero</h2>
-    <div class="row">
-      <label class="fld">Isla (prefijo) <select id="levIslaAdm" onchange="renderLevTable()">${levIslaOpts}</select></label>
-      <span class="hint" style="margin-top:0">${levMachines.length} máquinas · <b>${cntAdv}</b> Advance · <b>${cntCf}</b> Cashflow · <b style="color:var(--high)">${cntNone}</b> sin asignar</span>
-    </div>
-    <div class="row">
-      <button class="btn sec sm" onclick="levAllAdm('Advance')">Toda → Advance</button>
-      <button class="btn sec sm" onclick="levAllAdm('Cashflow')">Toda → Cashflow</button>
-      <button class="btn sec sm" onclick="levSelAdm('Advance')">Seleccionadas → Advance</button>
-      <button class="btn sec sm" onclick="levSelAdm('Cashflow')">Seleccionadas → Cashflow</button>
-      <button class="btn sec sm" onclick="levChkNone()">Marcar sin modelo</button>
-      <button class="btn sm" onclick="levGuardarAdm()">💾 Guardar</button>
-      <button class="btn sec sm" onclick="exportMasterJSON()">⬇ Exportar JSON</button>
-      <span id="levMsgAdm" class="hint" style="margin-top:0"></span>
-    </div>
-    <div class="tblWrap" style="max-height:40vh"><table id="tblLevAdm">
-      <thead><tr><th><input type="checkbox" onchange="levToggleAll(this)"></th>
-        <th class="left sortable">MDA</th><th class="left sortable">ISLA</th>
-        <th class="left">Modelo máq.</th><th class="left sortable">Juego</th>
-        <th class="left sortable">Firmware</th><th class="left">Modelo bill.</th></tr></thead>
-      <tbody>${levRows}</tbody></table></div>`;
-  attachSort("tblLevAdm");
-}
 let machEditAllMdas=[];
 // Filtra (sobre el arreglo completo, no sobre el DOM) y ordena según
 // machSortCol/machSortDir. Devuelve sólo las entradas que corresponden,
@@ -2601,42 +2556,6 @@ function machSave(){
   invalidate(); saveState();
   const msg=document.getElementById("machMsg");
   if(msg){const prev=msg.textContent; msg.textContent="✓ Guardado."; setTimeout(()=>{if(msg)machApplyFilter();},2000);}
-}
-function levAllAdm(mod){
-  document.querySelectorAll("input[type=radio][name^='lev_']").forEach(inp=>{ inp.checked=(inp.value===mod); });
-}
-function levSelAdm(mod){
-  document.querySelectorAll(".lev-chk:checked").forEach(chk=>{
-    const mda=chk.getAttribute("data-mda");
-    const radios=document.querySelectorAll(`input[name="lev_${mda}"]`);
-    radios.forEach(r=>{ r.checked=(r.value===mod); });
-  });
-}
-function levChkNone(){
-  document.querySelectorAll(".lev-chk").forEach(chk=>{
-    const mda=chk.getAttribute("data-mda");
-    const ms=state.master[mda];
-    chk.checked=ms&&!ms.modelo;
-  });
-}
-function levToggleAll(masterChk){
-  document.querySelectorAll(".lev-chk").forEach(c=>c.checked=masterChk.checked);
-}
-function levGuardarAdm(){
-  document.querySelectorAll("input[type=radio][name^='lev_']:checked").forEach(inp=>{
-    const mda=inp.name.replace("lev_","");
-    if(state.master[mda]){
-      state.master[mda].modelo=inp.value;
-      state.master[mda].modeloFuente="manual";
-      const firmSel=document.getElementById("firm_"+mda);
-      if(firmSel) state.master[mda].firm=firmSel.value;
-      const mqInp=document.getElementById("modelmaq_"+mda);
-      if(mqInp) state.master[mda].modelmaq=mqInp.value.trim();
-    }
-  });
-  invalidate(); saveState();
-  const msg=document.getElementById("levMsgAdm");
-  if(msg){ msg.textContent="✓ Guardado."; setTimeout(()=>{ if(msg)msg.textContent=""; },2000); }
 }
 function exportMasterJSON(){
   const master=Object.entries(state.master).map(([mda,ms])=>({mda,...ms}));
