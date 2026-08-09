@@ -484,7 +484,7 @@ canvas{max-height:320px}
 
 <script>
 /* ===== REACBILL v1.8.19-main ===== */
-const VERSION = "2.2.9-main";
+const VERSION = "2.3.1-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
 const ARCHIVE_KEY = "reacbill_archive_v1";
@@ -2278,12 +2278,13 @@ function bulkEditApply(){
 // ---------- Cruce de modelos de billetero con un archivo externo ----------
 // El usuario sube un JSON externo con forma {"maquinas":[{mda,posicion,area,
 // juego,tipo,fabricante,modelo},...]}. Se compara el campo "modelo" de cada
-// máquina contra lo que REACBILL ya tiene en state.master (sin modificar
-// state.master: esto es de sólo lectura sobre los datos propios). Se genera
-// un archivo de salida con la MISMA estructura de entrada, pero con "modelo"
-// completado/corregido. No se sobreescribe nada automáticamente si ambos
-// lados tienen un valor distinto: eso queda marcado como conflicto y hay que
-// elegir manualmente cuál usar antes de exportar.
+// máquina contra lo que REACBILL ya tiene en state.master, y se compara la
+// "posicion" del archivo contra la isla que REACBILL tiene guardada. El
+// modelo se resuelve para exportar un archivo corregido (si ambos lados
+// tienen un valor distinto, eso queda marcado como conflicto y hay que
+// elegir manualmente cuál usar). La ubicación (isla) sí se puede aplicar
+// directamente sobre state.master con un botón, porque ahí el archivo
+// subido es la fuente de verdad de dónde está físicamente cada máquina.
 let crossFileName="", crossRows=null;
 function crossFileSelected(input){
   const f=input.files?.[0]; if(!f)return;
@@ -2305,8 +2306,12 @@ function crossFileSelected(input){
         else if(fileModelo&&!reacModelo) status="sin_cambio";
         else if(fileModelo&&reacModelo&&fileModelo.toLowerCase()!==reacModelo.toLowerCase()) status="conflicto";
         else status="ok";
+        const filePos=normIsla(raw.posicion??"");
+        const reacIsla=normIsla(known?.isla||"");
+        const posCambia=!!(known&&filePos&&filePos!==reacIsla);
         return {raw, mda, fileModelo, reacModelo, status,
-          resolved: status==="conflicto"?reacModelo:(fileModelo||reacModelo||"")};
+          resolved: status==="conflicto"?reacModelo:(fileModelo||reacModelo||""),
+          filePos, reacIsla, posCambia};
       });
     }catch(e){ alert("JSON inválido: "+e.message); crossRows=null; }
     renderCrossCard();
@@ -2321,6 +2326,20 @@ function crossSetAllConflicts(source){
   for(const r of crossRows) if(r.status==="conflicto") r.resolved=source==="reacbill"?r.reacModelo:r.fileModelo;
   renderCrossCard();
 }
+function crossAplicarUbicaciones(){
+  if(!crossRows)return;
+  const cambios=crossRows.filter(r=>r.posCambia);
+  if(!cambios.length)return;
+  if(!confirm(`¿Actualizar la ubicación de ${cambios.length} máquina${cambios.length!==1?"s":""} en REACBILL según el archivo?`))return;
+  for(const r of cambios){
+    state.master[r.mda].isla=r.filePos;
+    r.reacIsla=r.filePos;
+    r.posCambia=false;
+  }
+  invalidate(); saveState();
+  renderCrossCard();
+  alert(`✓ Ubicación actualizada en ${cambios.length} máquina${cambios.length!==1?"s":""}.`);
+}
 function renderCrossCard(){
   const card=document.getElementById("crossCard"); if(!card)return;
   if(!crossRows){
@@ -2330,6 +2349,7 @@ function renderCrossCard(){
   }
   const cnt={completa:0,conflicto:0,sin_cambio:0,sin_datos:0,ok:0};
   crossRows.forEach(r=>cnt[r.status]++);
+  const cntPosCambia=crossRows.filter(r=>r.posCambia).length;
   const conflictRows=crossRows.filter(r=>r.status==="conflicto");
   const conflictHtml=conflictRows.length?`
     <div class="row" style="margin:10px 0">
@@ -2348,6 +2368,19 @@ function renderCrossCard(){
         </td>
       </tr>`).join("")}</tbody>
     </table></div>`:"";
+  const posRows=crossRows.filter(r=>r.posCambia);
+  const posHtml=posRows.length?`
+    <div class="tblWrap" style="max-height:40vh;margin-top:10px"><table>
+      <thead><tr><th class="left">MDA</th><th class="left">REACBILL</th><th class="left">Archivo</th></tr></thead>
+      <tbody>${posRows.map(r=>`<tr>
+        <td class="left"><b>${r.mda}</b></td>
+        <td class="left">${r.reacIsla||"—"}</td>
+        <td class="left">${r.filePos}</td>
+      </tr>`).join("")}</tbody>
+    </table></div>
+    <div class="row" style="margin-top:8px">
+      <button class="btn sm" onclick="crossAplicarUbicaciones()">✓ Aplicar ubicaciones en REACBILL (${posRows.length})</button>
+    </div>`:"";
   card.innerHTML=`<h2>Cruce de modelos de billetero (archivo externo)</h2>
     <div class="row"><input type="file" accept=".json" onchange="crossFileSelected(this)"></div>
     <div class="kpis" style="margin-top:10px">
@@ -2356,8 +2389,10 @@ function renderCrossCard(){
       <div class="kpi"><div class="v" style="color:${cnt.conflicto?'var(--high)':'var(--muted)'}">${cnt.conflicto}</div><div class="l">Conflictos</div></div>
       <div class="kpi"><div class="v">${cnt.sin_cambio}</div><div class="l">Sin cambio</div></div>
       <div class="kpi"><div class="v" style="color:var(--muted)">${cnt.sin_datos}</div><div class="l">MDA no en REACBILL</div></div>
+      <div class="kpi"><div class="v" style="color:${cntPosCambia?'var(--accent)':'var(--muted)'}">${cntPosCambia}</div><div class="l">Cambian de ubicación</div></div>
     </div>
     ${conflictHtml}
+    ${posHtml}
     <div class="row" style="margin-top:10px">
       <button class="btn sm" onclick="crossExportar()">⬇ Exportar archivo corregido</button>
       <button class="btn sec sm" onclick="crossRows=null;renderCrossCard()">✕ Empezar de nuevo</button>
