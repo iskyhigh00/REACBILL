@@ -484,7 +484,7 @@ canvas{max-height:320px}
 
 <script>
 /* ===== REACBILL v1.8.19-main ===== */
-const VERSION = "2.2.5-main";
+const VERSION = "2.2.6-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
 const ARCHIVE_KEY = "reacbill_archive_v1";
@@ -2573,14 +2573,14 @@ function toggleSwapChk(key){
 }
 // "Copiar como tabla" en Intercambios: en vez de copiar la tabla HTML, arma una
 // línea de instrucción por cada sugerencia tildada (o todas, si no hay ninguna
-// tildada): "MDA {mdaA} pasa a {posición de B}" — el billetero que hoy está en
-// la máquina mdaA se traslada físicamente a la posición donde está mdaB.
+// tildada): "MDA {mdaA} por MDA {mdaB}" — se intercambian los billeteros entre
+// esas dos máquinas.
 function intercambiosCopiarSeleccion(){
   const swaps=window._lastSwaps||[];
   if(!swaps.length){ alert("No hay sugerencias para copiar."); return; }
   const chosen=intSwapChecked.size ? swaps.filter(s=>intSwapChecked.has(swapKey(s))) : swaps;
   if(!chosen.length){ alert("No hay sugerencias para copiar."); return; }
-  const text=chosen.map(s=>`MDA ${s.mdaA} pasa a ${getLoc(s.mdaB)}`).join("\n");
+  const text=chosen.map(s=>`MDA ${s.mdaA} por MDA ${s.mdaB}`).join("\n");
   navigator.clipboard.writeText(text)
     .then(()=>alert(`Copiado al portapapeles (${chosen.length} intercambio${chosen.length!==1?"s":""}).`))
     .catch(()=>alert("No se pudo copiar."));
