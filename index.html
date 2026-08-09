@@ -303,6 +303,8 @@ button.btn.sm{padding:4px 10px;font-size:11px}
 .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px}
 .muted{color:var(--muted)}
 .hint{font-size:11px;color:var(--muted);margin-top:4px;font-style:italic}
+.mdaExclBtn{cursor:pointer}
+.mdaExclBtn:hover{color:var(--crit);text-decoration:line-through}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
 @media(max-width:900px){.grid2,.grid3{grid-template-columns:1fr}}
@@ -484,7 +486,7 @@ canvas{max-height:320px}
 
 <script>
 /* ===== REACBILL v1.8.19-main ===== */
-const VERSION = "2.3.3-main";
+const VERSION = "2.3.4-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
 const ARCHIVE_KEY = "reacbill_archive_v1";
@@ -2641,16 +2643,29 @@ const MACH_PAGE_SIZE=200;
 let machPendingEdits={}; // {mda:{campo:valor}} — ediciones aún no guardadas, sobreviven el cambio de página/filtro
 let machSortCol="mda", machSortDir=1;
 let intFiltroModA="", intFiltroModB="", intFiltroMinVol=0, intFabLeft=new Set(), intFabRight=new Set(), intUsarPromedio=false, intPendiente=null;
-// Filtro de isla destino: sólo sugiere mover billeteros hacia esa isla. Dentro de
-// esa isla se puede destickear a mano las máquinas que ya tienen buena aceptación
+// Filtro de isla destino: sólo sugiere mover billeteros hacia estas islas (se
+// puede elegir más de una, como los chips de sector/fabricante). Dentro de esas
+// islas se puede destickear a mano las máquinas que ya tienen buena aceptación
 // (para no sugerir reemplazarlas aunque entren en el filtro).
-let intIslaDestino="", intIslaDestinoExcluded=new Set();
+let intIslaDestino=new Set(), intIslaDestinoExcluded=new Set();
+function intToggleIslaDestino(isla){
+  intIslaDestino.has(isla)?intIslaDestino.delete(isla):intIslaDestino.add(isla);
+  renderIntercambios();
+}
 function intToggleIslaMachine(mda){
   intIslaDestinoExcluded.has(mda)?intIslaDestinoExcluded.delete(mda):intIslaDestinoExcluded.add(mda);
   renderIntercambios();
 }
 function intLimpiarIslaDestino(){
-  intIslaDestino=""; intIslaDestinoExcluded.clear();
+  intIslaDestino.clear(); intIslaDestinoExcluded.clear();
+  renderIntercambios();
+}
+// Billeteros que nunca se deben sugerir (ni como origen ni como destino),
+// por ejemplo porque físicamente no se pueden mover. Se marcan haciendo clic
+// en el MDA dentro de una sugerencia; se sacan de la lista igual, con un clic.
+let intMdaExcluded=new Set();
+function intToggleMdaExcluded(mda){
+  intMdaExcluded.has(mda)?intMdaExcluded.delete(mda):intMdaExcluded.add(mda);
   renderIntercambios();
 }
 // Checkboxes de selección de sugerencias de intercambio, para copiar sólo las tildadas.
@@ -2966,6 +2981,7 @@ function calcSwaps(rows){
   const results=[];
   for(let i=0;i<rows.length;i++){
     const A=rows[i];
+    if(intMdaExcluded.has(A.mda))continue;
     const msA=state.master[A.mda]||{};
     if(A.pct<state.params.thrOk)continue;
     const secA=islaSector(msA.isla||"");
@@ -2974,15 +2990,16 @@ function calcSwaps(rows){
     for(let j=0;j<rows.length;j++){
       if(i===j)continue;
       const B=rows[j];
+      if(intMdaExcluded.has(B.mda))continue;
       const msB=state.master[B.mda]||{};
       if(B.pct>=state.params.thrOk)continue;
       if(B.total<=A.total)continue;
       // filtro sector: dirección importa (origen=A, destino=B)
       const secB=islaSector(msB.isla||"");
       if(intSectorRight.size>0&&!intSectorRight.has(secB))continue;
-      // filtro isla destino: sólo posiciones dentro de esa isla, salvo las destickeadas a mano
-      if(intIslaDestino){
-        if(islaPrefix(msB.isla||"")!==intIslaDestino)continue;
+      // filtro isla destino: sólo posiciones dentro de esas islas, salvo las destickeadas a mano
+      if(intIslaDestino.size>0){
+        if(!intIslaDestino.has(islaPrefix(msB.isla||"")))continue;
         if(intIslaDestinoExcluded.has(B.mda))continue;
       }
       // filtro fabricante: IGT↔IGT, resto libre
@@ -3028,7 +3045,6 @@ function renderIntercambios(){
   intFiltroModB=document.getElementById("intModB")?.value||"";
   intFiltroMinVol=parseInt(document.getElementById("intMinVol")?.value||"0")||0;
   intUsarPromedio=document.getElementById("intPromedio")?.checked??intUsarPromedio;
-  intIslaDestino=normIsla(document.getElementById("intIslaDestino")?.value||"");
 
   // Calcular todas las combinaciones de fabricante posibles (sin filtro fab) para mostrar chips
   const allFabs=[...new Set(Object.values(state.master).map(m=>m.fabricante||"").filter(Boolean))].sort();
@@ -3075,20 +3091,28 @@ function renderIntercambios(){
   const sectorRightPanel=sectorPanelHtml(intSectorRight,"right");
   const sectorExcludePanel=sectorPanelHtml(intSectorExclude,"exclude");
 
+  // chips de isla destino (se puede elegir más de una)
+  const allIslasDestino=[...new Set(Object.values(state.master).map(m=>islaPrefix(m.isla||"")).filter(Boolean))].sort();
+  const islaDestinoPanel=allIslasDestino.map(isla=>{
+    const sel=intIslaDestino.has(isla);
+    return `<button class="btn sm ${sel?'':'sec'}" style="margin:2px" onclick="intToggleIslaDestino('${isla}')">${isla}</button>`;
+  }).join("")+(intIslaDestino.size>0?`<button class="btn sm sec" style="margin:2px;opacity:.6" onclick="intLimpiarIslaDestino()">✕ Limpiar</button>`:"");
+
   const useAvg=intUsarPromedio&&state.weekOrder.length>1;
   const swapRows=useAvg?buildAvgRows(calcs,d):calcs[d].rows;
   const nAvgWeeks=useAvg?Math.min(4,state.weekOrder.indexOf(d)+1):1;
   const swaps=calcSwaps(swapRows);
 
-  // panel de máquinas dentro de la isla destino elegida, para destickear a mano
+  // panel de máquinas dentro de las islas destino elegidas, para destickear a mano
   // las que ya tienen buena aceptación
   let islaPanel="";
-  if(intIslaDestino){
+  if(intIslaDestino.size>0){
     const rowMap={}; for(const r of swapRows) rowMap[r.mda]=r;
-    const islaMachines=Object.keys(state.master).filter(mda=>islaPrefix(state.master[mda].isla||"")===intIslaDestino);
+    const islaMachines=Object.keys(state.master).filter(mda=>intIslaDestino.has(islaPrefix(state.master[mda].isla||"")))
+      .sort((a,b)=>esCollator.compare(state.master[a].isla||"",state.master[b].isla||""));
     islaPanel=`<div style="background:var(--panel2);border-radius:8px;padding:10px;margin-bottom:12px">
-      <div class="hint" style="margin-bottom:6px"><b>Máquinas en isla ${intIslaDestino}</b> — destickeá las que ya tienen buena aceptación
-        <button class="btn sm sec" style="margin-left:8px" onclick="intLimpiarIslaDestino()">✕ Limpiar isla</button>
+      <div class="hint" style="margin-bottom:6px"><b>Máquinas en isla${intIslaDestino.size!==1?"s":""} ${[...intIslaDestino].join(", ")}</b> — destickeá las que ya tienen buena aceptación
+        <button class="btn sm sec" style="margin-left:8px" onclick="intLimpiarIslaDestino()">✕ Limpiar islas</button>
       </div>
       ${islaMachines.length?islaMachines.map(mda=>{
         const r=rowMap[mda], pct=r?r.pct:null;
@@ -3097,21 +3121,28 @@ function renderIntercambios(){
           <input type="checkbox" ${on?"checked":""} onchange="intToggleIslaMachine('${mda}')">
           <b>${mda}</b> ${pct!=null?`<span class="${pctClass(pct)}">${fmtP(pct)}</span>`:'<span class="muted">—</span>'}
         </label>`;
-      }).join(""):'<span class="muted">Ninguna máquina en esa isla.</span>'}
+      }).join(""):'<span class="muted">Ninguna máquina en esas islas.</span>'}
     </div>`;
   }
+  // panel de billeteros marcados como "no se pueden cambiar" (excluidos de origen y destino)
+  const excludedPanel=intMdaExcluded.size>0?`<div style="background:var(--panel2);border-radius:8px;padding:10px;margin-bottom:12px">
+    <div class="hint" style="margin-bottom:6px"><b>Billeteros que no se pueden cambiar</b>
+      <button class="btn sm sec" style="margin-left:8px" onclick="intMdaExcluded.clear();renderIntercambios()">✕ Limpiar</button>
+    </div>
+    ${[...intMdaExcluded].map(mda=>`<button class="btn sm" style="margin:2px" onclick="intToggleMdaExcluded('${mda}')">${mda} ✕</button>`).join("")}
+  </div>`:"";
   let tbody="";
   swaps.forEach((s,i)=>{
     const key=swapKey(s);
     tbody+=`<tr>
       <td><input type="checkbox" class="swapChk" onchange="toggleSwapChk('${key}')" ${intSwapChecked.has(key)?"checked":""}></td>
       <td style="color:var(--accent);font-weight:700">${i+1}</td>
-      <td class="left"><b>${s.mdaA}</b><br><span class="muted">${s.locA}</span></td>
+      <td class="left"><b class="mdaExclBtn" title="No se puede cambiar" onclick="intToggleMdaExcluded('${s.mdaA}')">${s.mdaA}</b><br><span class="muted">${s.locA}</span></td>
       <td class="left" style="font-size:10px">${s.fabA}<br>${s.modA} ${s.firmA}</td>
       <td class="${pctClass(s.pctA)}">${fmtP(s.pctA)}</td>
       <td class="muted">${fmtN(s.totA)}</td>
       <td style="font-size:16px;text-align:center">⇄</td>
-      <td class="left"><b>${s.mdaB}</b><br><span class="muted">${s.locB}</span></td>
+      <td class="left"><b class="mdaExclBtn" title="No se puede cambiar" onclick="intToggleMdaExcluded('${s.mdaB}')">${s.mdaB}</b><br><span class="muted">${s.locB}</span></td>
       <td class="left" style="font-size:10px">${s.fabB}<br>${s.modB} ${s.firmB}</td>
       <td class="${pctClass(s.pctB)}">${fmtP(s.pctB)}</td>
       <td>${fmtN(s.totB)}</td>
@@ -3150,13 +3181,17 @@ function renderIntercambios(){
         ${mods.map(m=>`<option value="${m}" ${m===intFiltroModB?"selected":""}>${m}</option>`).join("")}
       </select></label>
       <label class="fld">Flujo mín. destino <input id="intMinVol" type="number" min="0" step="50" value="${intFiltroMinVol}" oninput="renderIntercambios()" style="width:90px"></label>
-      <label class="fld">Isla destino <input id="intIslaDestino" type="text" placeholder="Ej: 641" value="${intIslaDestino}" oninput="renderIntercambios()" style="width:90px"></label>
       <label class="fld" style="align-items:center;gap:6px">
         <input type="checkbox" id="intPromedio" onchange="renderIntercambios()" ${intUsarPromedio?"checked":""}> Promedio 4 semanas
         ${useAvg?`<span class="muted">(usando ${nAvgWeeks} sem.)</span>`:""}
       </label>
     </div>
+    <div style="background:var(--panel2);border-radius:8px;padding:10px;margin-bottom:12px">
+      <div class="hint" style="margin-bottom:6px"><b>Islas destino</b> (podés elegir varias)</div>
+      ${islaDestinoPanel}
+    </div>
     ${islaPanel}
+    ${excludedPanel}
     <div style="display:flex;gap:16px;margin-bottom:12px">
       <div style="flex:1;background:var(--panel2);border-radius:8px;padding:10px">
         <div class="hint" style="margin-bottom:6px"><b>Origen</b></div>
