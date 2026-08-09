@@ -484,7 +484,7 @@ canvas{max-height:320px}
 
 <script>
 /* ===== REACBILL v1.8.19-main ===== */
-const VERSION = "2.3.1-main";
+const VERSION = "2.3.2-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
 const ARCHIVE_KEY = "reacbill_archive_v1";
@@ -2340,6 +2340,25 @@ function crossAplicarUbicaciones(){
   renderCrossCard();
   alert(`✓ Ubicación actualizada en ${cambios.length} máquina${cambios.length!==1?"s":""}.`);
 }
+// Aplica a state.master el modelo "resolved" de cada fila (el que se ve en
+// "Exportar archivo corregido"): las que completan, corrigen un conflicto
+// resuelto o difieren de algún otro modo. No toca las "sin_datos" (mda que
+// REACBILL no conoce) ni las que ya están iguales ("ok").
+function crossAplicarModelos(){
+  if(!crossRows)return;
+  const cambios=crossRows.filter(r=>r.status!=="sin_datos"&&r.resolved&&r.resolved.trim()!==r.reacModelo.trim());
+  if(!cambios.length)return;
+  if(!confirm(`¿Actualizar el modelo de billetero de ${cambios.length} máquina${cambios.length!==1?"s":""} en REACBILL según el archivo?`))return;
+  for(const r of cambios){
+    state.master[r.mda].modelo=r.resolved;
+    state.master[r.mda].modeloFuente="import";
+    r.reacModelo=r.resolved;
+    r.status="ok";
+  }
+  invalidate(); saveState();
+  renderCrossCard();
+  alert(`✓ Modelo actualizado en ${cambios.length} máquina${cambios.length!==1?"s":""}.`);
+}
 function renderCrossCard(){
   const card=document.getElementById("crossCard"); if(!card)return;
   if(!crossRows){
@@ -2350,6 +2369,7 @@ function renderCrossCard(){
   const cnt={completa:0,conflicto:0,sin_cambio:0,sin_datos:0,ok:0};
   crossRows.forEach(r=>cnt[r.status]++);
   const cntPosCambia=crossRows.filter(r=>r.posCambia).length;
+  const cntModeloCambia=crossRows.filter(r=>r.status!=="sin_datos"&&r.resolved&&r.resolved.trim()!==r.reacModelo.trim()).length;
   const conflictRows=crossRows.filter(r=>r.status==="conflicto");
   const conflictHtml=conflictRows.length?`
     <div class="row" style="margin:10px 0">
@@ -2394,7 +2414,8 @@ function renderCrossCard(){
     ${conflictHtml}
     ${posHtml}
     <div class="row" style="margin-top:10px">
-      <button class="btn sm" onclick="crossExportar()">⬇ Exportar archivo corregido</button>
+      ${cntModeloCambia?`<button class="btn sm" onclick="crossAplicarModelos()">✓ Aplicar modelos en REACBILL (${cntModeloCambia})</button>`:""}
+      <button class="btn sec sm" onclick="crossExportar()">⬇ Exportar archivo corregido</button>
       <button class="btn sec sm" onclick="crossRows=null;renderCrossCard()">✕ Empezar de nuevo</button>
     </div>`;
 }
