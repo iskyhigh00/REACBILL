@@ -484,7 +484,7 @@ canvas{max-height:320px}
 
 <script>
 /* ===== REACBILL v1.8.19-main ===== */
-const VERSION = "2.2.7-main";
+const VERSION = "2.2.8-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
 const ARCHIVE_KEY = "reacbill_archive_v1";
@@ -2099,6 +2099,8 @@ function renderAdmin(){
 
   <div class="card" id="bulkEditCard"></div>
 
+  <div class="card" id="crossCard"></div>
+
   <div class="card"><h2>Parámetros de gravedad</h2>
     <p class="hint" style="margin-bottom:12px">
       <code>Puntaje = Total × (1 + log₁₀(Total)) × ((UmbralOK − %) / UmbralOK) × (Total / PromedioTotal) × Multiplicador</code>
@@ -2176,6 +2178,7 @@ function renderAdmin(){
   </div>`;
   renderLevTable();
   renderBulkEditCard();
+  renderCrossCard();
   machEditAllMdas=allMdas;
   renderMachEditorRows();
 }
@@ -2271,6 +2274,105 @@ function bulkEditApply(){
   if(msg){ msg.textContent=`✓ ${cnt} máquina${cnt!==1?"s":""} actualizada${cnt!==1?"s":""}: ${changed} (${parts}).`; }
   renderBulkEditCard();
 }
+
+// ---------- Cruce de modelos de billetero con un archivo externo ----------
+// El usuario sube un JSON externo con forma {"maquinas":[{mda,posicion,area,
+// juego,tipo,fabricante,modelo},...]}. Se compara el campo "modelo" de cada
+// máquina contra lo que REACBILL ya tiene en state.master (sin modificar
+// state.master: esto es de sólo lectura sobre los datos propios). Se genera
+// un archivo de salida con la MISMA estructura de entrada, pero con "modelo"
+// completado/corregido. No se sobreescribe nada automáticamente si ambos
+// lados tienen un valor distinto: eso queda marcado como conflicto y hay que
+// elegir manualmente cuál usar antes de exportar.
+let crossFileName="", crossRows=null;
+function crossFileSelected(input){
+  const f=input.files?.[0]; if(!f)return;
+  crossFileName=f.name;
+  const reader=new FileReader();
+  reader.onload=()=>{
+    try{
+      const payload=JSON.parse(reader.result);
+      const list=Array.isArray(payload?.maquinas)?payload.maquinas:null;
+      if(!list){ alert('El archivo no tiene la forma esperada: {"maquinas":[...]}'); return; }
+      crossRows=list.map(raw=>{
+        const mda=String(raw.mda??"").trim();
+        const fileModelo=String(raw.modelo??"").trim();
+        const known=state.master[mda];
+        const reacModelo=(known?.modelo||"").trim();
+        let status;
+        if(!known) status="sin_datos";
+        else if(!fileModelo&&reacModelo) status="completa";
+        else if(fileModelo&&!reacModelo) status="sin_cambio";
+        else if(fileModelo&&reacModelo&&fileModelo.toLowerCase()!==reacModelo.toLowerCase()) status="conflicto";
+        else status="ok";
+        return {raw, mda, fileModelo, reacModelo, status,
+          resolved: status==="conflicto"?reacModelo:(fileModelo||reacModelo||"")};
+      });
+    }catch(e){ alert("JSON inválido: "+e.message); crossRows=null; }
+    renderCrossCard();
+  };
+  reader.readAsText(f);
+}
+function crossSetResolved(mda,val){
+  const r=crossRows?.find(x=>x.mda===mda); if(r)r.resolved=val;
+}
+function crossSetAllConflicts(source){
+  if(!crossRows)return;
+  for(const r of crossRows) if(r.status==="conflicto") r.resolved=source==="reacbill"?r.reacModelo:r.fileModelo;
+  renderCrossCard();
+}
+function renderCrossCard(){
+  const card=document.getElementById("crossCard"); if(!card)return;
+  if(!crossRows){
+    card.innerHTML=`<h2>Cruce de modelos de billetero (archivo externo)</h2>
+      <div class="row"><input type="file" accept=".json" onchange="crossFileSelected(this)"></div>`;
+    return;
+  }
+  const cnt={completa:0,conflicto:0,sin_cambio:0,sin_datos:0,ok:0};
+  crossRows.forEach(r=>cnt[r.status]++);
+  const conflictRows=crossRows.filter(r=>r.status==="conflicto");
+  const conflictHtml=conflictRows.length?`
+    <div class="row" style="margin:10px 0">
+      <button class="btn sec sm" onclick="crossSetAllConflicts('reacbill')">Usar REACBILL en todos</button>
+      <button class="btn sec sm" onclick="crossSetAllConflicts('archivo')">Usar archivo en todos</button>
+    </div>
+    <div class="tblWrap" style="max-height:40vh"><table>
+      <thead><tr><th class="left">MDA</th><th class="left">REACBILL</th><th class="left">Archivo</th><th class="left">Usar</th></tr></thead>
+      <tbody>${conflictRows.map(r=>`<tr>
+        <td class="left"><b>${r.mda}</b></td>
+        <td class="left">${r.reacModelo}</td>
+        <td class="left">${r.fileModelo}</td>
+        <td class="left">
+          <label><input type="radio" name="cross_${r.mda}" value="reacbill" ${r.resolved===r.reacModelo?"checked":""} onchange="crossSetResolved('${r.mda}','${r.reacModelo}')"> REACBILL</label>
+          <label style="margin-left:10px"><input type="radio" name="cross_${r.mda}" value="archivo" ${r.resolved===r.fileModelo?"checked":""} onchange="crossSetResolved('${r.mda}','${r.fileModelo}')"> Archivo</label>
+        </td>
+      </tr>`).join("")}</tbody>
+    </table></div>`:"";
+  card.innerHTML=`<h2>Cruce de modelos de billetero (archivo externo)</h2>
+    <div class="row"><input type="file" accept=".json" onchange="crossFileSelected(this)"></div>
+    <div class="kpis" style="margin-top:10px">
+      <div class="kpi"><div class="v">${crossRows.length}</div><div class="l">Máquinas en el archivo</div></div>
+      <div class="kpi"><div class="v" style="color:var(--ok)">${cnt.completa}</div><div class="l">Se completan</div></div>
+      <div class="kpi"><div class="v" style="color:${cnt.conflicto?'var(--high)':'var(--muted)'}">${cnt.conflicto}</div><div class="l">Conflictos</div></div>
+      <div class="kpi"><div class="v">${cnt.sin_cambio}</div><div class="l">Sin cambio</div></div>
+      <div class="kpi"><div class="v" style="color:var(--muted)">${cnt.sin_datos}</div><div class="l">MDA no en REACBILL</div></div>
+    </div>
+    ${conflictHtml}
+    <div class="row" style="margin-top:10px">
+      <button class="btn sm" onclick="crossExportar()">⬇ Exportar archivo corregido</button>
+      <button class="btn sec sm" onclick="crossRows=null;renderCrossCard()">✕ Empezar de nuevo</button>
+    </div>`;
+}
+function crossExportar(){
+  if(!crossRows)return;
+  const maquinas=crossRows.map(r=>({...r.raw, modelo:r.resolved}));
+  const blob=new Blob([JSON.stringify({maquinas},null,2)],{type:"application/json"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download=crossFileName?crossFileName.replace(/\.json$/i,"")+"_corregido.json":"maquinas_corregido.json";
+  a.click();
+}
+
 // Reconstruye sólo la tarjeta de Levantamiento (acotada a la isla elegida),
 // sin tocar el Editor de máquinas completo — evita reconstruir miles de
 // filas sólo por cambiar de isla en este selector.
