@@ -484,7 +484,7 @@ canvas{max-height:320px}
 
 <script>
 /* ===== REACBILL v1.8.19-main ===== */
-const VERSION = "2.2.6-main";
+const VERSION = "2.2.7-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
 const ARCHIVE_KEY = "reacbill_archive_v1";
@@ -2586,8 +2586,8 @@ function intercambiosCopiarSeleccion(){
     .catch(()=>alert("No se pudo copiar."));
 }
 // Sectores: origen = sector del billetero bueno (A), destino = sector de la posición problema (B).
-// A diferencia del panel de fabricante (compatibilidad simétrica), acá la dirección importa:
-// "origen sector 1, destino sector 6" sólo sugiere mover DE 1 HACIA 6, no al revés.
+// La dirección importa, igual que en el panel de fabricante: "origen sector 1,
+// destino sector 6" sólo sugiere mover DE 1 HACIA 6, no al revés.
 let intSectorLeft=new Set(), intSectorRight=new Set();
 // Sectores de los que nunca se debe sacar un billetero bueno, sin importar los filtros de origen/destino.
 let intSectorExclude=new Set();
@@ -2893,13 +2893,10 @@ function calcSwaps(rows){
       if(intSectorRight.size>0&&!intSectorRight.has(secB))continue;
       // filtro fabricante: IGT↔IGT, resto libre
       if(!swapFabOk(msA.fabricante||"",msB.fabricante||""))continue;
-      // filtro fabricante manual (dos paneles)
-      if(intFabLeft.size>0||intFabRight.size>0){
-        const fA=msA.fabricante||"", fB=msB.fabricante||"";
-        const dir1=(intFabLeft.size===0||intFabLeft.has(fA))&&(intFabRight.size===0||intFabRight.has(fB));
-        const dir2=(intFabLeft.size===0||intFabLeft.has(fB))&&(intFabRight.size===0||intFabRight.has(fA));
-        if(!dir1&&!dir2)continue;
-      }
+      // filtro fabricante manual (dos paneles): dirección importa, igual que el de sector —
+      // origen (A) debe estar en el panel izquierdo, destino (B) en el derecho.
+      if(intFabLeft.size>0&&!intFabLeft.has(msA.fabricante||""))continue;
+      if(intFabRight.size>0&&!intFabRight.has(msB.fabricante||""))continue;
       // filtro modelo billetero: origen y destino se filtran de forma independiente
       if(intFiltroModA&&msA.modelo!==intFiltroModA)continue;
       if(intFiltroModB&&msB.modelo!==intFiltroModB)continue;
