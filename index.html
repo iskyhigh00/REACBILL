@@ -486,7 +486,7 @@ canvas{max-height:320px}
 
 <script>
 /* ===== REACBILL v1.8.19-main ===== */
-const VERSION = "2.3.4-main";
+const VERSION = "2.3.5-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
 const ARCHIVE_KEY = "reacbill_archive_v1";
@@ -658,6 +658,19 @@ function weekCalc(week,params){
     else{
       const mult=m.pct<params.thrCrit?params.multCrit:(m.pct<params.thrMid?params.multMid:1);
       m.score=m.total*(1+Math.log10(m.total))*((params.thrOk-m.pct)/params.thrOk)*(m.total/avgT)*mult;
+    }
+  }
+  // gravedad de tarjetas: mismo cálculo que la de billeteros, pero con el total
+  // y el % de tarjetas (aceptadas vs rechazadas) en vez del flujo de billetes.
+  let sumTT=0,nTT=0;
+  for(const m of out){ const tt=(m.tarjAc||0)+(m.tarjRe||0); if(tt>0){sumTT+=tt;nTT++;} }
+  const avgTT=nTT?sumTT/nTT:1;
+  for(const m of out){
+    const tt=(m.tarjAc||0)+(m.tarjRe||0), tp=m.pctTarj;
+    if(!tp||tp>=params.thrOk||tt<=0){ m.tarjScore=0; }
+    else{
+      const mult=tp<params.thrCrit?params.multCrit:(tp<params.thrMid?params.multMid:1);
+      m.tarjScore=tt*(1+Math.log10(tt))*((params.thrOk-tp)/params.thrOk)*(tt/avgTT)*mult;
     }
   }
   const withPct=out.filter(m=>m.pct>0&&m.total>0);
@@ -2010,10 +2023,12 @@ function tarjRenderLevel(rows,levels,path,weeks,wmap){
   return html;
 }
 function tarjRenderMachTable(rows,path,weeks,wmap){
-  const sorted=rows.slice().sort((a,b)=>esCollator.compare(a.mda,b.mda));
+  const p=state.params;
+  const sorted=rows.slice().sort((a,b)=>(b.tarjScore||0)-(a.tarjScore||0));
   let body="";
   for(const m of sorted){
     const ms=state.master[m.mda]||{};
+    const sc=sevClass(m.tarjScore||0,p);
     const weekCells=weeks.map(wd=>{
       const wv=wmap[m.mda]?.[wd];
       return wv?`<td style="padding:3px 8px" class="${pctClass(wv.pct)}">${fmtP(wv.pct)}</td>`:`<td style="padding:3px 8px;color:var(--muted)">—</td>`;
@@ -2027,6 +2042,8 @@ function tarjRenderMachTable(rows,path,weeks,wmap){
       <td style="padding:3px 8px;color:var(--muted)">${ms.modelmaq||"—"}</td>
       <td style="padding:3px 8px">${fmtN(m.tarjAc)}</td>
       <td style="padding:3px 8px">${fmtN(m.tarjRe)}</td>
+      <td style="padding:3px 8px" data-sort="${m.tarjScore||0}">${fmt1(m.tarjScore)}</td>
+      <td style="padding:3px 8px"><span class="badge b-${sc}">${SEVLBL[sc]}</span></td>
       ${weekCells}
     </tr>`;
   }
@@ -2035,7 +2052,7 @@ function tarjRenderMachTable(rows,path,weeks,wmap){
   const weekHeaders=weeks.map(wd=>`<th class="sortable">${fmtKey(wd)}</th>`).join("");
   return `<div style="margin-top:8px;overflow-x:auto"><table id="${tblId}" style="width:100%;font-size:12px;border-collapse:collapse">
     <thead><tr><th></th><th></th><th></th><th class="left sortable">MDA</th><th class="left sortable">ISLA</th><th class="left sortable">Modelo máq.</th>
-      <th class="sortable">Tarj. Ac</th><th class="sortable">Tarj. Re</th>${weekHeaders}</tr></thead>
+      <th class="sortable">Tarj. Ac</th><th class="sortable">Tarj. Re</th><th class="sortable">Gravedad</th><th>Nivel</th>${weekHeaders}</tr></thead>
     <tbody>${body}</tbody></table></div>`;
 }
 function renderTarjetas(){
@@ -2069,11 +2086,18 @@ function renderTarjetas(){
       <label class="fld">Subdividir por <select id="tarjSubSel" onchange="renderTarjetas()">${subOptions}</select></label>
     </div>
     </div>
-    ${tarjListHtml("rechazo")}${tarjListHtml("b")}${tarjListHtml("c")}
+    <div id="tarjListsWrap">${tarjListHtml("rechazo")}${tarjListHtml("b")}${tarjListHtml("c")}</div>
     <div class="card">${html}</div>`;
   tarjSortTables.forEach(id=>setTimeout(()=>{attachSort(id);reapplySort(id);},0));
   window.scrollTo(0,scrollY);
   requestAnimationFrame(()=>window.scrollTo(0,scrollY));
+}
+// Redibuja sólo las 3 tarjetas de lista (Rechazo/B/C), sin tocar el árbol de
+// grupos ni las tablas de máquinas — evita el parpadeo de re-renderizar toda
+// la pestaña sólo por marcar/desmarcar una máquina en una lista.
+function renderTarjLists(){
+  const el=document.getElementById("tarjListsWrap"); if(!el)return;
+  el.innerHTML=tarjListHtml("rechazo")+tarjListHtml("b")+tarjListHtml("c");
 }
 function tarjToggle(path){
   tarjOpenPaths.has(path)?tarjOpenPaths.delete(path):tarjOpenPaths.add(path);
@@ -2849,7 +2873,7 @@ function tarjListToggle(id,mda){
     b.textContent=on?"✓":"+";
     b.title=on?"Quitar de "+TARJ_LIST_DEFS[id].label:"Agregar a "+TARJ_LIST_DEFS[id].label;
   });
-  if(activeTab==="tarjetas")renderTarjetas();
+  if(activeTab==="tarjetas")renderTarjLists();
 }
 function tarjListRowData(mda,pm,weeks,wmap){
   const ms=state.master[mda]||{}, m=pm[mda];
@@ -2884,7 +2908,7 @@ function tarjListRecentRows(id,n){
 }
 function tarjListToggleExpand(id){
   tarjListsExpanded[id]=!tarjListsExpanded[id];
-  renderTarjetas();
+  renderTarjLists();
 }
 function tarjListHtml(id){
   const def=TARJ_LIST_DEFS[id];
