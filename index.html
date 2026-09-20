@@ -14,6 +14,14 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3/dist/jszip.min.js"></script>
+<!-- Cliente de Supabase, mismo proyecto/versión que la Bitácora MDA (tmdatmc)
+     — pedido 20-sep-2026: "necesito que esa app acceda de alguna forma a
+     supabase para que tenga el modelo de máquina, la ubicación, etc.". Ver
+     el gate de admin y enriquecerDesdeSupabase() más abajo en el script
+     principal. -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.4/dist/umd/supabase.js"
+        integrity="sha384-ysv13JVP3fufiEXfjML9OdCa/rRbMJvUBOWyor82wfuK8INNZAvmbxHgKIHi+oqz"
+        crossorigin="anonymous"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -469,6 +477,24 @@ canvas{max-height:320px}
 </style>
 </head>
 <body>
+<!-- Puerta de acceso: REACBILL es solo para admin (pedido 20-sep-2026:
+     "reacbill es solamente de admin.. nadie más puede acceder"). Se pide la
+     misma clave de administrador que la Bitácora MDA (cuenta
+     admin@robrist.app en Supabase Auth) — mismo patrón que _modalPinAdmin
+     de core.js en tmdatmc. Bloquea el resto de la página (el <main>/<header>
+     reales quedan ocultos) hasta que se autentique. -->
+<div id="gateAdmin" style="position:fixed;inset:0;z-index:9999;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:20px">
+  <div style="max-width:340px;width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:var(--r-lg);padding:28px;text-align:center">
+    <img src="logo.png" alt="" style="height:40px;margin-bottom:14px">
+    <h2 style="font-size:16px;margin-bottom:6px">REACBILL</h2>
+    <p style="color:var(--muted);font-size:12px;margin-bottom:16px">Acceso solo para administrador.</p>
+    <input id="gateAdminPass" type="password" placeholder="Clave de administrador" autocomplete="current-password"
+      style="width:100%;padding:9px 12px;border-radius:var(--r-sm);border:1px solid var(--border2);background:var(--panel3);color:var(--text);margin-bottom:10px">
+    <button class="btn sm" style="width:100%" onclick="gateIntentar()">Entrar</button>
+    <p id="gateAdminError" style="color:var(--crit);font-size:12px;margin-top:10px;display:none"></p>
+  </div>
+</div>
+<div id="appReal" style="display:none">
 <header>
   <div style="display:flex;align-items:center;gap:10px">
     <img src="logo.png" alt="Logo" style="height:34px;width:auto">
@@ -483,10 +509,11 @@ canvas{max-height:320px}
   </div>
 </header>
 <main id="main"></main>
+</div>
 
 <script>
 /* ===== REACBILL v1.8.19-main ===== */
-const VERSION = "2.3.5-main";
+const VERSION = "2.4.0-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
 const ARCHIVE_KEY = "reacbill_archive_v1";
@@ -495,6 +522,92 @@ const ARCHIVE_KEY = "reacbill_archive_v1";
 // así (O(n log n) llamadas) bloquea el hilo principal varios segundos. Reusar
 // un único Collator.compare() evita esa reconstrucción repetida.
 const esCollator = new Intl.Collator("es",{numeric:true});
+
+// ---------- Supabase (solo lectura del catálogo de máquinas de la Bitácora MDA) ----------
+// Mismo proyecto/credenciales públicas que tmdatmc/js/supabase-config.js — la
+// clave "anon" es pública por diseño (protegida por RLS del lado del
+// servidor), no es un secreto. Copiada acá en vez de compartir el archivo
+// porque REACBILL es un repo/deploy aparte (mismo criterio que
+// eventos/supabase-config.js en tmdatmc, que también tiene su propia copia).
+const SUPA_REACBILL = {
+  url: "https://cghpbjcddamybmmzveuw.supabase.co",
+  anon: "sb_publishable_1S2qJM87YiO3xDB7dKcK7w_GTJ7coBR",
+  adminEmail: "admin@robrist.app",
+};
+let _sb = null;
+function sbCliente(){
+  if(!_sb && window.supabase) _sb = window.supabase.createClient(SUPA_REACBILL.url, SUPA_REACBILL.anon);
+  return _sb;
+}
+// Puerta de acceso (ver #gateAdmin en el <body>): exige la MISMA sesión de
+// administrador que la Bitácora — no una clave propia de REACBILL — así que
+// si el admin ya inició sesión en la Bitácora en este mismo navegador (misma
+// URL de Supabase = mismo storage), entra directo sin volver a pedir clave.
+async function gateVerificarSesion(){
+  const sb=sbCliente(); if(!sb)return false;
+  const { data:{ session } } = await sb.auth.getSession();
+  return !!(session && session.user && session.user.email === SUPA_REACBILL.adminEmail);
+}
+async function gateIntentar(){
+  const pass=document.getElementById("gateAdminPass").value;
+  const err=document.getElementById("gateAdminError");
+  err.style.display="none";
+  if(!pass)return;
+  const sb=sbCliente();
+  if(!sb){ err.textContent="No se pudo cargar el sistema de acceso (revisa tu conexión)."; err.style.display="block"; return; }
+  try{
+    const { error } = await sb.auth.signInWithPassword({ email: SUPA_REACBILL.adminEmail, password: pass });
+    if(error){ err.textContent="Clave incorrecta."; err.style.display="block"; return; }
+    gateAbrir();
+  }catch(e){ err.textContent="No se pudo verificar la clave (revisa tu conexión)."; err.style.display="block"; }
+}
+function gateAbrir(){
+  document.getElementById("gateAdmin").style.display="none";
+  document.getElementById("appReal").style.display="";
+  iniciarApp();
+}
+document.addEventListener("DOMContentLoaded",()=>{
+  const inp=document.getElementById("gateAdminPass");
+  if(inp)inp.addEventListener("keydown",e=>{ if(e.key==="Enter")gateIntentar(); });
+});
+
+// ---------- Enriquecer máquinas desde el catálogo de la Bitácora ----------
+// Pedido 20-sep-2026: "en reacbill subo solamente numero de máquina y
+// resultado. necesito que esa app acceda de alguna forma a supabase para
+// que tenga el modelo de máquina, la ubicación, etc". Se llama después de
+// cada carga de planilla semanal (ver el final de handleFiles): busca en la
+// tabla "maquinas" (misma tabla que usa la Bitácora, RLS de solo lectura
+// para cualquier sesión autenticada) los MDA que todavía no tienen isla/
+// fabricante/juego/modelo, y completa SOLO esos campos vacíos — nunca pisa
+// un dato que ya se haya cargado a mano o por Excel (Contadores/Seguimiento
+// siguen mandando si están presentes).
+async function enriquecerDesdeSupabase(){
+  const sb=sbCliente(); if(!sb)return 0;
+  const faltantes=Object.keys(state.master).filter(mda=>{
+    const m=state.master[mda];
+    return !m.isla || !m.fabricante || !m.juego;
+  });
+  if(!faltantes.length)return 0;
+  let n=0;
+  // en lotes de 200 MDA por consulta (evita URLs .in() gigantes)
+  for(let i=0;i<faltantes.length;i+=200){
+    const lote=faltantes.slice(i,i+200);
+    const { data, error } = await sb.from("maquinas").select("data").in("mda", lote);
+    if(error || !data)continue;
+    data.forEach(row=>{
+      const d=row.data; if(!d || !d.mda)return;
+      const mda=String(d.mda);
+      const m=state.master[mda]; if(!m)return;
+      if(!m.isla && d.posicion)m.isla=normIsla(d.posicion);
+      if(!m.area && d.area!=null)m.area=String(d.area);
+      if(!m.fabricante && d.fabricante)m.fabricante=d.fabricante;
+      if(!m.juego && d.juego)m.juego=d.juego;
+      if(!m.modelo && d.modelo){ m.modelo=d.modelo; m.modeloFuente=m.modeloFuente||"catalogo"; }
+      n++;
+    });
+  }
+  return n;
+}
 
 let state = {
   weeks:{}, weekOrder:[],
@@ -1122,7 +1235,12 @@ async function handleFiles(files){
       }
     }catch(e){ log.push(`${f.name}: ERROR — ${e.message}`); }
   }
-  sortWeeks(); invalidate(); await archiveOldWeeks(); await saveState(); renderAll();
+  sortWeeks(); invalidate(); await archiveOldWeeks();
+  try{
+    const nEnr=await enriquecerDesdeSupabase();
+    if(nEnr)log.push(`Catálogo Bitácora: ${nEnr} máquina(s) completadas (isla/fabricante/juego/modelo)`);
+  }catch(e){ log.push("Catálogo Bitácora: no se pudo consultar ("+e.message+")"); }
+  await saveState(); renderAll();
   const ul=document.getElementById("uplog");
   if(ul)ul.innerHTML=log.map(l=>"• "+l).join("<br>");
 }
@@ -3352,7 +3470,10 @@ function renderAll(){
   renderLoadedInfo();
   showTab(activeTab);
 }
-(async function(){
+// Antes se ejecutaba directo al cargar el script; ahora queda detrás de la
+// puerta de admin (ver #gateAdmin) — gateAbrir() la llama recién tras
+// confirmar la sesión.
+async function iniciarApp(){
   document.getElementById("verSpan").textContent="v"+VERSION;
   selLoad();
   tarjListsLoad();
@@ -3366,12 +3487,18 @@ function renderAll(){
   await archiveOldWeeks();
   renderAll();
   if(state.weekOrder.length) showTab("resumen"); else showTab("carga");
-})();
+}
 if("serviceWorker" in navigator){
   window.addEventListener("load",()=>{
     navigator.serviceWorker.register("sw.js").catch(()=>{});
   });
 }
+// Si ya hay sesión de admin activa (ej. viene de la Bitácora en el mismo
+// navegador), entra directo sin mostrar la puerta.
+(async function(){
+  if(await gateVerificarSesion()) gateAbrir();
+  else document.getElementById("gateAdminPass")?.focus();
+})();
 </script>
 </body>
 </html>
