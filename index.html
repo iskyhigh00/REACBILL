@@ -513,7 +513,7 @@ canvas{max-height:320px}
 
 <script>
 /* ===== REACBILL v1.8.19-main ===== */
-const VERSION = "2.4.0-main";
+const VERSION = "2.5.0-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
 const ARCHIVE_KEY = "reacbill_archive_v1";
@@ -2243,6 +2243,19 @@ function renderAdmin(){
 
   <div class="card" id="crossCard"></div>
 
+  <div class="card"><h2>Respaldo completo</h2>
+    <p class="hint" style="margin-bottom:12px">Exporta TODO lo cargado en este navegador (semanas activas, archivo
+      histórico, catálogo de máquinas y parámetros) en un solo archivo — a diferencia de "Exportar JSON" del editor
+      de máquinas de más abajo, que solo exporta el catálogo. Sirve para migrar de un dominio/link a otro (los datos
+      quedan guardados por navegador y por dominio, no se comparten solos entre uno y otro).</p>
+    <div class="row">
+      <button class="btn sec sm" onclick="exportarTodoJSON()">⬇ Exportar todo (respaldo)</button>
+      <label class="btn sec sm" style="cursor:pointer">⬆ Importar todo (restaurar)
+        <input id="restoreFile" type="file" accept=".json" style="display:none" onchange="importarTodoDesdeArchivo(this.files[0])"></label>
+      <span id="restoreMsg" class="hint"></span>
+    </div>
+  </div>
+
   <div class="card"><h2>Parámetros de gravedad</h2>
     <p class="hint" style="margin-bottom:12px">
       <code>Puntaje = Total × (1 + log₁₀(Total)) × ((UmbralOK − %) / UmbralOK) × (Total / PromedioTotal) × Multiplicador</code>
@@ -2700,6 +2713,56 @@ function machSave(){
   invalidate(); saveState();
   const msg=document.getElementById("machMsg");
   if(msg){const prev=msg.textContent; msg.textContent="✓ Guardado."; setTimeout(()=>{if(msg)machApplyFilter();},2000);}
+}
+// ---------- Respaldo/restauración completa ----------
+// Pedido 22-sep-2026: al incrustar REACBILL dentro de la Bitácora (dominio
+// nuevo), los datos ya cargados en el link viejo NO se comparten solos —
+// IndexedDB es por dominio. exportMasterJSON() de abajo solo exporta el
+// catálogo de máquinas, no las semanas cargadas (lo importante: aceptadas/
+// rechazadas por MDA). Esto exporta/restaura TODO: semanas activas
+// (state.weeks), semanas archivadas, catálogo y parámetros, en un solo
+// archivo — para migrar de un dominio a otro sin perder nada.
+async function exportarTodoJSON(){
+  const payload={
+    _tipo:"reacbill_respaldo_completo", _version:VERSION, _fecha:new Date().toISOString(),
+    state, archivedWeeks, archivedWeekOrder,
+    swapHistory: isLocal()?xorEnc(JSON.stringify(swapHistory)):null,
+  };
+  const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
+  a.download=`reacbill_respaldo_${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+}
+async function importarTodoDesdeArchivo(file){
+  const msg=document.getElementById("restoreMsg");
+  if(!file)return;
+  if(msg)msg.textContent="Leyendo…";
+  try{
+    const payload=JSON.parse(await file.text());
+    if(payload._tipo!=="reacbill_respaldo_completo"||!payload.state){
+      if(msg)msg.textContent="Ese archivo no es un respaldo completo válido (usa uno generado con \"Exportar todo\").";
+      return;
+    }
+    const nSemanas=Object.keys(payload.state.weeks||{}).length;
+    const nArch=Object.keys(payload.archivedWeeks||{}).length;
+    const nMaq=Object.keys(payload.state.master||{}).length;
+    if(!confirm(`Se va a REEMPLAZAR todo lo cargado en este navegador por el contenido del respaldo:\n\n`+
+      `• ${nSemanas} semana(s) activa(s)\n• ${nArch} semana(s) archivada(s)\n• ${nMaq} máquina(s) en el catálogo\n\n`+
+      `¿Continuar?`)){ if(msg)msg.textContent=""; return; }
+    state=payload.state;
+    archivedWeeks=payload.archivedWeeks||{};
+    archivedWeekOrder=payload.archivedWeekOrder||Object.keys(archivedWeeks).sort((a,b)=>a.localeCompare(b));
+    if(payload.swapHistory && isLocal()){ try{ swapHistory=JSON.parse(xorDec(payload.swapHistory)); }catch(e){} }
+    migrateIslaFormat(); sortWeeks(); invalidate();
+    await saveState(); await saveArchive(); if(isLocal())await saveHistory();
+    renderAll();
+    // renderAll() reconstruye el HTML de la pestaña (incluido este mismo
+    // <span>), así que la referencia "msg" de antes queda apuntando a un
+    // nodo ya fuera de pantalla — hay que volver a buscarlo recién ahora.
+    const msg2=document.getElementById("restoreMsg");
+    if(msg2)msg2.textContent=`✓ Restaurado: ${nSemanas} semana(s), ${nArch} archivada(s), ${nMaq} máquina(s).`;
+  }catch(e){ if(msg)msg.textContent="Error al leer el archivo: "+e.message; }
+  document.getElementById("restoreFile").value="";
 }
 function exportMasterJSON(){
   const master=Object.entries(state.master).map(([mda,ms])=>({mda,...ms}));
