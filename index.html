@@ -513,7 +513,7 @@ canvas{max-height:320px}
 
 <script>
 /* ===== REACBILL v1.8.19-main ===== */
-const VERSION = "2.5.0-main";
+const VERSION = "2.6.0-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
 const ARCHIVE_KEY = "reacbill_archive_v1";
@@ -570,6 +570,108 @@ document.addEventListener("DOMContentLoaded",()=>{
   const inp=document.getElementById("gateAdminPass");
   if(inp)inp.addEventListener("keydown",e=>{ if(e.key==="Enter")gateIntentar(); });
 });
+
+// ---------- Historial de intervenciones (desde Billeteros de la Bitácora) ----------
+// Pedido 22-sep-2026: "cuando ponga el puntero encima de un número de
+// máquina, me debe mostrar todas las intervenciones que haya tenido.. esa
+// información se extrae de la bitácora en la parte historial de billetero".
+// El historial vive como un solo bloque JSON en la tabla app_kv de Supabase
+// (clave "pendientes:billeteros", el mismo dato que arma la pestaña
+// Billeteros de la Bitácora) — no es una fila por intervención, así que se
+// trae completo UNA vez y se cachea acá (en memoria + IndexedDB, "base
+// auxiliar" para no depender de la red en cada hover ni volver a pedirlo en
+// cada carga de la app). _histBitacora queda como {mda: [entradas...]}.
+const HIST_BIT_KEY = "reacbill_hist_bitacora_v1";
+let _histBitacora = {};
+let _histBitacoraFecha = null;
+async function cargarHistorialBitacoraCache(){
+  try{
+    const db=await idb();
+    return new Promise(res=>{
+      const rq=db.transaction("kv").objectStore("kv").get(HIST_BIT_KEY);
+      rq.onsuccess=()=>{
+        if(rq.result){ const d=JSON.parse(rq.result); _histBitacora=d.historial||{}; _histBitacoraFecha=d.fecha||null; }
+        res();
+      };
+      rq.onerror=()=>res();
+    });
+  }catch(e){}
+}
+async function guardarHistorialBitacoraCache(){
+  const db=await idb();
+  return new Promise((res,rej)=>{
+    const tx=db.transaction("kv","readwrite");
+    tx.objectStore("kv").put(JSON.stringify({historial:_histBitacora,fecha:_histBitacoraFecha}),HIST_BIT_KEY);
+    tx.oncomplete=res; tx.onerror=rej;
+  });
+}
+// Trae el bloque completo desde Supabase y actualiza la caché — se llama
+// solo (en segundo plano, sin bloquear el arranque) al abrir REACBILL, y
+// también a mano desde Admin ("🔄 Actualizar historial") cuando se quiera
+// forzar sin esperar.
+async function actualizarHistorialBitacora(){
+  const sb=sbCliente(); if(!sb)return false;
+  try{
+    const { data, error } = await sb.from("app_kv").select("value").eq("key","pendientes:billeteros").maybeSingle();
+    if(error || !data || !data.value)return false;
+    _histBitacora=data.value.historial||{};
+    _histBitacoraFecha=new Date().toISOString();
+    await guardarHistorialBitacoraCache();
+    return true;
+  }catch(e){ return false; }
+}
+// Misma redacción que arma dia.js/vistas-billeteros-tarjeteros.js en la
+// Bitácora (detalleEntradaBillTarj), simplificada acá — se reconstruye
+// sola porque REACBILL es un repo aparte, sin acceso a esas funciones.
+function _detalleEntradaHist(e){
+  if(e.resultado==="quitado")return "Se quitó de pendientes sin revisión"+(e.motivo?` — motivo: ${e.motivo}`:"");
+  if(e.resultado==="trasladado")return `Se le instaló el billetero que estaba en MDA ${e.origenMda||"?"}`;
+  const detalle=e.resultado==="cambiado" ? `Cambiado (${e.tipo==="nuevo"?"nuevo":"usado"})${e.firmware?` · fw ${e.firmware}`:""}` : "Quedó el mismo";
+  const extraPartes=[e.calibraste&&"se calibró",e.limpiaste&&"se limpió",e.variant&&"se actualizó el variant",e.pieza&&"se le cambió una pieza",e.probaste&&"se probó"].filter(Boolean);
+  const extra=extraPartes.length>1 ? extraPartes.slice(0,-1).join(", ")+" y "+extraPartes[extraPartes.length-1] : (extraPartes[0]||"");
+  const conector=e.resultado==="cambiado" ? " que " : ", ";
+  const ctxPartes=[e.modelo,(!e.firmware&&e.firmwareAntes)?`fw ${e.firmwareAntes}`:"",(e.pctAntes!=null&&e.pctAntes!=="")?`${/%\s*$/.test(e.pctAntes)?e.pctAntes:e.pctAntes+"%"} aceptación`:""].filter(Boolean);
+  const ctx=ctxPartes.length?` (${ctxPartes.join(" · ")})`:"";
+  return detalle+(extra?conector+extra:"")+ctx;
+}
+function fmtTsHist(ts){
+  try{ const d=new Date(ts); return isNaN(d)?String(ts||""):d.toLocaleString("es-CL",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"}); }
+  catch(e){ return String(ts||""); }
+}
+// Texto de varias líneas para el title="" de un MDA — vacío si no hay nada,
+// para no mostrar un tooltip inútil en máquinas sin historial en la Bitácora.
+function tituloHistorialMda(mda){
+  const h=(_histBitacora[String(mda)]||[]).slice().sort((a,b)=>String(b.ts).localeCompare(String(a.ts)));
+  if(!h.length)return "";
+  const lineas=h.map(e=>`${fmtTsHist(e.ts)} · ${e.quien||"?"} · ${_detalleEntradaHist(e)}`);
+  return `MDA ${mda} — historial Bitácora (Billeteros):\n`+lineas.join("\n");
+}
+// Solo para volcar texto libre (escrito por técnicos) dentro de un atributo
+// HTML title="" sin poder romper el marcado — REACBILL no tiene ninguna
+// función de escape (los datos de Excel que ya maneja son de confianza,
+// cargados por el propio admin), pero el historial de la Bitácora SÍ trae
+// texto libre de terceros (motivos, descripciones) y hay que tratarlo con
+// cuidado acá.
+function escAttr(s){
+  return String(s??"").replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+}
+// <b> con el título del historial — reemplaza los `<b>${mda}</b>` sueltos
+// de las tablas (Sectores, Máquinas, Lista, Fecha, Ranking…) por esto mismo,
+// mismo texto visible, solo agrega el tooltip.
+function mdaTag(mda){
+  const tit=tituloHistorialMda(mda);
+  return tit ? `<b title="${escAttr(tit)}" style="cursor:help;text-decoration:underline dotted 1px">${mda}</b>` : `<b>${mda}</b>`;
+}
+async function btnActualizarHistorial(){
+  const msg=document.getElementById("histBitMsg");
+  if(msg)msg.textContent="Actualizando…";
+  const ok=await actualizarHistorialBitacora();
+  renderAll();
+  // renderAll() reconstruye la pestaña Admin (mismo motivo que
+  // importarTodoDesdeArchivo más abajo) — hay que volver a buscar el <span>.
+  const msg2=document.getElementById("histBitMsg");
+  if(msg2)msg2.textContent=ok ? "Última actualización: "+fmtTsHist(_histBitacoraFecha) : "No se pudo actualizar (revisa tu conexión).";
+}
 
 // ---------- Enriquecer máquinas desde el catálogo de la Bitácora ----------
 // Pedido 20-sep-2026: "en reacbill subo solamente numero de máquina y
@@ -1440,7 +1542,7 @@ function renderResBody(){
   for(const mda of mdaList){
     const loc=getLoc(mda), mod=getMod(mda), firm=getFirm(mda);
     const searchKey=(mda+loc+mod+firm).toLowerCase().replace(/"/g,"&quot;");
-    let tr=`<td>${selBtn(mda)}</td><td class="s1 left"><b>${mda}</b></td><td class="s2 left muted">${loc}</td><td class="s3 left muted">${mod}</td><td class="s4 left muted" style="font-size:10px">${firm}</td>`;
+    let tr=`<td>${selBtn(mda)}</td><td class="s1 left">${mdaTag(mda)}</td><td class="s2 left muted">${loc}</td><td class="s3 left muted">${mod}</td><td class="s4 left muted" style="font-size:10px">${firm}</td>`;
     for(const d of weeks){
       const m=mdaMap.get(mda)?.[d];
       tr+=(m&&m.pct>0)?`<td class="${pctClass(m.pct)}">${fmtP(m.pct)}</td><td>${fmtN(m.total)}</td>`:`<td></td><td></td>`;
@@ -1474,7 +1576,7 @@ function renderFecha(){
     const ms=state.master[m.mda]||{}, sc=sevClass(m.score,p);
     body+=`<tr>
       <td>${selBtn(m.mda)}</td>
-      <td class="left"><b>${m.mda}</b></td><td class="left">${getLoc(m.mda)}</td>
+      <td class="left">${mdaTag(m.mda)}</td><td class="left">${getLoc(m.mda)}</td>
       <td class="left">${ms.modelo||""}</td><td class="left" style="font-size:10px">${ms.firm||""}</td>
       ${DENOS.map(dn=>`<td>${fmtN(m.acc[dn]||0)}</td>`).join("")}
       ${DENOS.map(dn=>`<td>${fmtN(m.rej[dn]||0)}</td>`).join("")}
@@ -1527,7 +1629,7 @@ function renderRanking(){
     const ms=state.master[m.mda]||{}, sc=sevClass(m.score,p);
     const pm=prevMap[m.mda], trend=pm&&pm.total>0?m.pct-pm.pct:null;
     body+=`<tr>
-      <td>${i+1}</td><td>${selBtn(m.mda)}</td><td class="left"><b>${m.mda}</b></td><td class="left">${getLoc(m.mda)}</td>
+      <td>${i+1}</td><td>${selBtn(m.mda)}</td><td class="left">${mdaTag(m.mda)}</td><td class="left">${getLoc(m.mda)}</td>
       <td class="left">${ms.modelo||""}</td><td class="left" style="font-size:10px">${ms.modelmaq||""}</td><td class="left" style="font-size:10px">${ms.firm||""}</td>
       <td class="${pctClass(m.pct)}"><b>${fmtP(m.pct)}</b></td>
       <td>${fmtN(m.total)}</td><td>${fmtN(m.toRe)}</td>
@@ -1669,7 +1771,7 @@ function renderSectores(){
           }
           machRows+=`<tr>
             <td>${selBtn(mda)}</td>
-            <td class="left"><b>${mda}</b></td>
+            <td class="left">${mdaTag(mda)}</td>
             <td class="left muted">${ms.modelmaq||"—"}</td>
             <td class="left muted">${ms.modelo||"—"}</td>
             <td class="left muted" style="font-size:10px">${ms.firm||"—"}</td>
@@ -1726,7 +1828,7 @@ function renderSectores(){
         }
         flatRows+=`<tr>
           <td>${selBtn(mda)}</td>
-          <td class="left"><b>${mda}</b></td>
+          <td class="left">${mdaTag(mda)}</td>
           <td class="left muted">${ms.isla||"—"}</td>
           <td class="left muted">${ms.modelmaq||"—"}</td>
           <td class="left muted">${ms.modelo||"—"}</td>
@@ -2037,7 +2139,7 @@ function renderBuscador(focusField){
           const mm=calcs[d]?.rows.find(r=>r.mda===mda);
           hist+=(mm&&mm.pct>0)?`<td class="${pctClass(mm.pct)}">${fmtP(mm.pct)}<br><span class="muted">${fmtN(mm.total)}</span></td>`:`<td class="muted">—</td>`;
         }
-        machRows+=`<tr><td>${selBtn(mda)}</td><td class="left"><b>${mda}</b></td><td class="left">${getLoc(mda)}</td><td class="left">${ms.modelo||"—"}</td><td class="left" style="font-size:10px">${ms.firm||"—"}</td>${hist}</tr>`;
+        machRows+=`<tr><td>${selBtn(mda)}</td><td class="left">${mdaTag(mda)}</td><td class="left">${getLoc(mda)}</td><td class="left">${ms.modelo||"—"}</td><td class="left" style="font-size:10px">${ms.firm||"—"}</td>${hist}</tr>`;
       }
       resIsla+=`<div class="card"><h2>Isla ${prefix} — ${mdas.length} máquinas</h2>
         <div class="tblWrap" style="max-height:60px;margin-bottom:8px"><table><thead><tr>${histHead}</tr></thead><tbody><tr>${histBody}</tr></tbody></table></div>
@@ -2242,6 +2344,16 @@ function renderAdmin(){
   <div class="card" id="bulkEditCard"></div>
 
   <div class="card" id="crossCard"></div>
+
+  <div class="card"><h2>Historial de intervenciones (Bitácora)</h2>
+    <p class="hint" style="margin-bottom:12px">Al pasar el mouse sobre un número de MDA en cualquier tabla, se muestra
+      su historial de revisiones/intervenciones de Billeteros — se trae de la Bitácora y se guarda en este navegador
+      para no depender de la red en cada hover. Se actualiza solo al abrir REACBILL; este botón la refresca a mano.</p>
+    <div class="row">
+      <button class="btn sec sm" id="btnActHist" onclick="btnActualizarHistorial()">🔄 Actualizar historial</button>
+      <span id="histBitMsg" class="hint">${_histBitacoraFecha ? "Última actualización: "+fmtTsHist(_histBitacoraFecha) : "Sin datos todavía."}</span>
+    </div>
+  </div>
 
   <div class="card"><h2>Respaldo completo</h2>
     <p class="hint" style="margin-bottom:12px">Exporta TODO lo cargado en este navegador (semanas activas, archivo
@@ -2547,7 +2659,7 @@ function renderCrossCard(){
     <div class="tblWrap" style="max-height:40vh"><table>
       <thead><tr><th class="left">MDA</th><th class="left">REACBILL</th><th class="left">Archivo</th><th class="left">Usar</th></tr></thead>
       <tbody>${conflictRows.map(r=>`<tr>
-        <td class="left"><b>${r.mda}</b></td>
+        <td class="left">${mdaTag(r.mda)}</td>
         <td class="left">${r.reacModelo}</td>
         <td class="left">${r.fileModelo}</td>
         <td class="left">
@@ -2561,7 +2673,7 @@ function renderCrossCard(){
     <div class="tblWrap" style="max-height:40vh;margin-top:10px"><table>
       <thead><tr><th class="left">MDA</th><th class="left">REACBILL</th><th class="left">Archivo</th></tr></thead>
       <tbody>${posRows.map(r=>`<tr>
-        <td class="left"><b>${r.mda}</b></td>
+        <td class="left">${mdaTag(r.mda)}</td>
         <td class="left">${r.reacIsla||"—"}</td>
         <td class="left">${r.filePos}</td>
       </tr>`).join("")}</tbody>
@@ -2977,7 +3089,7 @@ function selListCardHtml(id){
     return `<div class="card muted" style="margin-bottom:12px">${def.label}: lista vacía. Agregá máquinas con el botón "+" (color ${def.color}) en cualquier vista.</div>`;
   }
   const body=rows.map(r=>`<tr>
-    <td class="left"><b>${r.mda}</b></td><td class="left">${r.isla}</td>
+    <td class="left">${mdaTag(r.mda)}</td><td class="left">${r.isla}</td>
     <td class="left">${r.modelmaq}</td><td class="left">${r.modelo}</td>
     <td class="left" style="font-size:11px">${r.firm}</td>
     <td class="${r.pctRaw!=null?pctClass(r.pctRaw):''}">${r.pctTxt}</td>
@@ -3102,7 +3214,7 @@ function tarjListHtml(id){
     const rows=tarjListRecentRows(id,3);
     const weekHead=(rows[0]?.weekCells||[]).map(wc=>`<th>${fmtKey(wc.d)}</th>`).join("");
     const body=rows.map(r=>`<tr>
-      <td class="left"><b>${r.mda}</b></td><td class="left">${r.isla}</td>
+      <td class="left">${mdaTag(r.mda)}</td><td class="left">${r.isla}</td>
       <td class="left">${r.modelmaq}</td><td>${fmtN(r.tarjAc)}</td><td>${fmtN(r.tarjRe)}</td>
       ${r.weekCells.map(wc=>`<td class="${wc.raw!=null?pctClass(wc.raw):''}">${wc.txt}</td>`).join("")}
       <td><button class="btn sm danger" onclick="tarjListToggle('${id}','${r.mda}')">✕</button></td>
@@ -3324,7 +3436,7 @@ function renderIntercambios(){
         const on=!intIslaDestinoExcluded.has(mda);
         return `<label style="display:inline-flex;align-items:center;gap:4px;margin:3px 12px 3px 0">
           <input type="checkbox" ${on?"checked":""} onchange="intToggleIslaMachine('${mda}')">
-          <b>${mda}</b> ${pct!=null?`<span class="${pctClass(pct)}">${fmtP(pct)}</span>`:'<span class="muted">—</span>'}
+          ${mdaTag(mda)} ${pct!=null?`<span class="${pctClass(pct)}">${fmtP(pct)}</span>`:'<span class="muted">—</span>'}
         </label>`;
       }).join(""):'<span class="muted">Ninguna máquina en esas islas.</span>'}
     </div>`;
@@ -3546,10 +3658,15 @@ async function iniciarApp(){
   await loadState();
   await loadHistory();
   await loadArchiveMeta();
+  await cargarHistorialBitacoraCache();
   sortWeeks();
   await archiveOldWeeks();
   renderAll();
   if(state.weekOrder.length) showTab("resumen"); else showTab("carga");
+  // Refresco en segundo plano, sin bloquear el arranque — si hay caché local
+  // (de una sesión anterior) la app ya arrancó mostrándola; esto la deja al
+  // día y vuelve a pintar solo si cambió algo.
+  actualizarHistorialBitacora().then(ok=>{ if(ok)renderAll(); });
 }
 if("serviceWorker" in navigator){
   window.addEventListener("load",()=>{
