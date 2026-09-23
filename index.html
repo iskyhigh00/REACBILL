@@ -513,7 +513,7 @@ canvas{max-height:320px}
 
 <script>
 /* ===== REACBILL v1.8.19-main ===== */
-const VERSION = "2.6.0-main";
+const VERSION = "2.6.1-main";
 const LS_KEY  = "reacbill_v1";
 const HIST_KEY = "reacbill_hist_v1";
 const ARCHIVE_KEY = "reacbill_archive_v1";
@@ -760,7 +760,23 @@ function idb(){return new Promise((res,rej)=>{
   r.onupgradeneeded=e=>{ try{e.target.result.createObjectStore("kv");}catch(x){} };
   r.onsuccess=e=>res(e.target.result); r.onerror=rej;
 });}
+// ---------- Saneamiento del catálogo (falencia 4, 23-sep-2026) ----------
+// Las tablas de REACBILL pegan los campos de cada máquina (modelo, juego,
+// fabricante, firmware, isla…) directo en el HTML, sin escapar. Esos datos
+// vienen de Excel, del JSON importado y del catálogo de la Bitácora
+// (Supabase) — si alguno trajera "<script>" o un atributo con código, el
+// navegador lo ejecutaría. En vez de tocar las ~50 plantillas una por una,
+// se limpia el DATO en un solo punto: se quitan < > " ' ` (ningún modelo,
+// juego, isla ni firmware real los usa). Se corre al guardar y al pintar,
+// y todo camino de entrada (Excel, JSON, Supabase, edición a mano, respaldo)
+// termina en uno de los dos — así ningún camino queda sin cubrir.
+function sanearMaster(){
+  for(const ms of Object.values(state.master||{})){
+    for(const k in ms){ if(typeof ms[k]==="string") ms[k]=ms[k].replace(/[<>"'`]/g,""); }
+  }
+}
 async function saveState(){
+  sanearMaster();
   const db=await idb();
   return new Promise((res,rej)=>{
     const tx=db.transaction("kv","readwrite");
@@ -3642,6 +3658,7 @@ function intExportarJSON(){
 
 // ---------- Init ----------
 function renderAll(){
+  sanearMaster();
   renderLoadedInfo();
   showTab(activeTab);
 }
